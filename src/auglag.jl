@@ -12,12 +12,12 @@ function optimize(
     u0::AbstractVector,
 )
     # Initialize arrays
-    uk = copy(u0)
-    u_start = copy(u0)
-    wk = copy(u0)
-    u_prev = copy(u0)
-    grad = similar(u0)
-    ut = similar(u0)
+    uk        = copy(u0)
+    u_start   = copy(u0)
+    wk        = copy(u0)
+    u_prev    = copy(u0)
+    grad      = similar(u0)
+    ut        = similar(u0)
     fill!(grad, 0)
     grad_prev = copy(grad)
     obj_prev = Inf
@@ -50,15 +50,17 @@ function optimize(
         obj = ExaPF.objective(nlp, uk)
         inf_pr = ExaPF.primal_infeasibility(nlp, cons)
         @printf("#Outer %d %-4d %.3e %.3e \n", i_out, n_iter, obj, inf_pr)
+        # Log evolution
+        push!(tracer, obj, inf_pr, norm_grad)
 
         # History
         if (norm_grad < 1e-6) && (inf_pr < 1e-8)
             break
         end
 
+        # Update parameters
         u_start .= uk
-
-        # Update the parameters (see Nocedal & Wright, page 521)
+        # Update the penalties (see Nocedal & Wright, page 521)
         if norm(abs.(aug.infeasibility), Inf) <= ηk
             ExaPF.update_multipliers!(aug)
             ηk = ηk / (aug.ρ^0.9)

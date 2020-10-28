@@ -76,10 +76,6 @@ function projected_gradient(
 end
 
 
-function ls_reference(costs::AbstractVector, lm_size::Int)
-    lag = max(1, length(costs) - lm_size + 1)
-    return maximum(costs[lag:end])
-end
 # Non-monotone gradient projection algorithm
 function ngpa(
     nlp,
@@ -92,8 +88,8 @@ function ngpa(
     β=0.4,
     δ=1e-4,
     tol=1e-5,
-    lm_size=1,
     verbose_it=100,
+    ls_algo=3,
 )
 
     u_prev = copy(uk)
@@ -104,17 +100,12 @@ function ngpa(
 
     # Initial evaluation
     ExaPF.update!(nlp, uk)
-    c = ExaPF.objective(nlp, uk)
+    f = ExaPF.objective(nlp, uk)
     ExaPF.gradient!(nlp, grad, uk)
-
     # Memory
     grad_prev = copy(grad)
-    inf_pr = ExaPF.primal_infeasibility(nlp.inner, nlp.cons ./ nlp.scaler.scale_cons)
-    costs_history = Float64[c]
-    grad_history = Float64[norm(grad, Inf)]
-    feas_history = Float64[inf_pr]
 
-    norm_grad = Inf
+    norm_grad = norm(grad, Inf)
     n_iter = 0
     ## Line-search params
     j_bb = 0
@@ -122,12 +113,24 @@ function ngpa(
     θ_bb = 0.975
     m_bb = 10
     ## Reference function params
-    Δ_ref = 0.1
-    A_ref = 0
-    L_ref = 0
-    a_ref = 0
+    L_ref = 3
+    M_ref = 8
+    P_ref = 40
+    γ1_ref = M_ref / L_ref
+    γ2_ref = P_ref / M_ref
     l_ref = 0
-    fᵣ = c
+    p_ref = 0
+    f♭_ref = f
+    f♯_ref = f
+    fc_ref = f
+    buffer_costs = Float64[f for i in 1:M_ref]
+
+    η_ref = 0.8
+    Q_ref = 1.0
+    fᵣ = f
+    # Armijo params
+    σ1_arm = 0.1
+    σ2_arm = 0.9
 
     n_up = 0
     for i in 1:max_iter
@@ -136,21 +139,31 @@ function ngpa(
         ExaPF.project!(wk, uk .- α_bb .* grad, u♭, u♯)
         # Feasible direction
         dk = wk .- uk
+
+        ##################################################
         # Armijo line-search
         step = 1.0
+        d∇g = dot(dk, grad)
         for j_ls in 1:ls_itermax
             ExaPF.project!(wk, uk .+ step .* dk, u♭, u♯)
             conv = ExaPF.update!(nlp, wk)
             ft = ExaPF.objective(nlp, wk)
-            if ft <= fᵣ + step * δ * dot(dk, grad)
+            if ft <= min(fᵣ, f♯_ref) + step * δ * d∇g
                 break
             end
             step *= β
+            # Step introduced in Birgin & Martinez & Raydan (2012)
+            α = - 0.5 * step^2 * d∇g / (ft - f - step * d∇g)
+            if σ1_arm * step <= α <= σ2_arm * step
+                step = α
+            else
+                step *= β
+            end
         end
 
         uk .= wk
         # Objective
-        c = ExaPF.objective(nlp, uk)
+        f = ExaPF.objective(nlp, uk)
         c_ref = ExaPF.inner_objective(nlp, uk)
         # Gradient
         ExaPF.gradient!(nlp, grad, uk)
@@ -163,13 +176,14 @@ function ngpa(
 
         # check convergence
         if (i % verbose_it == 0)
-            @printf("%6d %.6e %.3e %.2e %.2e %.2e\n", i, c, c - c_ref, norm_grad, inf_pr, step)
+            @printf("%6d %.6e %.3e %.2e %.2e %.2e\n", i, f, f - c_ref, norm_grad, inf_pr, step)
         end
 
         ##################################################
         ## Update parameters
         sk = uk - u_prev
         yk = grad - grad_prev
+
         ##################################################
         ## Update Barzilai-Borwein step
         flag_bb = 0
@@ -200,18 +214,41 @@ function ngpa(
         # Update history
         u_prev .= uk
         grad_prev .= grad
-        push!(costs_history, c)
-        push!(grad_history, norm_grad)
-        push!(feas_history, inf_pr)
+
         ##################################################
         ## Update reference value
-        fr_max = ls_reference(costs_history, lm_size)
-        fᵣ = .5 * (fr_max + c)
-        # if j > 0
-        #     fᵣ = min(fr_max, fᵣ)
-        # end
-        # a_ref = (step < 1) ? 0 : a_ref + 1
-        # if
+        # Update maximum value
+        buffer_costs[i % M_ref + 1] = f
+        f♯_ref = maximum(buffer_costs)
+        if ls_algo == 1
+            w = .2
+            fᵣ = w * f♯_ref + (1 - w) * f
+        elseif ls_algo == 2
+            qt = η_ref * Q_ref + 1.0
+            fᵣ = (η_ref * Q_ref * fᵣ + f) / qt
+            Q_ref = qt
+        elseif ls_algo == 3
+            # Update parameters
+            p_ref = (step == 1.0) ? p_ref + 1 : 0
+            if f < f♭_ref
+                fc_ref = f
+                f♭_ref = f
+                l_ref = 0
+            else
+                l_ref += 1
+            end
+            fc_ref = (f > fc_ref) ? f : fc_ref
+
+            # Step 1
+            if l_ref == L_ref
+                ratio = (f♯_ref - f♭_ref) / (fc_ref - f♭_ref)
+                fᵣ = (ratio > γ1_ref) ? fc_ref : f♯_ref
+            end
+            if p_ref > P_ref
+                ratio = (fᵣ - f) / (f♯_ref - f)
+                fᵣ = (f♯_ref > f) && (ratio >= γ2_ref) ? f♯_ref : fᵣ
+            end
+        end
 
         # Check whether we have converged nicely
         if (norm_grad < tol)
@@ -219,6 +256,6 @@ function ngpa(
             break
         end
     end
-    return uk, norm_grad, n_iter, costs_history, grad_history, feas_history
+    return uk, norm_grad, n_iter
 end
 

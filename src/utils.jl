@@ -1,3 +1,4 @@
+import Base: push!
 
 #
 struct Tracer{T}
@@ -8,3 +9,8 @@ end
 
 Tracer() = Tracer{Float64}([], [], [])
 
+function push!(tracer, a, b, c)
+    push!(tracer.objective, a)
+    push!(tracer.inf_pr, b)
+    push!(tracer.inf_du, c)
+end
