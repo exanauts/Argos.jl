@@ -1,5 +1,11 @@
 module ExaOpt
 
-greet() = print("Hello World!")
+using LinearAlgebra
+using Printf
+using ExaPF
+
+include("utils.jl")
+include("projected_gradient.jl")
+include("auglag.jl")
 
 end # module
