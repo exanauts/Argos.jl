@@ -1,0 +1,4 @@
+name = "ExaOpt"
+uuid = "ef244971-cf80-42b0-9762-2c2c832df5d5"
+authors = ["fpacaud <francoispacaud8@gmail.com>"]
+version = "0.1.0"
