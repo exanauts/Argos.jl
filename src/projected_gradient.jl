@@ -9,7 +9,7 @@ function projected_gradient(
     τ=1e-4,
     tol=1e-5,
     bfgs=false,
-    verbose_it=100,
+    verbose_it=Inf,
 )
 
     u_prev = copy(uk)
@@ -80,6 +80,7 @@ end
 function ngpa(
     nlp,
     uk;
+    active_set=false,
     max_iter=1000,
     ls_itermax=30,
     α_bb=1.0,
@@ -87,9 +88,9 @@ function ngpa(
     α♯=1.0,
     β=0.4,
     δ=1e-4,
-    tol=1e-5,
-    verbose_it=100,
-    ls_algo=3,
+    tol=1e-4,
+    verbose_it=Inf,
+    ls_algo=2,
 )
 
     u_prev = copy(uk)
@@ -104,6 +105,8 @@ function ngpa(
     ExaPF.gradient!(nlp, grad, uk)
     # Memory
     grad_prev = copy(grad)
+    # Active gradient
+    grad_act = copy(grad)
 
     norm_grad = norm(grad, Inf)
     n_iter = 0
@@ -131,6 +134,14 @@ function ngpa(
     # Armijo params
     σ1_arm = 0.1
     σ2_arm = 0.9
+
+    # Active set
+    𝔘  = Int[]
+    𝔄  = Int[]
+    𝔄_hash_1 = hash(𝔄)
+    𝔄_hash_2 = hash(𝔄)
+    μ_act = 0.1
+    ρ_act = 0.5
 
     n_up = 0
     for i in 1:max_iter
@@ -170,7 +181,7 @@ function ngpa(
 
         # Stopping criteration: uₖ₊₁ - uₖ
         ## Dual infeasibility
-        norm_grad = norm(uk .- u_prev, Inf)
+        norm_grad = norm(dk, Inf)
         ## Primal infeasibility
         inf_pr = ExaPF.primal_infeasibility(nlp.inner, nlp.cons ./ nlp.scaler.scale_cons)
 
@@ -221,7 +232,7 @@ function ngpa(
         buffer_costs[i % M_ref + 1] = f
         f♯_ref = maximum(buffer_costs)
         if ls_algo == 1
-            w = .2
+            w = .0
             fᵣ = w * f♯_ref + (1 - w) * f
         elseif ls_algo == 2
             qt = η_ref * Q_ref + 1.0
@@ -248,6 +259,39 @@ function ngpa(
                 ratio = (fᵣ - f) / (f♯_ref - f)
                 fᵣ = (f♯_ref > f) && (ratio >= γ2_ref) ? f♯_ref : fᵣ
             end
+        end
+
+        # Active-set embedding
+        if active_set && (i >= 10)
+            grad_act .= grad
+            # Compute U
+            empty!(𝔘)
+            empty!(𝔄)
+            ExaOpt.active!(grad_act, uk, u♭, u♯)
+            ndk = norm(dk, Inf)
+            # Update active set
+            for i in eachindex(uk)
+                if abs(grad[i] >= sqrt(ndk)) && (uk[i] >= ndk^1.5)
+                    push!(𝔘, i)
+                end
+                if (uk[i] > u♭[i]) || (uk[i] < u♯[i])
+                    push!(𝔄, i)
+                end
+            end
+            if 𝔄_hash_1 == 𝔄_hash_2 == hash(𝔄)
+                if norm(grad_act, Inf) >= μ_act * ndk
+                    break
+                end
+            end
+            if isempty(𝔘)
+                if norm(grad_act, Inf) < μ_act * ndk
+                    μ_act = ρ_act * μ_act
+                else
+                    break
+                end
+            end
+            𝔄_hash_1 = 𝔄_hash_2
+            𝔄_hash_2 = hash(𝔄)
         end
 
         # Check whether we have converged nicely

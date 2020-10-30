@@ -28,6 +28,7 @@ function optimize(
 
     H = I
     α0 = 1.0
+    # α0 = 1.0e-2
 
     αi = α0
     nlp = aug.inner
@@ -36,6 +37,7 @@ function optimize(
 
     ηk = 1.0 / (c0^0.1)
 
+    exaflag()
     for i_out in 1:algo.max_iter
         iter = 1
         uk .= u_start
@@ -49,12 +51,12 @@ function optimize(
         ExaPF.constraint!(nlp, cons, uk)
         obj = ExaPF.objective(nlp, uk)
         inf_pr = ExaPF.primal_infeasibility(nlp, cons)
-        @printf("#Outer %d %-4d %.3e %.3e \n", i_out, n_iter, obj, inf_pr)
+
+        exaprint(i_out, obj, inf_pr, norm_grad, ηk, n_iter)
         # Log evolution
         push!(tracer, obj, inf_pr, norm_grad)
 
-        # History
-        if (norm_grad < 1e-6) && (inf_pr < 1e-8)
+        if (norm_grad < 1e-5) && (inf_pr < 1e-8)
             break
         end
 
@@ -73,8 +75,8 @@ function optimize(
     cons = zeros(ExaPF.n_constraints(nlp))
     ExaPF.constraint!(nlp, cons, uk)
     ExaPF.sanity_check(nlp, uk, cons)
-    println("  #objective ", aug.counter.objective)
-    println("  #gradient  ", aug.counter.gradient)
+    println("Number of objective function evaluations             = ", aug.counter.objective)
+    println("Number of objective gradient evaluations             = ", aug.counter.gradient)
 
     return uk, tracer
 end
