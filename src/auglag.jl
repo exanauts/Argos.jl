@@ -24,13 +24,11 @@ function optimize(
     norm_grad = Inf
 
     tracer = Tracer()
+
     c0 = algo.ρ0
-
-    H = I
+    ωtol = algo.ωtol
     α0 = 1.0
-    # α0 = 1.0e-2
 
-    αi = α0
     nlp = aug.inner
     u♭ = aug.inner.u_min
     u♯ = aug.inner.u_max
@@ -44,7 +42,7 @@ function optimize(
 
         # Inner iteration: projected gradient algorithm
         # uk, norm_grad, n_iter = projected_gradient(aug, uk; α0=α0)
-        uk, norm_grad, n_iter = ngpa(aug, uk; α_bb=α0, α♯=α0)
+        uk, norm_grad, n_iter = ngpa(aug, uk; α_bb=α0, α♯=α0, tol=ωtol)
 
         # Evaluate current position in the original space
         cons = zeros(ExaPF.n_constraints(nlp))

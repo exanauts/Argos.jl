@@ -82,7 +82,7 @@ function ngpa(
     uk;
     active_set=false,
     max_iter=1000,
-    ls_itermax=30,
+    ls_itermax=20,
     α_bb=1.0,
     α♭=0.0,
     α♯=1.0,
@@ -90,7 +90,7 @@ function ngpa(
     δ=1e-4,
     tol=1e-4,
     verbose_it=Inf,
-    ls_algo=2,
+    ls_algo=3,
 )
 
     u_prev = copy(uk)
@@ -162,7 +162,6 @@ function ngpa(
             if ft <= min(fᵣ, f♯_ref) + step * δ * d∇g
                 break
             end
-            step *= β
             # Step introduced in Birgin & Martinez & Raydan (2012)
             α = - 0.5 * step^2 * d∇g / (ft - f - step * d∇g)
             if σ1_arm * step <= α <= σ2_arm * step
@@ -221,7 +220,7 @@ function ngpa(
                 j_bb = 0
             end
         end
-        α_bb = min(α♯, α_bb)
+        α_bb = max(min(α♯, α_bb), α♭)
         # Update history
         u_prev .= uk
         grad_prev .= grad
@@ -232,7 +231,7 @@ function ngpa(
         buffer_costs[i % M_ref + 1] = f
         f♯_ref = maximum(buffer_costs)
         if ls_algo == 1
-            w = .0
+            w = .15
             fᵣ = w * f♯_ref + (1 - w) * f
         elseif ls_algo == 2
             qt = η_ref * Q_ref + 1.0
