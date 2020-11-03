@@ -24,9 +24,28 @@ function active!(w::VT, u::VT, u♭::VT, u♯::VT; tol=1e-8) where VT<:AbstractA
     end
 end
 
+struct LineModel
+    model::ExaPF.AbstractNLPEvaluator
+    u::AbstractVector
+    d::AbstractVector
+    g::AbstractVector
+    ut::AbstractVector
+end
+function (ϕ::LineModel)(α)
+    ϕ.ut .= ϕ.u .+ α * ϕ.d
+    ExaPF.update!(ϕ.model, ϕ.ut)
+    return ExaPF.objective(ϕ.model, ϕ.ut)
+end
+function grad!(ϕ::LineModel, α)
+    ϕ.ut .= ϕ.u .+ α * ϕ.d
+    ExaPF.gradient!(ϕ.model, ϕ.g, ϕ.ut)
+    return dot(ϕ.g, ϕ.d)
+end
+
+
 function exaflag()
     @printf(
-        "iter    objective    inf_pr   inf_du  alpha   #asa\n"
+        "iter    objective    inf_pr   inf_du  alpha     #asa\n"
     )
 end
 function exaprint(nit, obj, inf_pr, inf_du, alpha, n_inner)
