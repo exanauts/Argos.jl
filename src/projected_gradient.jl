@@ -68,7 +68,6 @@ function projected_gradient(
         u_prev .= uk
         # Check whether we have converged nicely
         if (norm_grad < tol)
-            converged = true
             break
         end
     end
@@ -93,22 +92,23 @@ function ngpa(
     ls_algo=3,
 )
 
+    # Status
+    status = NotSolved
     u_prev = copy(uk)
-    grad = copy(uk)
+    ∇f = copy(uk)
     wk = copy(uk)
-    u♭ = nlp.inner.u_min
-    u♯ = nlp.inner.u_max
+    u♭, u♯ = bounds(nlp, ExaPF.Variables())
 
     # Initial evaluation
     ExaPF.update!(nlp, uk)
     f = ExaPF.objective(nlp, uk)
-    ExaPF.gradient!(nlp, grad, uk)
+    ExaPF.gradient!(nlp, ∇f, uk)
     # Memory
-    grad_prev = copy(grad)
+    grad_prev = copy(∇f)
     # Active gradient
-    grad_act = copy(grad)
+    grad_act = copy(∇f)
 
-    norm_grad = norm(grad, Inf)
+    norm_grad = norm(∇f, Inf)
     n_iter = 0
     ## Line-search params
     j_bb = 0
@@ -136,25 +136,25 @@ function ngpa(
     σ2_arm = 0.9
 
     # Active set
-    𝔘  = Int[]
-    𝔄  = Int[]
-    𝔄_hash_1 = hash(𝔄)
-    𝔄_hash_2 = hash(𝔄)
+    U  = Int[]
+    A  = Int[]
+    A_hash_1 = hash(A)
+    A_hash_2 = hash(A)
     μ_act = 0.1
     ρ_act = 0.5
 
     n_up = 0
-    for i in 1:max_iter
+    while (n_iter <= max_iter) && (status == NotSolved)
         n_iter += 1
 
-        ExaPF.project!(wk, uk .- α_bb .* grad, u♭, u♯)
+        ExaPF.project!(wk, uk .- α_bb .* ∇f, u♭, u♯)
         # Feasible direction
         dk = wk .- uk
 
         ##################################################
         # Armijo line-search
         step = 1.0
-        d∇g = dot(dk, grad)
+        d∇g = dot(dk, ∇f)
         for j_ls in 1:ls_itermax
             ExaPF.project!(wk, uk .+ step .* dk, u♭, u♯)
             conv = ExaPF.update!(nlp, wk)
@@ -176,7 +176,7 @@ function ngpa(
         f = ExaPF.objective(nlp, uk)
         c_ref = ExaPF.inner_objective(nlp, uk)
         # Gradient
-        ExaPF.gradient!(nlp, grad, uk)
+        ExaPF.gradient!(nlp, ∇f, uk)
 
         # Stopping criteration: uₖ₊₁ - uₖ
         ## Dual infeasibility
@@ -185,19 +185,19 @@ function ngpa(
         inf_pr = ExaPF.primal_infeasibility(nlp.inner, nlp.cons ./ nlp.scaler.scale_cons)
 
         # check convergence
-        if (i % verbose_it == 0)
-            @printf("%6d %.6e %.3e %.2e %.2e %.2e\n", i, f, f - c_ref, norm_grad, inf_pr, step)
+        if (n_iter % verbose_it == 0)
+            @printf("%6d %.6e %.3e %.2e %.2e %.2e\n", n_iter, f, f - c_ref, norm_grad, inf_pr, step)
         end
 
         ##################################################
         ## Update parameters
         sk = uk - u_prev
-        yk = grad - grad_prev
+        yk = ∇f - grad_prev
 
         ##################################################
         ## Update Barzilai-Borwein step
         flag_bb = 0
-        if !isnothing(findfirst(0.0 .< abs.(dk) .< α_bb .* abs.(grad)))
+        if !isnothing(findfirst(0.0 .< abs.(dk) .< α_bb .* abs.(∇f)))
             flag_bb = 1
         end
         if step == 1.0
@@ -223,12 +223,12 @@ function ngpa(
         α_bb = max(min(α♯, α_bb), α♭)
         # Update history
         u_prev .= uk
-        grad_prev .= grad
+        grad_prev .= ∇f
 
         ##################################################
         ## Update reference value
         # Update maximum value
-        buffer_costs[i % M_ref + 1] = f
+        buffer_costs[n_iter % M_ref + 1] = f
         f♯_ref = maximum(buffer_costs)
         if ls_algo == 1
             w = .15
@@ -261,44 +261,40 @@ function ngpa(
         end
 
         # Active-set embedding
-        if active_set && (i >= 10)
-            grad_act .= grad
-            # Compute U
-            empty!(𝔘)
-            empty!(𝔄)
+        if active_set && (n_iter >= 10)
+            grad_act .= ∇f
             ExaOpt.active!(grad_act, uk, u♭, u♯)
+            # TODO: fix dk
             ndk = norm(dk, Inf)
             # Update active set
-            for i in eachindex(uk)
-                if abs(grad[i] >= sqrt(ndk)) && (uk[i] >= ndk^1.5)
-                    push!(𝔘, i)
-                end
-                if (uk[i] > u♭[i]) || (uk[i] < u♯[i])
-                    push!(𝔄, i)
-                end
-            end
-            if 𝔄_hash_1 == 𝔄_hash_2 == hash(𝔄)
+            active_set!(A, u, u♭, u♯)
+            undecided_set!(U, ∇f, d1u, u, u♭, u♯)
+
+            if A_hash_1 == A_hash_2 == hash(A)
                 if norm(grad_act, Inf) >= μ_act * ndk
-                    break
+                    status = SwitchCG
                 end
             end
-            if isempty(𝔘)
+            if isempty(U)
                 if norm(grad_act, Inf) < μ_act * ndk
                     μ_act = ρ_act * μ_act
                 else
-                    break
+                    status = SwitchCG
                 end
             end
-            𝔄_hash_1 = 𝔄_hash_2
-            𝔄_hash_2 = hash(𝔄)
+            A_hash_1 = A_hash_2
+            A_hash_2 = hash(A)
         end
 
         # Check whether we have converged nicely
         if (norm_grad < tol)
-            converged = true
-            break
+            status = Optimal
         end
     end
-    return uk, norm_grad, n_iter
+
+    if n_iter == max_iter
+        status = MaxIterations
+    end
+    return uk, norm_grad, n_iter, status
 end
 

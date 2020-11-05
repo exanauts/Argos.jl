@@ -280,13 +280,6 @@ struct CGVars{T1, T2, T3}
     ls_success::Bool
 end
 
-@enum CGStatus begin
-    NotSolved
-    Optimal
-    NGPA
-    Restart
-end
-
 function prepare_variables(nlp, x0)
     z = x0
     x = copy(z)

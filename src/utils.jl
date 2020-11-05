@@ -1,6 +1,18 @@
 import Base: push!
 
-#
+# Convergence status
+@enum OptimizationStatus begin
+    NotSolved
+    Unbounded
+    MaxIterations
+    Optimal
+    Stalled
+    SwitchNGPA
+    SwitchCG
+    Restart
+end
+
+# Tracer
 struct Tracer{T}
     objective::AbstractVector{T}
     inf_pr::AbstractVector{T}
@@ -85,5 +97,4 @@ function exaprint(nit, obj, inf_pr, inf_du, alpha, n_inner)
         nit, obj, inf_pr, inf_du, alpha, n_inner
     )
 end
-
 
