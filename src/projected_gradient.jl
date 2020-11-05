@@ -295,6 +295,15 @@ function ngpa(
     if n_iter == max_iter
         status = MaxIterations
     end
-    return uk, norm_grad, n_iter, status
+
+    solution = (
+        status=status,
+        minimum=f,
+        minimizer=uk,
+        iter=n_iter,
+        inf_du=norm_grad,
+    )
+
+    return solution
 end
 

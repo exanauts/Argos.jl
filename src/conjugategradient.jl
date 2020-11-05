@@ -433,7 +433,15 @@ function optimize(algo::HZ, nlp, x0;
         end
         A_card1 = A_card2
     end
-    x, fx, ∇fx, z, fz, ∇fz, B = objvars
-    return x, status, k
+
+    solution = (
+        status=status,
+        minimum=objvars.fz,
+        minimizer=objvars.z,
+        iter=k,
+        inf_du=norm(d¹, Inf),
+    )
+
+    return solution
     # return ConvergenceInfo(approach, (beta=β, ρs=norm(x.-z), ρx=norm(x), minimizer=z, fx=fx, minimum=fz, ∇fx=∇fx, ∇fz=∇fz, f0=f0, ∇f0=∇f0, iter=k, time=time()-t0), options)
 end
