@@ -15,6 +15,7 @@ function push!(tracer, a, b, c)
     push!(tracer.inf_du, c)
 end
 
+## Active set procedure
 function active!(w::VT, u::VT, u♭::VT, u♯::VT; tol=1e-8) where VT<:AbstractArray
     @assert length(w) == length(u)
     for i in eachindex(u)
@@ -24,6 +25,36 @@ function active!(w::VT, u::VT, u♭::VT, u♯::VT; tol=1e-8) where VT<:AbstractA
     end
 end
 
+function active_set!(A::AbstractArray, u::VT, u♭::VT, u♯::VT; tol=1e-15) where VT<:AbstractArray
+    empty!(A)
+    for i in eachindex(u)
+        if (u[i] < u♭[i] + tol) || (u[i] > u♯[i] - tol)
+            push!(A, i)
+        end
+    end
+end
+
+function undecided_set!(
+    U::AbstractArray,
+    ∇fu::VT,
+    d1u::VT,
+    u::VT, u♭::VT, u♯::VT;
+    tol=1e-15,
+    α=0.5,
+    β=1.5
+) where VT<:AbstractArray
+    empty!(U)
+    norm_d1 = norm(d1u, Inf)
+    norm_d1_α = (norm_d1)^(α)
+    norm_d1_β = (norm_d1)^(β)
+    for i in eachindex(u)
+        if (abs(∇fu[i]) >= norm_d1_α) && (u[i] - u♭[i] >= norm_d1_β) && (u♯[i] - u[i] >= norm_d1_β)
+            push!(U, i)
+        end
+    end
+end
+
+## Line-search procedure
 struct LineModel
     model::ExaPF.AbstractNLPEvaluator
     u::AbstractVector
@@ -42,7 +73,7 @@ function grad!(ϕ::LineModel, α)
     return dot(ϕ.g, ϕ.d)
 end
 
-
+## Printing procedure
 function exaflag()
     @printf(
         "iter    objective    inf_pr   inf_du  alpha     #asa\n"

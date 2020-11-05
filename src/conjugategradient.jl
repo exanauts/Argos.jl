@@ -70,11 +70,9 @@ function find_steplength(hzl::HZAW, φ, φ0, dφ0, c, ϵk=1e-6; maxiter=100, rat
     aj, bj  = a0, b0
     # Main loop
     while j < 50 # TODO
-        # TODO
         a, b = secant²(hzl, φ, φ0, aj, bj, ϵk)
         if b - a > hzl.γ*(bj - aj)
             c = (a + b)/2
-            # TODO
             φc = φ(c)
             dφc = grad!(φ, c)
             a, b = update(hzl, a, b, c, φ, φ0, φc, dφc, ϵk)
@@ -248,6 +246,7 @@ struct HZ{Tη} <: CGUpdate
     η::Tη # a "forcing term"
 end
 HZ() = HZ(0.4)
+
 function update_parameter(cg::HZ, d, ∇fz, ∇fx, y, P, P∇fz)
     T = eltype(∇fz)
     θ = T(2)
@@ -281,72 +280,27 @@ struct CGVars{T1, T2, T3}
     ls_success::Bool
 end
 
-function optimize(algo::HZ, nlp, x0; maxiter=100)
-    linesearch = HZAW()
-    t0 = time()
-    #==============
-         Setup
-    ==============#
-    Tx = eltype(x0)
-
-    objvars = prepare_variables(nlp, x0)
-    f0, ∇f0 = objvars.fx, norm(objvars.∇fx, Inf) # use user norm
-
-    y, d, α, β = copy(objvars.∇fz), -copy(objvars.∇fx), Tx(0), Tx(0)
-    cgvars = CGVars(y, d, α, β, true)
-
-    k = 1
-    objvars, P, cgvars = iterate(algo, cgvars, objvars, nlp, linesearch)
-    is_converged = norm(∇f0, Inf) <= 1e-5
-
-    while k < maxiter && !any(is_converged)
-        k += 1
-        objvars, P, cgvars = iterate(algo, cgvars, objvars, nlp, linesearch; is_first=false)
-        is_converged = norm(objvars.∇fx, Inf) <= 1e-5
-        println(norm(objvars.∇fx, Inf))
-    end
-    x, fx, ∇fx, z, fz, ∇fz, B = objvars
-    # return ConvergenceInfo(approach, (beta=β, ρs=norm(x.-z), ρx=norm(x), minimizer=z, fx=fx, minimum=fz, ∇fx=∇fx, ∇fz=∇fz, f0=f0, ∇f0=∇f0, iter=k, time=time()-t0), options)
+@enum CGStatus begin
+    NotSolved
+    Optimal
+    NGPA
+    Restart
 end
 
-function iterate(cg::HZ, cgvars::CGVars, objvars, nlp, linesearch; is_first=true)
-    # split up the approach into the hessian approximation scheme and line search
-    x, fx, ∇fx, z, fz, ∇fz, B, Pg = objvars
-    Tx = eltype(x)
-
-    y, d, α, β = cgvars.y, cgvars.d, cgvars.α, cgvars.β
-
-    # Move nexts into currs
-    fx = fz
-    copyto!(x, z)
-    copyto!(∇fx, ∇fz)
-
-    # Precondition current gradient and calculate the search direction
-    P∇fz = ∇fz
-    @. d = -P∇fz + β*d
-
+function prepare_variables(nlp, x0)
+    z = x0
+    x = copy(z)
+    ∇fz = copy(x0)
     # TODO
-    # φ = _lineobjective(mstyle, problem, ∇fz, z, x, d, fx, dot(∇fx, d))
-    φ = LineModel(nlp, x, d, ∇fz, copy(z))
-    α_0 = 1e-3 #initial(nlp, α, x, φ, fx, dot(d, ∇fx), ∇fx, is_first)
+    ExaPF.update!(nlp, x0)
+    fz = ExaPF.objective(nlp, x0)
+    ExaPF.gradient!(nlp, ∇fz, x0)
 
-    # Perform line search along d
-    α, f_α, ls_success = find_steplength(linesearch, φ, fx, dot(d, ∇fx), Tx(α_0), 1e-6)
+    fx = copy(fz)
+    ∇fx = copy(∇fz)
 
-    # Calculate final step vector and update the state
-    if ls_success
-        @. z = z + α * d
-        ExaPF.update!(nlp, z)
-        fz = ExaPF.objective(nlp, z)
-        ExaPF.gradient!(nlp, ∇fz, z)
-        @. y = ∇fz - ∇fx
-    else
-        # if no succesful search direction is found, reset to gradient
-        y .= .-∇fz
-    end
-    β = update_parameter(cg, d, ∇fz, ∇fx, y, I, P∇fz)
-
-    return (x=x, fx=fx, ∇fx=∇fx, z=z, fz=fz, ∇fz=∇fz, B=nothing, Pg=Pg), I, CGVars(y, d, α, β, ls_success)
+    Pg = ∇fz
+    return (x=x, fx=fx, ∇fx=∇fx, z=z, fz=fz, ∇fz=∇fz, B=nothing, Pg=Pg)
 end
 
 function initial(nlp, α, x, φ, φ₀, dφ₀, ∇fx, is_first)
@@ -377,19 +331,116 @@ function initial(nlp, α, x, φ, φ₀, dφ₀, ∇fx, is_first)
     return ψ₂*α
 end
 
-function prepare_variables(nlp, x0)
-    z = x0
-    x = copy(z)
-    ∇fz = copy(x0)
+function iterate(cg::HZ, cgvars::CGVars, objvars, nlp, linesearch; is_first=true)
+    # split up the approach into the hessian approximation scheme and line search
+    x, fx, ∇fx, z, fz, ∇fz, B, Pg = objvars
+    Tx = eltype(x)
+
+    y, d, α, β = cgvars.y, cgvars.d, cgvars.α, cgvars.β
+
+    # Move nexts into currs
+    fx = fz
+    copyto!(x, z)
+    copyto!(∇fx, ∇fz)
+
+    # Precondition current gradient and calculate the search direction
+    P∇fz = ∇fz
+    @. d = -P∇fz + β*d
+
     # TODO
-    ExaPF.update!(nlp, x0)
-    fz = ExaPF.objective(nlp, x0)
-    ExaPF.gradient!(nlp, ∇fz, x0)
+    # φ = _lineobjective(mstyle, problem, ∇fz, z, x, d, fx, dot(∇fx, d))
+    φ = LineModel(nlp, x, d, ∇fz, copy(z))
+    α_0 = 1e-4 #initial(nlp, α, x, φ, fx, dot(d, ∇fx), ∇fx, is_first)
 
-    fx = copy(fz)
-    ∇fx = copy(∇fz)
+    # Perform line search along d
+    α, f_α, ls_success = find_steplength(linesearch, φ, fx, dot(d, ∇fx), Tx(α_0), 1e-6)
 
-    Pg = ∇fz
-    return (x=x, fx=fx, ∇fx=∇fx, z=z, fz=fz, ∇fz=∇fz, B=nothing, Pg=Pg)
+    # Calculate final step vector and update the state
+    if ls_success
+        @. z = z + α * d
+        ExaPF.update!(nlp, z)
+        fz = ExaPF.objective(nlp, z)
+        ExaPF.gradient!(nlp, ∇fz, z)
+        @. y = ∇fz - ∇fx
+    else
+        # if no succesful search direction is found, reset to gradient
+        y .= .-∇fz
+    end
+    β = update_parameter(cg, d, ∇fz, ∇fx, y, I, P∇fz)
+
+    return (x=x, fx=fx, ∇fx=∇fx, z=z, fz=fz, ∇fz=∇fz, B=nothing, Pg=Pg), I, CGVars(y, d, α, β, ls_success)
 end
 
+function optimize(algo::HZ, nlp, x0;
+                  maxiter=100, ωtol=1e-5,
+                  linesearch=HZAW(), )
+    t0 = time()
+    #==============
+         Setup
+    ==============#
+    Tx = eltype(x0)
+    status = NotSolved
+
+    # Parameters for active set algorithm
+    x♭, x♯ = bounds(nlp, ExaPF.Variables())
+    A = Int[]
+    U = Int[]
+    A_card1 = 0
+    A_card2 = 0
+    μ_act = 0.1
+    ρ_act = 0.5
+
+    objvars = prepare_variables(nlp, x0)
+    f0, ∇f0 = objvars.fx, norm(objvars.∇fx, Inf) # use user norm
+
+    y, d, α, β = copy(objvars.∇fz), -copy(objvars.∇fx), Tx(0), Tx(0)
+    wk = copy(x0)
+    gI = copy(objvars.∇fx)
+    cgvars = CGVars(y, d, α, β, true)
+
+    # Initial iteration
+    k = 1
+    objvars, P, cgvars = iterate(algo, cgvars, objvars, nlp, linesearch)
+    ## Compute feasible direction
+    ExaPF.project!(wk, objvars.x .- objvars.∇fx, x♭, x♯)
+    d¹ = wk - objvars.x
+    ## Compute projected gradient
+    copy!(gI, objvars.∇fx)
+    ExaOpt.active!(gI, objvars.x, x♭, x♯)
+    ## Update active set
+    active_set!(A, objvars.x, x♭, x♯)
+    undecided_set!(U, objvars.∇fx, d¹, objvars.x, x♭, x♯)
+    A_card1 = length(A)
+
+    ## Convergence criteria
+    if (norm(d¹, Inf) <= ωtol)
+        status = Optimal
+    elseif (norm(gI, Inf) < μ_act * norm(d¹, Inf))
+        status = NGPA
+    end
+
+    while k < maxiter && (status == NotSolved)
+        k += 1
+        objvars, P, cgvars = iterate(algo, cgvars, objvars, nlp, linesearch; is_first=false)
+        ## Update active set
+        active_set!(A, objvars.x, x♭, x♯)
+        undecided_set!(U, objvars.∇fx, d¹, objvars.x, x♭, x♯)
+        A_card2 = length(A)
+
+        if (norm(d¹, Inf) <= ωtol)
+            status = Optimal
+        elseif (norm(gI, Inf) < μ_act * norm(d¹, Inf))
+            status = NGPA
+        elseif A_card2 > A_card1
+            if isempty(U) || (A_card1 + 1 == A_card2)
+                status = Restart
+            else
+                status = NGPA
+            end
+        end
+        A_card1 = A_card2
+    end
+    x, fx, ∇fx, z, fz, ∇fz, B = objvars
+    return x, status, k
+    # return ConvergenceInfo(approach, (beta=β, ρs=norm(x.-z), ρx=norm(x), minimizer=z, fx=fx, minimum=fz, ∇fx=∇fx, ∇fz=∇fz, f0=f0, ∇f0=∇f0, iter=k, time=time()-t0), options)
+end
