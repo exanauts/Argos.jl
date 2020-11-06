@@ -7,6 +7,7 @@ using ExaPF
 include("utils.jl")
 include("projected_gradient.jl")
 include("conjugategradient.jl")
+include("activeset.jl")
 include("auglag.jl")
 
 end # module

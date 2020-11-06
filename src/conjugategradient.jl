@@ -280,7 +280,7 @@ struct CGVars{T1, T2, T3}
     ls_success::Bool
 end
 
-function prepare_variables(nlp, x0)
+function prepare_variables(nlp, x0, active_set)
     z = x0
     x = copy(z)
     ∇fz = copy(x0)
@@ -288,6 +288,9 @@ function prepare_variables(nlp, x0)
     ExaPF.update!(nlp, x0)
     fz = ExaPF.objective(nlp, x0)
     ExaPF.gradient!(nlp, ∇fz, x0)
+    if length(active_set) > 0
+        ∇fz[active_set] .= 0
+    end
 
     fx = copy(fz)
     ∇fx = copy(∇fz)
@@ -324,7 +327,7 @@ function initial(nlp, α, x, φ, φ₀, dφ₀, ∇fx, is_first)
     return ψ₂*α
 end
 
-function iterate(cg::HZ, cgvars::CGVars, objvars, nlp, linesearch; is_first=true)
+function iterate(cg::HZ, cgvars::CGVars, objvars, nlp, linesearch; is_first=true, active_set=Int[])
     # split up the approach into the hessian approximation scheme and line search
     x, fx, ∇fx, z, fz, ∇fz, B, Pg = objvars
     Tx = eltype(x)
@@ -342,18 +345,25 @@ function iterate(cg::HZ, cgvars::CGVars, objvars, nlp, linesearch; is_first=true
 
     # TODO
     # φ = _lineobjective(mstyle, problem, ∇fz, z, x, d, fx, dot(∇fx, d))
-    φ = LineModel(nlp, x, d, ∇fz, copy(z))
-    α_0 = 1e-4 #initial(nlp, α, x, φ, fx, dot(d, ∇fx), ∇fx, is_first)
+    φ = LineModel(nlp, x, d, ∇fz, z)
+    α♯ = max_step(φ)[2]
+    α_0 = initial(nlp, α♯, x, φ, fx, dot(d, ∇fx), ∇fx, is_first)
+    α_0 = min(α_0, α♯)
+    println(max_step(φ))
+    println(α_0)
 
     # Perform line search along d
     α, f_α, ls_success = find_steplength(linesearch, φ, fx, dot(d, ∇fx), Tx(α_0), 1e-6)
 
     # Calculate final step vector and update the state
     if ls_success
-        @. z = z + α * d
+        @. z = x + α * d
         ExaPF.update!(nlp, z)
         fz = ExaPF.objective(nlp, z)
         ExaPF.gradient!(nlp, ∇fz, z)
+        if length(active_set) > 0
+            ∇fz[active_set] .= 0
+        end
         @. y = ∇fz - ∇fx
     else
         # if no succesful search direction is found, reset to gradient
@@ -365,7 +375,8 @@ function iterate(cg::HZ, cgvars::CGVars, objvars, nlp, linesearch; is_first=true
 end
 
 function optimize(algo::HZ, nlp, x0;
-                  maxiter=100, ωtol=1e-5,
+                  active_set=Int[],
+                  maxiter=100, tol=1e-5, α♯=1.0,
                   linesearch=HZAW(), )
     t0 = time()
     #==============
@@ -383,7 +394,7 @@ function optimize(algo::HZ, nlp, x0;
     μ_act = 0.1
     ρ_act = 0.5
 
-    objvars = prepare_variables(nlp, x0)
+    objvars = prepare_variables(nlp, x0, active_set)
     f0, ∇f0 = objvars.fx, norm(objvars.∇fx, Inf) # use user norm
 
     y, d, α, β = copy(objvars.∇fz), -copy(objvars.∇fx), Tx(0), Tx(0)
@@ -397,16 +408,15 @@ function optimize(algo::HZ, nlp, x0;
     ## Compute feasible direction
     ExaPF.project!(wk, objvars.x .- objvars.∇fx, x♭, x♯)
     d¹ = wk - objvars.x
-    ## Compute projected gradient
-    copy!(gI, objvars.∇fx)
-    ExaOpt.active!(gI, objvars.x, x♭, x♯)
+    gI = objvars.∇fx
+
     ## Update active set
     active_set!(A, objvars.x, x♭, x♯)
     undecided_set!(U, objvars.∇fx, d¹, objvars.x, x♭, x♯)
     A_card1 = length(A)
 
     ## Convergence criteria
-    if (norm(d¹, Inf) <= ωtol)
+    if (norm(d¹, Inf) <= tol)
         status = Optimal
     elseif (norm(gI, Inf) < μ_act * norm(d¹, Inf))
         status = NGPA
@@ -414,18 +424,20 @@ function optimize(algo::HZ, nlp, x0;
 
     while k < maxiter && (status == NotSolved)
         k += 1
-        objvars, P, cgvars = iterate(algo, cgvars, objvars, nlp, linesearch; is_first=false)
+        objvars, P, cgvars = iterate(algo, cgvars, objvars, nlp, linesearch;
+                                     is_first=false, active_set=active_set)
         ## Update active set
         active_set!(A, objvars.x, x♭, x♯)
         undecided_set!(U, objvars.∇fx, d¹, objvars.x, x♭, x♯)
         A_card2 = length(A)
+        gI = objvars.∇fx
 
-        if (norm(d¹, Inf) <= ωtol)
+        if (norm(d¹, Inf) <= tol)
             status = Optimal
         elseif (norm(gI, Inf) < μ_act * norm(d¹, Inf))
             status = NGPA
         elseif A_card2 > A_card1
-            if isempty(U) || (A_card1 + 1 == A_card2)
+            if isempty(U) || (A_card1 + 1 < A_card2)
                 status = Restart
             else
                 status = NGPA
@@ -440,6 +452,7 @@ function optimize(algo::HZ, nlp, x0;
         minimizer=objvars.z,
         iter=k,
         inf_du=norm(d¹, Inf),
+        active_set=A,
     )
 
     return solution
