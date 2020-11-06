@@ -97,6 +97,7 @@ function ngpa(
     u_prev = copy(uk)
     ∇f = copy(uk)
     wk = copy(uk)
+    dk = copy(uk)
     u♭, u♯ = bounds(nlp, ExaPF.Variables())
 
     # Initial evaluation
@@ -147,16 +148,14 @@ function ngpa(
     while (n_iter <= max_iter) && (status == NotSolved)
         n_iter += 1
 
-        ExaPF.project!(wk, uk .- α_bb .* ∇f, u♭, u♯)
-        # Feasible direction
-        dk = wk .- uk
+        feasible_direction!(dk, wk, uk, ∇f, α_bb, u♭, u♯)
 
         ##################################################
         # Armijo line-search
         step = 1.0
         d∇g = dot(dk, ∇f)
         for j_ls in 1:ls_itermax
-            ExaPF.project!(wk, uk .+ step .* dk, u♭, u♯)
+            project!(wk, uk .+ step .* dk, u♭, u♯)
             conv = ExaPF.update!(nlp, wk)
             ft = ExaPF.objective(nlp, wk)
             if ft <= min(fᵣ, f♯_ref) + step * δ * d∇g
@@ -171,28 +170,26 @@ function ngpa(
             end
         end
 
+        ##################################################
+        ## Update parameters
         uk .= wk
         # Objective
         f = ExaPF.objective(nlp, uk)
         c_ref = ExaPF.inner_objective(nlp, uk)
         # Gradient
         ExaPF.gradient!(nlp, ∇f, uk)
+        sk = uk - u_prev
+        yk = ∇f - grad_prev
 
         # Stopping criteration: uₖ₊₁ - uₖ
         ## Dual infeasibility
         norm_grad = norm(dk, Inf)
-        ## Primal infeasibility
-        inf_pr = ExaPF.primal_infeasibility(nlp.inner, nlp.cons ./ nlp.scaler.scale_cons)
 
         # check convergence
         if (n_iter % verbose_it == 0)
+            inf_pr = ExaPF.primal_infeasibility(nlp.inner, nlp.cons ./ nlp.scaler.scale_cons)
             @printf("%6d %.6e %.3e %.2e %.2e %.2e\n", n_iter, f, f - c_ref, norm_grad, inf_pr, step)
         end
-
-        ##################################################
-        ## Update parameters
-        sk = uk - u_prev
-        yk = ∇f - grad_prev
 
         ##################################################
         ## Update Barzilai-Borwein step
@@ -221,6 +218,8 @@ function ngpa(
             end
         end
         α_bb = max(min(α♯, α_bb), α♭)
+
+        ##################################################
         # Update history
         u_prev .= uk
         grad_prev .= ∇f
@@ -264,21 +263,20 @@ function ngpa(
         if active_set && (n_iter >= 10)
             grad_act .= ∇f
             ExaOpt.active!(grad_act, uk, u♭, u♯)
-            # TODO: fix dk
+            feasible_direction!(dk, wk, uk, ∇f, 1.0, u♭, u♯)
             ndk = norm(dk, Inf)
             # Update active set
-            active_set!(A, u, u♭, u♯)
-            undecided_set!(U, ∇f, d1u, u, u♭, u♯)
+            active_set!(A, uk, u♭, u♯)
+            undecided_set!(U, ∇f, dk, uk, u♭, u♯)
 
-            if A_hash_1 == A_hash_2 == hash(A)
-                if norm(grad_act, Inf) >= μ_act * ndk
-                    status = SwitchCG
-                end
-            end
             if isempty(U)
                 if norm(grad_act, Inf) < μ_act * ndk
                     μ_act = ρ_act * μ_act
                 else
+                    status = SwitchCG
+                end
+            elseif A_hash_1 == A_hash_2 == hash(A)
+                if norm(grad_act, Inf) >= μ_act * ndk
                     status = SwitchCG
                 end
             end
@@ -302,6 +300,7 @@ function ngpa(
         minimizer=uk,
         iter=n_iter,
         inf_du=norm_grad,
+        active_set=A,
     )
 
     return solution
