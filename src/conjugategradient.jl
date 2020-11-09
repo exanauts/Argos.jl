@@ -33,10 +33,7 @@ function HZAW(; decrease=0.1, curvature=0.9, theta=0.5, gamma=2/3)
 end
 
 function find_steplength(hzl::HZAW, φ, φ0, dφ0, c, ϵk=1e-6; maxiter=100, ratio=0.1)
-    # c = initial(k) but this is done outisde
-    # TODO
     T = Float64
-    # TODO
     ϵk = T(ϵk)
     δ = T(hzl.decrease)
     σ = T(hzl.curvature)
@@ -106,8 +103,8 @@ function _U3(hzl::HZAW, φ, φ0, a::T, b::T, c::T, ϵk) where T
     while searching && j < 50
         # convex combination of _a and _b; 0.5 implies bisection
         d = (1 - hzl.θ)*_a + hzl.θ*_b
-        # TODO
-        φd, dφd = φ(d)
+        φd = φ(d)
+        dφd = grad!(φ, d)
         if dφd ≥ T(0) # found point of increasing objective; return with upper bound d
             _b = d
             return _a, _b
@@ -142,7 +139,7 @@ function update(hzl::HZ,
             return c, b, (a=true, b=false)
         end
         #== U3 ==#
-        a, b = _U3(hzl, φ, a, b, c, ϵk)
+        a, b = _U3(hzl, φ, φ0, a, b, c, ϵk)
         return a, b, (a=a==c, b=b==c)
     end
 end
@@ -179,7 +176,7 @@ function bracket(hzl::HZAW, c::T, φ, φ0, ϵk, ρ) where T
             #== B2 : φ is decreasing at cj but function value is sufficiently larger than
             # φ0, use U3 to update. ==#
             if φcj > φ0 + ϵk
-                a, b = _U3(hzl, φ, T(0), cj, c, ϵk)
+                a, b = _U3(hzl, φ, φ0, T(0), cj, c, ϵk)
                 return a, b
             end
             #== B3 ==#
@@ -198,7 +195,7 @@ end
 
 function secant(hzl::HZAW, a, dφa, b, dφb)
     # verified against paper description [p. 123, CG_DESCENT_851]
-    #(a*dφb - b*dφa)/(dφb - dφa)
+    # (a*dφb - b*dφa)/(dφb - dφa)
     # It has been observed that dφa can be very close to dφb,
     # so we avoid taking the difference
     a/(1 - dφa/dφb) + b/(1 - dφb/dφa)
@@ -207,11 +204,12 @@ function secant²(hzl::HZAW, φ, φ0, a, b, ϵk)
     # verified against paper description [p. 123, CG_DESCENT_851]
     #== S1 ==#
     φa= φ(a)
-    dφa  = grad!(φ, a)
+    dφa = grad!(φ, a)
     φb = φ(b)
-    dφb  = grad!(φ, b)
+    dφb = grad!(φ, b)
     c = secant(hzl, a, dφa, b, dφb)
 
+    # TODO: fix breakage there
     φc = φ(c)
     dφc  = grad!(φ, c)
     A, B, updates = update(hzl, a, b, c, φ, φ0, φc, dφc, ϵk)
@@ -224,8 +222,7 @@ function secant²(hzl::HZAW, φ, φ0, a, b, ϵk)
         φA, dφA = φc, dφc
         _c = secant(hzl, a, dφa, A, dφA)
     end
-    updates
-    if any(updates)
+    if any(updates) && isfinite(_c)
         #== S4.if: c was upper or lower bound ==#
         φ_c = φ(_c)
         dφ_c  = grad!(φ, _c)
@@ -284,10 +281,10 @@ function prepare_variables(nlp, x0, active_set)
     z = x0
     x = copy(z)
     ∇fz = copy(x0)
-    # TODO
+
     ExaPF.update!(nlp, x0)
     fz = ExaPF.objective(nlp, x0)
-    ExaPF.gradient!(nlp, ∇fz, x0)
+    active_gradient!(nlp, ∇fz, x0)
     if length(active_set) > 0
         ∇fz[active_set] .= 0
     end
@@ -330,6 +327,7 @@ end
 function iterate(cg::HZ, cgvars::CGVars, objvars, nlp, linesearch; is_first=true, active_set=Int[])
     # split up the approach into the hessian approximation scheme and line search
     x, fx, ∇fx, z, fz, ∇fz, B, Pg = objvars
+    u♭, u♯ = bounds(nlp, ExaPF.Variables())
     Tx = eltype(x)
 
     y, d, α, β = cgvars.y, cgvars.d, cgvars.α, cgvars.β
@@ -348,9 +346,10 @@ function iterate(cg::HZ, cgvars::CGVars, objvars, nlp, linesearch; is_first=true
     φ = LineModel(nlp, x, d, ∇fz, z)
     α♯ = max_step(φ)[2]
     α_0 = initial(nlp, α♯, x, φ, fx, dot(d, ∇fx), ∇fx, is_first)
-    α_0 = min(α_0, α♯)
-    println(max_step(φ))
-    println(α_0)
+    α_0 = max(min(α_0, α♯), 1e-8)
+    # α_0 = 1e-4
+    # println(max_step(φ))
+    # println(α_0)
 
     # Perform line search along d
     α, f_α, ls_success = find_steplength(linesearch, φ, fx, dot(d, ∇fx), Tx(α_0), 1e-6)
@@ -358,9 +357,10 @@ function iterate(cg::HZ, cgvars::CGVars, objvars, nlp, linesearch; is_first=true
     # Calculate final step vector and update the state
     if ls_success
         @. z = x + α * d
+        project!(z, z, u♭, u♯)
         ExaPF.update!(nlp, z)
         fz = ExaPF.objective(nlp, z)
-        ExaPF.gradient!(nlp, ∇fz, z)
+        active_gradient!(nlp, ∇fz, z)
         if length(active_set) > 0
             ∇fz[active_set] .= 0
         end
@@ -435,15 +435,18 @@ function optimize(algo::HZ, nlp, x0;
         if (norm(d¹, Inf) <= tol)
             status = Optimal
         elseif (norm(gI, Inf) < μ_act * norm(d¹, Inf))
-            status = NGPA
+            status = SwitchNGPA
         elseif A_card2 > A_card1
             if isempty(U) || (A_card1 + 1 < A_card2)
                 status = Restart
             else
-                status = NGPA
+                status = SwitchNGPA
             end
         end
         A_card1 = A_card2
+    end
+    if k == maxiter
+        status = MaxIterations
     end
 
     solution = (
