@@ -347,9 +347,6 @@ function iterate(cg::HZ, cgvars::CGVars, objvars, nlp, linesearch; is_first=true
     α♯ = max_step(φ)[2]
     α_0 = initial(nlp, α♯, x, φ, fx, dot(d, ∇fx), ∇fx, is_first)
     α_0 = max(min(α_0, α♯), 1e-8)
-    # α_0 = 1e-4
-    # println(max_step(φ))
-    # println(α_0)
 
     # Perform line search along d
     α, f_α, ls_success = find_steplength(linesearch, φ, fx, dot(d, ∇fx), Tx(α_0), 1e-6)
@@ -430,7 +427,9 @@ function optimize(algo::HZ, nlp, x0;
         active_set!(A, objvars.x, x♭, x♯)
         undecided_set!(U, objvars.∇fx, d¹, objvars.x, x♭, x♯)
         A_card2 = length(A)
-        gI = objvars.∇fx
+        gI = objvars.∇fz
+        ExaPF.project!(wk, objvars.x .- objvars.∇fx, x♭, x♯)
+        d¹ = wk - objvars.x
 
         if (norm(d¹, Inf) <= tol)
             status = Optimal

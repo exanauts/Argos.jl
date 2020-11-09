@@ -183,6 +183,7 @@ function ngpa(
 
         # Stopping criteration: uₖ₊₁ - uₖ
         ## Dual infeasibility
+        # feasible_direction!(dk, wk, uk, ∇f, 1.0, u♭, u♯)
         norm_grad = norm(dk, Inf)
 
         # check convergence
@@ -290,7 +291,7 @@ function ngpa(
         end
     end
 
-    if n_iter == max_iter
+    if n_iter >= max_iter
         status = MaxIterations
     end
 

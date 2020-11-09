@@ -11,16 +11,7 @@ function _update!(ϕ::LineModel, α)
     ϕ.ut .= ϕ.u .+ α .* ϕ.d
     u♭, u♯ = bounds(ϕ.model, ExaPF.Variables())
     project!(ϕ.ut, ϕ.ut, u♭, u♯)
-    try
-        ExaPF.update!(ϕ.model, ϕ.ut)
-    catch
-        @info("a= ", α)
-        ul, ub = bounds(ϕ.model, ExaPF.Variables())
-        println(findall(ϕ.ut .> ub))
-        println(findall(ϕ.ut .< ul))
-        # @info("u= ", ϕ.ut)
-        rethrow()
-    end
+    ExaPF.update!(ϕ.model, ϕ.ut)
 end
 
 function (ϕ::LineModel)(α)
@@ -29,7 +20,7 @@ function (ϕ::LineModel)(α)
 end
 
 function grad!(ϕ::LineModel, α)
-    ExaPF.gradient!(ϕ.model, ϕ.g, ϕ.ut)
+    active_gradient!(ϕ.model, ϕ.g, ϕ.ut)
     return dot(ϕ.g, ϕ.d)
 end
 

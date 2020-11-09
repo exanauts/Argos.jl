@@ -28,7 +28,7 @@ function push!(tracer, a, b, c)
 end
 
 ## Active set procedure
-function active!(w::VT, u::VT, u♭::VT, u♯::VT; tol=1e-8) where VT<:AbstractArray
+function active!(w::VT, u::VT, u♭::VT, u♯::VT; tol=1e-12) where VT<:AbstractArray
     @assert length(w) == length(u)
     for i in eachindex(u)
         if (u[i] < u♭[i] + tol) || (u[i] > u♯[i] - tol)
