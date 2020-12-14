@@ -46,7 +46,7 @@ function tron_solve(evaluator, x0, x_L, x_U; options=Dict())
     inner.x .= x0
 
     for (name, value) in options
-        addOption(inner, name, value)
+        setOption(inner, name, value)
     end
 
     solveProblem(inner)

@@ -39,8 +39,8 @@ function optimize(
         # Inner iteration: projected gradient algorithm
         # solution = ngpa(aug, uk; α_bb=α0, α♯=α0, tol=ωtol)
         solution = tron_solve(aug, uk;
-                              options=Dict("max_minor" => 1000,
-                                           "max_feval" => 2000,
+                              options=Dict("max_minor" => 2000,
+                                           "max_feval" => 3000,
                                            "tol" => 1e-3))
         uk = solution.minimizer
         norm_grad = solution.inf_du
