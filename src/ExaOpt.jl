@@ -3,6 +3,8 @@ module ExaOpt
 using LinearAlgebra
 using Printf
 using ExaPF
+using Tron
+
 
 include("utils.jl")
 include("line_model.jl")

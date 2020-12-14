@@ -22,7 +22,8 @@ function optimize(
     fill!(grad, 0)
     norm_grad = Inf
     nlp = aug.inner
-    cons = zeros(ExaPF.n_constraints(nlp))
+    m = ExaPF.n_constraints(nlp)
+    cons = similar(u0, m)
 
     tracer = Tracer()
 
@@ -36,7 +37,11 @@ function optimize(
     for i_out in 1:algo.max_iter
         uk .= u_start
         # Inner iteration: projected gradient algorithm
-        solution = ngpa(aug, uk; α_bb=α0, α♯=α0, tol=ωtol)
+        # solution = ngpa(aug, uk; α_bb=α0, α♯=α0, tol=ωtol)
+        solution = tron_solve(aug, uk;
+                              options=Dict("max_minor" => 1000,
+                                           "max_feval" => 2000,
+                                           "tol" => 1e-3))
         uk = solution.minimizer
         norm_grad = solution.inf_du
         n_iter = solution.iter
@@ -65,9 +70,6 @@ function optimize(
         end
     end
 
-    cons = zeros(ExaPF.n_constraints(nlp))
-    ExaPF.constraint!(nlp, cons, uk)
-    ExaPF.sanity_check(nlp, uk, cons)
     println("Number of objective function evaluations             = ", aug.counter.objective)
     println("Number of objective gradient evaluations             = ", aug.counter.gradient)
 
