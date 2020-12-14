@@ -5,8 +5,11 @@ using Printf
 using ExaPF
 using ExaTron
 using MathOptInterface
+
 const MOI = MathOptInterface
 
+# Generic type to define new optimization method
+abstract type AbstractExaOptimizer end
 
 include("utils.jl")
 include("line_model.jl")

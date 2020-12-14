@@ -101,3 +101,4 @@ function active_gradient!(
     ExaPF.gradient!(model, ∇f, u)
     active!(∇f, u, u♭, u♯)
 end
+

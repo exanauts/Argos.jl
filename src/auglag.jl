@@ -1,15 +1,26 @@
 
-Base.@kwdef struct AugLagSolver
+Base.@kwdef struct AugLagSolver <: AbstractExaOptimizer
     max_iter::Int = 1_000
     ρ0::Float64 = 0.1
     ωtol::Float64 = 1e-5
     α0::Float64 = 1.0
+    verbose::Int = 0
+end
+# TODO: add scaling option
+
+function ExaPF.optimize!(
+    algo::AugLagSolver,
+    nlp::ExaPF.AbstractNLPEvaluator,
+    u0::AbstractVector,
+)
+    aug = ExaPF.AugLagEvaluator(nlp, u0; scale=true)
+    return ExaPF.optimize!(algo, aug, u0)
 end
 
 # Augmented Lagrangian method
-function optimize(
+function ExaPF.optimize!(
     algo::AugLagSolver,
-    aug::ExaPF.AbstractNLPEvaluator,
+    aug::ExaPF.AugLagEvaluator,
     u0::AbstractVector,
 )
     # Initialize arrays
@@ -19,6 +30,7 @@ function optimize(
     u_prev    = copy(u0)
     grad      = similar(u0)
     ut        = similar(u0)
+    obj = Inf
     fill!(grad, 0)
     norm_grad = Inf
     nlp = aug.inner
@@ -30,10 +42,11 @@ function optimize(
     c0 = algo.ρ0
     ωtol = algo.ωtol
     α0 = algo.α0
+    verbose = (algo.verbose > 0)
 
     ηk = 1.0 / (c0^0.1)
 
-    log_header()
+    verbose && log_header()
     for i_out in 1:algo.max_iter
         uk .= u_start
         # Inner iteration: projected gradient algorithm
@@ -49,9 +62,9 @@ function optimize(
         # Evaluate current position in the original space
         ExaPF.constraint!(nlp, cons, uk)
         obj = ExaPF.objective(nlp, uk)
-        inf_pr = ExaPF.primal_infeasibility(nlp, cons)
+        inf_pr = ExaPF.primal_infeasibility!(nlp, cons, uk)
 
-        log_iter(i_out, obj, inf_pr, norm_grad, ηk, n_iter) # Log evolution
+        verbose && log_iter(i_out, obj, inf_pr, norm_grad, ηk, n_iter) # Log evolution
         push!(tracer, obj, inf_pr, norm_grad)
 
         if (norm_grad < 1e-5) && (inf_pr < 1e-8)
@@ -70,9 +83,18 @@ function optimize(
         end
     end
 
-    println("Number of objective function evaluations             = ", aug.counter.objective)
-    println("Number of objective gradient evaluations             = ", aug.counter.gradient)
+    if verbose
+        println("Number of objective function evaluations             = ", aug.counter.objective)
+        println("Number of objective gradient evaluations             = ", aug.counter.gradient)
+    end
 
-    return uk, tracer
+    solution = (
+        status=MOI.OPTIMAL,
+        minimum=obj,
+        minimizer=uk,
+        trace=tracer,
+    )
+
+    return solution
 end
 
