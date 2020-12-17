@@ -6,7 +6,7 @@ using UnicodePlots
 # Augmented Lagrangian method
 function auglag(nlp, u0; iter_max=200, itout_max=1)
     # Init a penalty evaluator with initial penalty c₀
-    algo = ExaOpt.AugLagSolver(; max_iter=itout_max, ωtol=1e-4)
+    algo = ExaOpt.AugLagSolver(; max_iter=itout_max, ωtol=1e-4, verbose=1, inner_algo=:projectedgradient)
     c0 = 0.1
     aug = ExaPF.AugLagEvaluator(nlp, u0; c₀=c0, scale=true)
     solution = ExaPF.optimize!(algo, aug, u0)

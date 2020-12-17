@@ -5,6 +5,7 @@ Base.@kwdef struct AugLagSolver <: AbstractExaOptimizer
     ωtol::Float64 = 1e-5
     α0::Float64 = 1.0
     verbose::Int = 0
+    inner_algo::Symbol = :tron
 end
 # TODO: add scaling option
 
@@ -50,11 +51,14 @@ function ExaPF.optimize!(
     for i_out in 1:algo.max_iter
         uk .= u_start
         # Inner iteration: projected gradient algorithm
-        # solution = ngpa(aug, uk; α_bb=α0, α♯=α0, tol=ωtol)
-        solution = tron_solve(aug, uk;
-                              options=Dict("max_minor" => 2000,
-                                           "max_feval" => 3000,
-                                           "tol" => 1e-3))
+        if algo.inner_algo == :projectedgradient
+            solution = ngpa(aug, uk; α_bb=α0, α♯=α0, tol=ωtol)
+        elseif algo.inner_algo == :tron
+            solution = tron_solve(aug, uk;
+                                options=Dict("max_minor" => 2000,
+                                            "max_feval" => 3000,
+                                            "tol" => 1e-3))
+        end
         uk = solution.minimizer
         norm_grad = solution.inf_du
         n_iter = solution.iter
