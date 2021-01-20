@@ -8,10 +8,11 @@ function projected_gradient(
     β=0.4,
     τ=1e-4,
     tol=1e-5,
-    bfgs=false,
     verbose_it=Inf,
 )
 
+    f = Inf
+    status = NotSolved
     u_prev = copy(uk)
     grad = copy(uk)
     wk = copy(uk)
@@ -49,6 +50,7 @@ function projected_gradient(
         # step = αi
         wk .= uk .- step * dk
         ExaPF.project!(uk, wk, u♭, u♯)
+        f = ExaPF.objective(nlp, uk)
 
         # Stopping criteration: uₖ₊₁ - uₖ
         ## Dual infeasibility
@@ -61,17 +63,20 @@ function projected_gradient(
             @printf("%6d %.6e %.3e %.2e %.2e %.2e\n", i, c, c - c_ref, norm_grad, inf_pr, step)
         end
 
-        if bfgs
-            push!(H, uk .- u_prev, grad .- grad_prev)
-            grad_prev .= grad
-        end
         u_prev .= uk
         # Check whether we have converged nicely
         if (norm_grad < tol)
             break
         end
     end
-    return uk, norm_grad, n_iter
+
+    return solution = (
+        status=status,
+        minimum=f,
+        minimizer=uk,
+        iter=n_iter,
+        inf_du=norm_grad,
+    )
 end
 
 
@@ -184,7 +189,8 @@ function ngpa(
         # Stopping criteration: uₖ₊₁ - uₖ
         ## Dual infeasibility
         # feasible_direction!(dk, wk, uk, ∇f, 1.0, u♭, u♯)
-        norm_grad = norm(dk, Inf)
+        # norm_grad = norm(dk, Inf)
+        norm_grad = norm(uk .- u_prev, Inf)
 
         # check convergence
         if (n_iter % verbose_it == 0)
@@ -209,7 +215,7 @@ function ngpa(
             if dot(sk, yk) <= 0.0
                 if j_bb >= 1.5 * m_bb
                     t_bb = min(norm(uk, Inf), 1) / norm(dk, Inf)
-                    α_bb = max(t, step)
+                    α_bb = max(t_bb, step)
                     j_bb = 0
                 end
             else

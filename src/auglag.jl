@@ -1,6 +1,7 @@
 
 Base.@kwdef struct AugLagSolver <: AbstractExaOptimizer
-    max_iter::Int = 1_000
+    max_iter::Int = 100
+    max_inner_iter::Int = 1000
     ρ0::Float64 = 0.1
     ωtol::Float64 = 1e-5
     α0::Float64 = 1.0
@@ -36,7 +37,7 @@ function ExaPF.optimize!(
     norm_grad = Inf
     nlp = aug.inner
     m = ExaPF.n_constraints(nlp)
-    cons = similar(u0, m)
+    cons = similar(u0, m) ; fill!(cons, 0)
 
     tracer = Tracer()
 
@@ -47,17 +48,21 @@ function ExaPF.optimize!(
 
     ηk = 1.0 / (c0^0.1)
 
+    local solution
+
     verbose && log_header()
     for i_out in 1:algo.max_iter
         uk .= u_start
         # Inner iteration: projected gradient algorithm
-        if algo.inner_algo == :projectedgradient
-            solution = ngpa(aug, uk; α_bb=α0, α♯=α0, tol=ωtol)
+        if algo.inner_algo == :ngpa
+            solution = ngpa(aug, uk; α_bb=α0, α♯=α0, tol=ωtol, max_iter=algo.max_inner_iter)
+        elseif algo.inner_algo == :projected_gradient
+            solution = projected_gradient(aug, uk; α0=α0, tol=ωtol)
         elseif algo.inner_algo == :tron
             solution = tron_solve(aug, uk;
-                                options=Dict("max_minor" => 2000,
-                                            "max_feval" => 3000,
-                                            "tol" => 1e-3))
+                                  options=Dict("max_minor" => algo.max_inner_iter,
+                                               "max_feval" => 3000,
+                                               "tol" => 1e-3))
         end
         uk = solution.minimizer
         norm_grad = solution.inf_du
@@ -71,7 +76,7 @@ function ExaPF.optimize!(
         verbose && log_iter(i_out, obj, inf_pr, norm_grad, ηk, n_iter) # Log evolution
         push!(tracer, obj, inf_pr, norm_grad)
 
-        if (norm_grad < 1e-5) && (inf_pr < 1e-8)
+        if (norm_grad < ωtol) && (inf_pr < 1e-8)
             break
         end
 
