@@ -1,5 +1,6 @@
 
 Base.@kwdef struct AugLagSolver <: AbstractExaOptimizer
+    scaling::Bool = true
     max_iter::Int = 100
     max_inner_iter::Int = 1000
     ρ0::Float64 = 0.1
@@ -7,37 +8,40 @@ Base.@kwdef struct AugLagSolver <: AbstractExaOptimizer
     α0::Float64 = 1.0
     verbose::Int = 0
     inner_algo::Symbol = :tron
+    lsq_lambda::Bool = true
 end
-# TODO: add scaling option
 
 function ExaPF.optimize!(
     algo::AugLagSolver,
-    nlp::ExaPF.AbstractNLPEvaluator,
-    u0::AbstractVector,
+    model::ExaPF.AbstractNLPEvaluator,
+    u0::AbstractVector;
+    options ...
 )
-    aug = ExaPF.AugLagEvaluator(nlp, u0; scale=true)
-    return ExaPF.optimize!(algo, aug, u0)
+    aug = ExaPF.AugLagEvaluator(model, u0; scale=algo.scaling)
+    return ExaPF.optimize!(algo, aug, u0; options...)
 end
 
 # Augmented Lagrangian method
 function ExaPF.optimize!(
     algo::AugLagSolver,
     aug::ExaPF.AugLagEvaluator,
-    u0::AbstractVector,
+    u0::AbstractVector;
+    moi_optimizer=nothing
 )
+    nlp = aug.inner
+    m = ExaPF.n_constraints(nlp)
+
     # Initialize arrays
     uk        = copy(u0)
     u_start   = copy(u0)
     wk        = copy(u0)
     u_prev    = copy(u0)
-    grad      = similar(u0)
-    ut        = similar(u0)
+    grad      = similar(u0) ; fill!(grad, 0)
+    ut        = similar(u0) ; fill!(ut, 0)
+    cons      = similar(u0, m) ; fill!(cons, 0)
+
     obj = Inf
-    fill!(grad, 0)
     norm_grad = Inf
-    nlp = aug.inner
-    m = ExaPF.n_constraints(nlp)
-    cons = similar(u0, m) ; fill!(cons, 0)
 
     tracer = Tracer()
 
@@ -47,6 +51,11 @@ function ExaPF.optimize!(
     verbose = (algo.verbose > 0)
 
     ηk = 1.0 / (c0^0.1)
+
+    # Init multiplier
+    if algo.lsq_lambda
+        copy!(aug.λ, ExaPF.estimate_multipliers(aug, uk))
+    end
 
     local solution
 
@@ -61,8 +70,21 @@ function ExaPF.optimize!(
         elseif algo.inner_algo == :tron
             solution = tron_solve(aug, uk;
                                   options=Dict("max_minor" => algo.max_inner_iter,
-                                               "max_feval" => 3000,
-                                               "tol" => 1e-3))
+                                               "tron_code" => :Julia,
+                                               "tol" => ωtol)
+                                  )
+        elseif algo.inner_algo == :MOI
+            # Initiate optimizer
+            optimizer = moi_optimizer()
+            # Pass the problem to the ExaPF.MOIEvaluator
+            moi_solution = ExaPF.optimize!(optimizer, aug, uk)
+            MOI.empty!(optimizer)
+            solution = (
+                status=moi_solution.status,
+                minimizer=moi_solution.minimizer,
+                inf_du=1e8,
+                iter=100,
+            )
         end
         uk = solution.minimizer
         norm_grad = solution.inf_du
@@ -83,7 +105,7 @@ function ExaPF.optimize!(
         # Update starting point
         u_start .= uk
         # Update the penalties (see Nocedal & Wright, page 521)
-        if norm(abs.(aug.infeasibility), Inf) <= ηk
+        if norm(abs.(aug.cons), Inf) <= ηk
             ExaPF.update_multipliers!(aug)
             ηk = ηk / (aug.ρ^0.9)
         else

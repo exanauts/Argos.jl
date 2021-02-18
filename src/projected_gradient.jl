@@ -97,6 +97,7 @@ function ngpa(
     ls_algo=3,
 )
 
+    n = ExaPF.n_variables(nlp)
     # Status
     status = NotSolved
     u_prev = copy(uk)
@@ -109,6 +110,7 @@ function ngpa(
     ExaPF.update!(nlp, uk)
     f = ExaPF.objective(nlp, uk)
     ExaPF.gradient!(nlp, ∇f, uk)
+
     # Memory
     grad_prev = copy(∇f)
     # Active gradient
