@@ -82,7 +82,7 @@ end
 ## Printing procedure
 function log_header()
     @printf(
-        "iter    objective    inf_pr   inf_du  alpha     #asa\n"
+        "iter    objective    inf_pr   inf_du  alpha   #asa\n"
     )
 end
 function log_iter(nit, obj, inf_pr, inf_du, alpha, n_inner)
@@ -102,3 +102,13 @@ function active_gradient!(
     active!(∇f, u, u♭, u♯)
 end
 
+function proj_gradient!(w::VT, u::VT, u♭::VT, u♯::VT; tol=1e-12) where VT<:AbstractArray
+    @assert length(w) == length(u)
+    for i in eachindex(u)
+        if (u[i] < u♭[i] + tol)
+            w[i] = min(w[i], 0.0)
+        elseif (u[i] > u♯[i] - tol)
+            w[i] = max(w[i], 0.0)
+        end
+    end
+end

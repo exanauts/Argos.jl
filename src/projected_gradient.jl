@@ -53,7 +53,10 @@ function projected_gradient(
         f = ExaPF.objective(nlp, uk)
 
         # Stopping criteration: uₖ₊₁ - uₖ
-        ## Dual infeasibility
+        ## Dual infeasibility set to norm of Cauchy step
+        #
+        # sₖ(α) = P[xₖ - α ∇f(xₖ)] - xₖ
+        #
         norm_grad = norm(uk .- u_prev, Inf)
         ## Primal infeasibility
         inf_pr = ExaPF.primal_infeasibility(nlp.inner, nlp.cons)
@@ -192,6 +195,10 @@ function ngpa(
         ## Dual infeasibility
         # feasible_direction!(dk, wk, uk, ∇f, 1.0, u♭, u♯)
         # norm_grad = norm(dk, Inf)
+        ## Dual infeasibility set to norm of Cauchy step
+        #
+        # sₖ(α) = P[xₖ - α ∇f(xₖ)] - xₖ
+        #
         norm_grad = norm(uk .- u_prev, Inf)
 
         # check convergence
