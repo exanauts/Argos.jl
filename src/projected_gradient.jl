@@ -193,13 +193,13 @@ function ngpa(
 
         # Stopping criteration: uₖ₊₁ - uₖ
         ## Dual infeasibility
-        # feasible_direction!(dk, wk, uk, ∇f, 1.0, u♭, u♯)
-        # norm_grad = norm(dk, Inf)
+        feasible_direction!(dk, wk, uk, ∇f, 1.0, u♭, u♯)
+        norm_grad = norm(dk, Inf)
         ## Dual infeasibility set to norm of Cauchy step
         #
         # sₖ(α) = P[xₖ - α ∇f(xₖ)] - xₖ
         #
-        norm_grad = norm(uk .- u_prev, Inf)
+        # norm_grad = norm(uk .- u_prev, Inf)
 
         # check convergence
         if (n_iter % verbose_it == 0)

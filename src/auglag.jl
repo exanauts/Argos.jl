@@ -79,22 +79,25 @@ function ExaPF.optimize!(
         elseif algo.inner_algo == :projected_gradient
             solution = projected_gradient(aug, ųₖ; α0=α0, tol=ωtol)
         elseif algo.inner_algo == :tron
-            solution = tron_solve(aug, uₖ;
-                                  options=Dict("max_minor" => algo.max_inner_iter,
-                                               "tron_code" => :Julia,
-                                               "tol" => ωtol)
-                                  )
+            solution = tron_solve(
+                aug, uₖ;
+                options=Dict(
+                    "max_minor" => algo.max_inner_iter,
+                    "tron_code" => :Julia,
+                    "tol" => ωtol
+                )
+            )
         elseif algo.inner_algo == :MOI
             # Initiate optimizer
             optimizer = moi_optimizer()
             # Pass the problem to the ExaPF.MOIEvaluator
+            n_iter = aug.counter.gradient
             moi_solution = ExaPF.optimize!(optimizer, aug, uₖ)
             MOI.empty!(optimizer)
             solution = (
                 status=moi_solution.status,
+                iter=aug.counter.gradient - n_iter,
                 minimizer=moi_solution.minimizer,
-                inf_du=1e8,
-                iter=100,
             )
         end
         uₖ = solution.minimizer
