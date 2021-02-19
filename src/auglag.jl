@@ -53,10 +53,12 @@ function ExaPF.optimize!(
     α0 = algo.α0
     verbose = (algo.verbose > 0)
 
+    # Initialization (aka iteration 0)
     ExaPF.update!(aug, uₖ)
     # Get gradient of Augmented Lagrangian
     ExaPF.gradient!(aug, grad, uₖ)
     feasible_direction!(wk, wk, uₖ, grad, 1.0, u♭, u♯)
+
     ε_primal = algo.ε_primal
     ε_dual = algo.ε_dual * (1.0 + norm(wk))
 
@@ -64,13 +66,33 @@ function ExaPF.optimize!(
 
     # Init multiplier
     if algo.lsq_lambda
-        copy!(aug.λ, ExaPF.estimate_multipliers(aug, uk))
+        copy!(aug.λ, ExaPF.estimate_multipliers(aug, uₖ))
+    end
+
+    if verbose
+        name = if algo.inner_algo == :MOI
+            MOI.get(moi_optimizer(), MOI.SolverName())
+        else
+            algo.inner_algo
+        end
+        println("AugLag algorithm, running with $(name)\n")
+
+        println("Total number of variables............................:      ", ExaPF.n_variables(nlp))
+        println("Total number of constraints..........................:      ", ExaPF.n_constraints(nlp))
+        println()
+
+        log_header()
+        # O-th iteration
+        obj = ExaPF.objective(nlp, uₖ)
+        primal_feas = ExaPF.primal_infeasibility!(nlp, cons, uₖ)
+        dual_feas = norm(wk, 2)
+        log_iter(0, obj, primal_feas, dual_feas, ηk, aug.ρ, 0)
     end
 
     local solution
     status = MOI.ITERATION_LIMIT
 
-    verbose && log_header()
+    tic = time()
     for i_out in 1:algo.max_iter
         uₖ .= u_start
         # Inner iteration: projected gradient algorithm
@@ -115,7 +137,7 @@ function ExaPF.optimize!(
         dual_feas = norm(wk, 2)
 
         # Log
-        verbose && log_iter(i_out, obj, primal_feas, dual_feas, ηk, n_iter) # Log evolution
+        verbose && log_iter(i_out, obj, primal_feas, dual_feas, ηk, aug.ρ, n_iter) # Log evolution
         push!(tracer, obj, primal_feas, dual_feas)
 
         if (dual_feas < ε_dual) && (primal_feas < ε_primal)
@@ -134,10 +156,16 @@ function ExaPF.optimize!(
             ηk = 1.0 / (aug.ρ^0.1)
         end
     end
+    toc = time() - tic
 
     if verbose
+        println()
+        println("Number of iterations....: ", length(tracer.objective))
         println("Number of objective function evaluations             = ", aug.counter.objective)
         println("Number of objective gradient evaluations             = ", aug.counter.gradient)
+        println("Number of Lagrangian Hessian evaluations             = ", aug.counter.hessian)
+        @printf("Total CPU time                                       = %.3f\n", toc)
+        println()
     end
 
     solution = (
