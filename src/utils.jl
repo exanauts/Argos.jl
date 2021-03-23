@@ -122,3 +122,24 @@ function proj_gradient!(w::VT, u::VT, u♭::VT, u♯::VT; tol=1e-12) where VT<:A
         end
     end
 end
+
+# !! Support only FeasibilityEvaluator
+function update_slack!(
+    aug::ExaPF.AugLagEvaluator{Evaluator, T, VT},
+    x::VT,
+) where {Evaluator<:ExaPF.SlackEvaluator, T, VT}
+    slk = aug.inner
+    x♭, x♯ = ExaPF.bounds(slk, ExaPF.Variables())
+    @views begin
+        u  = x[1:slk.nv]
+        s  = x[slk.nv+1:end]
+        s♭ = x♭[slk.nv+1:end]
+        s♯ = x♯[slk.nv+1:end]
+    end
+    # Update AugLag
+    ExaPF.update!(aug, x)
+
+    # Magic step
+    s .= min.(s♯, max.(s♭, (1/aug.ρ) .* aug.λ .+ aug.cons))
+    return
+end

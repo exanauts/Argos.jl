@@ -4,6 +4,7 @@ Base.@kwdef struct AugLagSolver <: AbstractExaOptimizer
     max_iter::Int = 100
     max_inner_iter::Int = 1000
     ρ0::Float64 = 0.1
+    rate::Float64 = 10.0
     ωtol::Float64 = 1e-5
     α0::Float64 = 1.0
     verbose::Int = 0
@@ -91,6 +92,7 @@ function ExaPF.optimize!(
 
     local solution
     status = MOI.ITERATION_LIMIT
+    mul = copy(aug.λ)
 
     tic = time()
     for i_out in 1:algo.max_iter
@@ -150,9 +152,10 @@ function ExaPF.optimize!(
         # Update the penalties (see Nocedal & Wright, page 521)
         if norm(abs.(aug.cons), Inf) <= ηk
             ExaPF.update_multipliers!(aug)
+            mul = hcat(mul, aug.λ)
             ηk = ηk / (aug.ρ^0.9)
         else
-            ExaPF.update_penalty!(aug; η=10.0)
+            ExaPF.update_penalty!(aug; η=algo.rate)
             ηk = 1.0 / (aug.ρ^0.1)
         end
     end
@@ -173,6 +176,7 @@ function ExaPF.optimize!(
         minimum=obj,
         minimizer=uₖ,
         trace=tracer,
+        multipliers=mul,
     )
 
     return solution
