@@ -57,6 +57,12 @@ git-tree-sha1 = "ecdec412a9abc8db54c0efc5548c64dfce072058"
 uuid = "b99e7846-7c00-51b0-8f62-c81ae34c0232"
 version = "0.5.10"
 
+[[BlockPowerFlow]]
+deps = ["CEnum", "CUDA", "ExaPF", "LinearAlgebra", "LinearOperators", "MatrixMarket", "Printf", "SparseArrays", "Test"]
+path = "/home/fpacaud/.julia/dev/BlockPowerFlow"
+uuid = "0ca6dcf5-c23f-4097-a3ba-dae6c919a0c0"
+version = "0.1.0"
+
 [[Bzip2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "19a35467a82e236ff51bc17a3a44b69ef35185a2"
@@ -73,6 +79,12 @@ deps = ["AbstractFFTs", "Adapt", "BFloat16s", "CEnum", "CompilerSupportLibraries
 git-tree-sha1 = "6893a46f357eabd44ce0fc1f9a264120a1a3a732"
 uuid = "052768ef-5323-5732-b1bb-66c8b64840ba"
 version = "2.6.3"
+
+[[CUDAKernels]]
+deps = ["Adapt", "CUDA", "Cassette", "KernelAbstractions", "SpecialFunctions", "StaticArrays"]
+git-tree-sha1 = "0daaee29c30f1ea9e1a8f7c9d92b00d07aba0fa0"
+uuid = "72cfdca4-0801-4ab0-bf6a-d52aa10adc57"
+version = "0.1.0"
 
 [[Cassette]]
 git-tree-sha1 = "f80b4da0c926dc96f946628757a5926ff5a42e28"
@@ -167,7 +179,7 @@ uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 deps = ["ExaPF", "LinearAlgebra", "LinearOperators", "MathOptInterface", "Printf", "TimerOutputs", "UnicodePlots"]
 git-tree-sha1 = "94d1d80ace19c038e0fa4b45846f253804ef60db"
 repo-rev = "master"
-repo-url = "/home/frapac/dev/anl/ExaOpt"
+repo-url = "/home/fpacaud/exa/ExaOpt"
 uuid = "ef244971-cf80-42b0-9762-2c2c832df5d5"
 version = "0.1.0"
 
@@ -223,7 +235,7 @@ version = "0.9.9"
 deps = ["BinaryProvider", "Libdl", "LinearAlgebra", "MathOptInterface", "SparseArrays"]
 git-tree-sha1 = "20cb05b5b64c436e81e5407c93a4f4992694411a"
 repo-rev = "master"
-repo-url = "/home/frapac/dev/hiop.jl"
+repo-url = "https://github.com/exanauts/hiop.jl"
 uuid = "f890763e-d4e5-4bf9-9dfa-7ed54d93ce96"
 version = "0.2.0"
 
@@ -376,6 +388,12 @@ deps = ["LinearAlgebra", "SparseArrays"]
 git-tree-sha1 = "9abbe463a1e9fc507f12a69e7f29346c2cdc472c"
 uuid = "fdba3010-5040-5b88-9595-932c9decdf73"
 version = "0.7.8"
+
+[[MatrixMarket]]
+deps = ["Compat", "SparseArrays"]
+git-tree-sha1 = "54d39ccb57d29aefa666418bca8ca5598ebd8225"
+uuid = "4d4711f2-db25-561a-b6b3-d35e7d4047d3"
+version = "0.3.1"
 
 [[MbedTLS]]
 deps = ["Dates", "MbedTLS_jll", "Random", "Sockets"]

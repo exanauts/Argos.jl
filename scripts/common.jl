@@ -2,6 +2,9 @@
 using ExaPF
 using LinearAlgebra
 using KernelAbstractions
+using CUDA
+using CUDA.CUSPARSE
+
 using CUDAKernels
 
 const PS = ExaPF.PowerSystem

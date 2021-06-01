@@ -32,7 +32,6 @@ function build!(nlp)
 
     function eval_f(x::Vector{Float64}, prob::HiopProblem)
         _update!(x)
-        ExaPF.update!(nlp, x)
         return ExaPF.objective(nlp, x)
     end
 
@@ -43,7 +42,6 @@ function build!(nlp)
 
     function eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}, prob::HiopProblem)
         _update!(x)
-        ExaPF.update!(nlp, x)
         ExaPF.gradient!(nlp, grad_f, x)
         return Int32(1)
     end
@@ -65,7 +63,7 @@ function build!(nlp)
         if :Dense in mode
             _update!(x)
             # Evaluate Hessian
-            ExaPF.hessian!(nlp, H, x)
+            ExaPF.batch_hessian!(nlp, H, x)
             HDD .= obj_factor .* H[:]
         end
         return Int32(1)
