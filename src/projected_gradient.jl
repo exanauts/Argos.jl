@@ -165,14 +165,14 @@ function ngpa(
         step = 1.0
         d∇g = dot(dk, ∇f)
         for j_ls in 1:ls_itermax
-            project!(wk, uk .+ step .* dk, u♭, u♯)
+            project_step!(wk, uk, dk, u♭, u♯, step)
             conv = ExaPF.update!(nlp, wk)
-            ft = ExaPF.objective(nlp, wk)
-            if ft <= min(fᵣ, f♯_ref) + step * δ * d∇g
+            f₊ = ExaPF.objective(nlp, wk)
+            if f₊ <= min(fᵣ, f♯_ref) + step * δ * d∇g
                 break
             end
             # Step introduced in Birgin & Martinez & Raydan (2012)
-            α = - 0.5 * step^2 * d∇g / (ft - f - step * d∇g)
+            α = - 0.5 * step^2 * d∇g / (f₊ - f - step * d∇g)
             if σ1_arm * step <= α <= σ2_arm * step
                 step = α
             else
@@ -185,7 +185,6 @@ function ngpa(
         uk .= wk
         # Objective
         f = ExaPF.objective(nlp, uk)
-        c_ref = ExaPF.inner_objective(nlp, uk)
         # Gradient
         ExaPF.gradient!(nlp, ∇f, uk)
         sk = uk - u_prev
@@ -204,7 +203,7 @@ function ngpa(
         # check convergence
         if (n_iter % verbose_it == 0)
             inf_pr = ExaPF.primal_infeasibility(nlp.inner, nlp.cons ./ nlp.scaler.scale_cons)
-            @printf("%6d %.6e %.3e %.2e %.2e %.2e\n", n_iter, f, f - c_ref, norm_grad, inf_pr, step)
+            @printf("%6d %.6e %.2e %.2e %.2e\n", n_iter, f, norm_grad, inf_pr, step)
         end
 
         ##################################################
@@ -246,7 +245,7 @@ function ngpa(
         buffer_costs[n_iter % M_ref + 1] = f
         f♯_ref = maximum(buffer_costs)
         if ls_algo == 1
-            w = .15
+            w = 0.15
             fᵣ = w * f♯_ref + (1 - w) * f
         elseif ls_algo == 2
             qt = η_ref * Q_ref + 1.0
@@ -276,7 +275,7 @@ function ngpa(
         end
 
         # Active-set embedding
-        if active_set && (n_iter >= 10)
+        if active_set && (n_iter >= 5)
             grad_act .= ∇f
             ExaOpt.active!(grad_act, uk, u♭, u♯)
             feasible_direction!(dk, wk, uk, ∇f, 1.0, u♭, u♯)
@@ -310,7 +309,7 @@ function ngpa(
         status = MaxIterations
     end
 
-    solution = (
+    return (
         status=status,
         minimum=f,
         minimizer=uk,
@@ -318,7 +317,5 @@ function ngpa(
         inf_du=norm_grad,
         active_set=A,
     )
-
-    return solution
 end
 

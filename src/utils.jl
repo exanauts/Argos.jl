@@ -77,8 +77,12 @@ function undecided_set!(
 end
 
 ## Projection operator
-function project!(xp, x, x♭, x♯)
-    xp .= max.(min.(x, x♯), x♭)
+function project!(y, x, x♭, x♯)
+    y .= max.(min.(x, x♯), x♭)
+end
+function project_step!(y, x, d, x♭, x♯, α)
+    y .= x .+ α .* d
+    y .= max.(min.(y, x♯), x♭)
 end
 
 ## Feasible direction
