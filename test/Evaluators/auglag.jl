@@ -5,7 +5,8 @@ function test_auglag_evaluator(nlp, device, MT)
     @testset "Scaling $scaling" for scaling in [true, false]
         ExaOpt.reset!(nlp)
         pen = ExaOpt.AugLagEvaluator(nlp, u0; scale=scaling)
-        bgd = ExaOpt.BridgeDeviceEvaluator(pen, CPU())
+        VTD, MTD = MT{Float64, 1}, MT{Float64, 2}
+        bgd = ExaOpt.BridgeDeviceEvaluator(pen, VTD, MTD)
         u = w♭
         # Update nlp to stay on manifold
         ExaOpt.update!(pen, u)

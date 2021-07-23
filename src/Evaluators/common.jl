@@ -132,8 +132,8 @@ function MaxScaler(g_min, g_max)
 end
 
 
-function MaxScaler(nlp::AbstractNLPEvaluator, u0::AbstractVector;
-                   η=100.0, tol=1e-8)
+function MaxScaler(nlp::AbstractNLPEvaluator, u0::VT;
+                   η=100.0, tol=1e-8) where VT
     n = n_variables(nlp)
     m = n_constraints(nlp)
     conv = update!(nlp, u0)
@@ -142,10 +142,9 @@ function MaxScaler(nlp::AbstractNLPEvaluator, u0::AbstractVector;
 
     s_obj = scale_factor(ExaPF.xnorm_inf(∇g), tol, η)
 
-    VT = typeof(u0)
-    ∇c = ExaPF.xzeros(VT, n)
+    ∇c = VT(undef, n)
+    v = VT(undef, m)
     h_s_cons = zeros(m)
-    v = ExaPF.xzeros(VT, m)
     h_v = zeros(m)
     for i in eachindex(h_s_cons)
         fill!(h_v, 0.0)

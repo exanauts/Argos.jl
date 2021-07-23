@@ -42,7 +42,7 @@ end
 function test_evaluator_callbacks(nlp, device, M; rtol=1e-6)
     # Wrap Evaluator to evaluate FiniteDiff on the CPU
     # (finite_difference_gradient does not support `allowscalar(false)`)
-    bdg = ExaOpt.BridgeDeviceEvaluator(nlp, ExaPF.CPU())
+    bdg = ExaOpt.BridgeDeviceEvaluator(nlp, M{Float64, 1}, M{Float64, 2})
 
     n = ExaOpt.n_variables(nlp)
     m = ExaOpt.n_constraints(nlp)

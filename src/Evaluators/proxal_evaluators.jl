@@ -46,14 +46,14 @@ function ProxALEvaluator(
     nu = n_variables(nlp)
     ng = Base.get(nlp, PS.NumberOfGenerators())
 
-    s_min = ExaPF.xzeros(VT, ng)
-    s_max = ExaPF.xones(VT, ng)
-    λf = ExaPF.xzeros(VT, ng)
-    λt = ExaPF.xzeros(VT, ng)
+    s_min = fill!(VT(undef, ng), zero(T))
+    s_max = fill!(VT(undef, ng), one(T))
+    λf = fill!(VT(undef, ng), zero(T))
+    λt = fill!(VT(undef, ng), zero(T))
 
-    pgf = ExaPF.xzeros(VT, ng)
-    pgc = ExaPF.xzeros(VT, ng)
-    pgt = ExaPF.xzeros(VT, ng)
+    pgf = fill!(VT(undef, ng), zero(T))
+    pgc = fill!(VT(undef, ng), zero(T))
+    pgt = fill!(VT(undef, ng), zero(T))
 
     pbm = ExaPF.pullback_ramping(nlp.model, nothing)
 
@@ -70,7 +70,7 @@ end
 function ProxALEvaluator(
     pf::PS.PowerNetwork,
     time::ProxALTime;
-    device=KA.CPU(),
+    device=ExaPF.CPU(),
     options...
 )
     # Build network polar formulation
@@ -82,7 +82,7 @@ end
 function ProxALEvaluator(
     datafile::String;
     time::ProxALTime=Normal,
-    device=KA.CPU(),
+    device=ExaPF.CPU(),
     options...
 )
     nlp = ReducedSpaceEvaluator(datafile; device=device, options...)

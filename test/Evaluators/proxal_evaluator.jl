@@ -5,7 +5,8 @@ function test_proxal_evaluator(nlp, device, MT)
         # Build ProxAL evaluator
         prox = ExaOpt.ProxALEvaluator(nlp, time)
         # Wrapper for FiniteDiff
-        bgd = ExaOpt.BridgeDeviceEvaluator(prox, ExaPF.CPU())
+        VTD, MTD = MT{Float64, 1}, MT{Float64, 2}
+        bgd = ExaOpt.BridgeDeviceEvaluator(prox, VTD, MTD)
 
         n = ExaOpt.n_variables(prox)
         w = ExaOpt.initial(prox)
