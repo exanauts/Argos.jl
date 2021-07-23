@@ -4,8 +4,6 @@ using LinearAlgebra
 using Printf
 using SparseArrays
 
-using KernelAbstractions
-
 using ExaPF
 import ExaPF: LinearSolvers, AutoDiff, PowerSystem
 const LS = LinearSolvers

@@ -88,7 +88,7 @@ function AugLagEvaluator(
     return AugLagEvaluator(nlp, cons_type, cx, c₀, λ, λc, scaler, NLPCounter())
 end
 function AugLagEvaluator(
-    datafile::String; device=CPU(), scale=false, c₀=0.1, options...
+    datafile::String; device=ExaPF.CPU(), scale=false, c₀=0.1, options...
 )
     nlp = ReducedSpaceEvaluator(datafile; device=device, options...)
     u0 = initial(nlp)

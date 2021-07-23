@@ -32,7 +32,7 @@ struct BridgeDeviceEvaluator{Evaluator, VT, MT, DVT, DMT} <: AbstractNLPEvaluato
     inner::Evaluator
     bridge::BridgeDeviceArrays{DVT, DMT}
 end
-function BridgeDeviceEvaluator(nlp::AbstractNLPEvaluator, device)
+function BridgeDeviceEvaluator(nlp::AbstractNLPEvaluator, ::Type{VTD}, ::Type{MTD}) where {VTD, MTD}
     if isa(nlp, BridgeDeviceEvaluator)
         error("BridgeDeviceEvaluator cannot wrap another BridgeDeviceEvaluator.")
     end
@@ -40,20 +40,8 @@ function BridgeDeviceEvaluator(nlp::AbstractNLPEvaluator, device)
     # Deporting device
     VT = Array{Float64, 1}
     MT = Array{Float64, 2}
-    model = backend(nlp)
-    if isa(model.device, CPU)
-        VTD = Array{Float64, 1}
-        MTD = Array{Float64, 2}
-    else
-        VTD = CUDA.CuArray{Float64, 1}
-        MTD = CUDA.CuArray{Float64, 2}
-    end
     bridge = BridgeDeviceArrays(n, m, VTD, MTD)
     return BridgeDeviceEvaluator{typeof(nlp), VT, MT, VTD, MTD}(nlp, bridge)
-end
-function BridgeDeviceEvaluator(case::String; device=KA.CPU())
-    nlp = ReducedSpaceEvaluator(case)
-    return BridgeDeviceEvaluator(nlp, device)
 end
 
 n_variables(nlp::BridgeDeviceEvaluator) = n_variables(nlp.inner)

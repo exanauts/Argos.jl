@@ -120,9 +120,8 @@ function ReducedSpaceEvaluator(
         shift += m
     end
 
-    SpMT = isa(model.device, CPU) ? SparseMatrixCSC : CUSPARSE.CuSparseMatrixCSR
     # Build Linear Algebra
-    J = ExaPF.powerflow_jacobian(model) |> SpMT
+    J = ExaPF.powerflow_jacobian_device(model)
     _linear_solver = isnothing(linear_solver) ? LS.DirectSolver(J) : linear_solver
 
     obj_ad = ExaPF.pullback_objective(model)
@@ -157,11 +156,10 @@ function ReducedSpaceEvaluator(
         _linear_solver, powerflow_solver, want_jacobian, false, want_hessian,
     )
 end
-function ReducedSpaceEvaluator(datafile::String; device=CPU(), options...)
+function ReducedSpaceEvaluator(datafile::String; device=ExaPF.CPU(), options...)
     return ReducedSpaceEvaluator(ExaPF.PolarForm(datafile, device); options...)
 end
 
-array_type(nlp::ReducedSpaceEvaluator) = ExaPF.array_type(nlp.model)
 backend(nlp::ReducedSpaceEvaluator) = nlp.model
 
 n_variables(nlp::ReducedSpaceEvaluator) = length(nlp.u_min)
@@ -275,23 +273,6 @@ function constraint!(nlp::ReducedSpaceEvaluator, g, u)
     end
 end
 
-function _backward_solve!(nlp::ReducedSpaceEvaluator, y, x)
-    ∇gₓ = nlp.state_jacobian.x.J
-    if isa(nlp.linear_solver, LS.AbstractIterativeLinearSolver)
-        # Iterative solver case
-        ∇gT = LS.get_transpose(nlp.linear_solver, ∇gₓ)
-        # Switch preconditioner to transpose mode
-        LS.update!(nlp.linear_solver, ∇gT)
-        # Compute adjoint and store value inside λₖ
-        LS.ldiv!(nlp.linear_solver, y, ∇gT, x)
-    elseif isa(y, Array)
-        LS.rdiv!(nlp.linear_solver, y, x)
-    else
-        ∇gT = LS.get_transpose(nlp.linear_solver, ∇gₓ)
-        LS.ldiv!(nlp.linear_solver, y, ∇gT, x)
-    end
-end
-
 ###
 # First-order code
 ####
@@ -306,7 +287,7 @@ function reduced_gradient!(
     ∇gₓ = nlp.state_jacobian.x.J
 
     # λ = ∇gₓ' \ ∂fₓ
-    _backward_solve!(nlp, λ, ∂fₓ)
+    LS.rdiv!(nlp.linear_solver, λ, ∇gₓ, ∂fₓ)
 
     grad .= ∂fᵤ
     mul!(grad, transpose(∇gᵤ), λ, -1.0, 1.0)
