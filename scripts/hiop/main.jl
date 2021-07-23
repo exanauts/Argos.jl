@@ -16,12 +16,12 @@ constraints = Function[
 ]
 
 pf_solver = ExaPF.NewtonRaphson(tol=1e-10)
-nlp = ExaPF.ReducedSpaceEvaluator(datafile; constraints=constraints, powerflow_solver=pf_solver)
-slk = ExaPF.SlackEvaluator(nlp, ExaPF.CPU())
-aug = @time ExaPF.AugLagEvaluator(slk, ExaPF.initial(slk); c₀=0.1, scale=true)
+nlp = ExaOpt.ReducedSpaceEvaluator(datafile; constraints=constraints, powerflow_solver=pf_solver)
+slk = ExaOpt.SlackEvaluator(nlp, ExaPF.CPU())
+aug = @time ExaOpt.AugLagEvaluator(slk, ExaPF.initial(slk); c₀=0.1, scale=true)
 
 function hiop_subproblem(aug)
     pb = build!(aug)
-    x = ExaPF.initial(aug)
-    return ExaPF.optimize!(pb, aug, x)
+    x = ExaOpt.initial(aug)
+    return ExaOpt.optimize!(pb, aug, x)
 end
