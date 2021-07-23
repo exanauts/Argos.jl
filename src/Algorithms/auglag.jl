@@ -14,26 +14,26 @@ Base.@kwdef struct AugLagSolver <: AbstractExaOptimizer
     ε_dual::Float64 = 1e-8
 end
 
-function ExaPF.optimize!(
+function optimize!(
     algo::AugLagSolver,
-    model::ExaPF.AbstractNLPEvaluator,
+    model::AbstractNLPEvaluator,
     u0::AbstractVector;
     options ...
 )
-    aug = ExaPF.AugLagEvaluator(model, u0; scale=algo.scaling, c₀=algo.ρ0)
-    return ExaPF.optimize!(algo, aug, u0; options...)
+    aug = ExaOpt.AugLagEvaluator(model, u0; scale=algo.scaling, c₀=algo.ρ0)
+    return optimize!(algo, aug, u0; options...)
 end
 
 # Augmented Lagrangian method
-function ExaPF.optimize!(
+function optimize!(
     algo::AugLagSolver,
-    aug::ExaPF.AugLagEvaluator,
+    aug::AugLagEvaluator,
     u0::AbstractVector;
     moi_optimizer=nothing
 )
     nlp = aug.inner
-    m = ExaPF.n_constraints(nlp)
-    u♭, u♯ = ExaPF.bounds(nlp, ExaPF.Variables())
+    m = n_constraints(nlp)
+    u♭, u♯ = bounds(nlp, Variables())
 
     # Initialize arrays
     uₖ        = copy(u0)
@@ -55,9 +55,9 @@ function ExaPF.optimize!(
     verbose = (algo.verbose > 0)
 
     # Initialization (aka iteration 0)
-    ExaPF.update!(aug, uₖ)
+    update!(aug, uₖ)
     # Get gradient of Augmented Lagrangian
-    ExaPF.gradient!(aug, grad, uₖ)
+    gradient!(aug, grad, uₖ)
     feasible_direction!(wk, wk, uₖ, grad, 1.0, u♭, u♯)
 
     ε_primal = algo.ε_primal
@@ -67,7 +67,7 @@ function ExaPF.optimize!(
 
     # Init multiplier
     if algo.lsq_lambda
-        copy!(aug.λ, ExaPF.estimate_multipliers(aug, uₖ))
+        copy!(aug.λ, estimate_multipliers(aug, uₖ))
     end
 
     if verbose
@@ -78,14 +78,14 @@ function ExaPF.optimize!(
         end
         println("AugLag algorithm, running with $(name)\n")
 
-        println("Total number of variables............................:      ", ExaPF.n_variables(nlp))
-        println("Total number of constraints..........................:      ", ExaPF.n_constraints(nlp))
+        println("Total number of variables............................:      ", n_variables(nlp))
+        println("Total number of constraints..........................:      ", n_constraints(nlp))
         println()
 
         log_header()
         # O-th iteration
-        obj = ExaPF.objective(nlp, uₖ)
-        primal_feas = ExaPF.primal_infeasibility!(nlp, cons, uₖ)
+        obj = objective(nlp, uₖ)
+        primal_feas = primal_infeasibility!(nlp, cons, uₖ)
         dual_feas = norm(wk, 2)
         log_iter(0, obj, primal_feas, dual_feas, ηk, aug.ρ, 0)
     end
@@ -114,9 +114,9 @@ function ExaPF.optimize!(
         elseif algo.inner_algo == :MOI
             # Initiate optimizer
             optimizer = moi_optimizer()
-            # Pass the problem to the ExaPF.MOIEvaluator
+            # Pass the problem to the MOIEvaluator
             n_iter = aug.counter.gradient
-            moi_solution = ExaPF.optimize!(optimizer, aug, uₖ)
+            moi_solution = optimize!(optimizer, aug, uₖ)
             MOI.empty!(optimizer)
             solution = (
                 status=moi_solution.status,
@@ -128,13 +128,13 @@ function ExaPF.optimize!(
         n_iter = solution.iter
 
         # Update information w.r.t. original evaluator
-        obj = ExaPF.objective(nlp, uₖ)
+        obj = objective(nlp, uₖ)
         # Get gradient of Augmented Lagrangian
-        ExaPF.gradient!(aug, grad, uₖ)
+        gradient!(aug, grad, uₖ)
         feasible_direction!(wk, wk, uₖ, grad, 1.0, u♭, u♯)
 
         # Primal feasibility
-        primal_feas = ExaPF.primal_infeasibility!(nlp, cons, uₖ)
+        primal_feas = primal_infeasibility!(nlp, cons, uₖ)
         # Dual feasibility
         dual_feas = norm(wk, 2)
 
@@ -151,11 +151,11 @@ function ExaPF.optimize!(
         u_start .= uₖ
         # Update the penalties (see Nocedal & Wright, page 521)
         if norm(abs.(aug.cons), Inf) <= ηk
-            ExaPF.update_multipliers!(aug)
+            update_multipliers!(aug)
             mul = hcat(mul, aug.λ)
             ηk = ηk / (aug.ρ^0.9)
         else
-            ExaPF.update_penalty!(aug; η=algo.rate)
+            update_penalty!(aug; η=algo.rate)
             ηk = 1.0 / (aug.ρ^0.1)
         end
     end
