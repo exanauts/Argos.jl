@@ -18,7 +18,7 @@ SuiteSparse.UMFPACK.umf_ctrl[8] = 0.0
 PROBLEMS = Dict(
     # "case9" => "/home/fpacaud/exa/ExaPF.jl/data/case9.m",
     # "case30" => "/home/fpacaud/exa/ExaPF.jl/data/case30.m",
-    "case57" => "/home/frapac/dev/anl/ExaPF.jl/data/case57.m",
+    "case57" => "/home/fpacaud/exa/ExaPF.jl/data/case57.m",
     "case118" => "/home/fpacaud/exa/ExaPF.jl/data/case118.m",
     "case300" => "/home/fpacaud/exa/ExaPF.jl/data/case300.m",
     "case1354" => "/home/fpacaud/exa/pglib-opf/pglib_opf_case1354_pegase.m",
@@ -34,27 +34,27 @@ function build_problem(datafile; scale=true, ρ=0.1, pf_tol=1e-10)
         ExaPF.active_power_constraints,
         ExaPF.reactive_power_constraints,
     ]
-    nlp = ExaPF.ReducedSpaceEvaluator(datafile; powerflow_solver=ExaPF.NewtonRaphson(tol=pf_tol), constraints=constraints)
-    slk = ExaPF.SlackEvaluator(nlp, ExaPF.CPU())
-    x0 = ExaPF.initial(slk)
-    return ExaPF.AugLagEvaluator(slk, x0; c₀=ρ, scale=scale)
+    nlp = ExaOpt.ReducedSpaceEvaluator(datafile; powerflow_solver=ExaPF.NewtonRaphson(tol=pf_tol), constraints=constraints)
+    slk = ExaOpt.SlackEvaluator(nlp)
+    x0 = ExaOpt.initial(slk)
+    return ExaOpt.AugLagEvaluator(slk, x0; c₀=ρ, scale=scale)
 end
 
 function madnlp_subproblem(aug)
     optimizer = MadNLP.Optimizer(linear_solver=MadNLP.LapackCPU)
     MOI.set(optimizer, MOI.RawParameter("tol"), 1e-5)
-    solution = @time ExaPF.optimize!(optimizer, aug)
+    solution = @time ExaOpt.optimize!(optimizer, aug)
     MOI.empty!(optimizer)
 end
 
 function solve_auglag(aug)
     algo = ExaOpt.AugLagSolver(;
-        max_iter=10,
+        max_iter=20,
         max_inner_iter=100,
         scaling=true,
         α0=1.0,
         ρ0=1e1,
-        rate=2.0,
+        rate=10.0,
         ωtol=1e-5,
         verbose=1,
         inner_algo=:MOI,
@@ -64,6 +64,7 @@ function solve_auglag(aug)
     )
 
     c0 = algo.ρ0
+    x0 = ExaOpt.initial(aug)
 
     opt = () -> MadNLP.Optimizer(
         linear_solver=MadNLP.LapackGPU,
@@ -72,11 +73,11 @@ function solve_auglag(aug)
         tol=1e-5
     )
 
-    solution = ExaPF.optimize!(algo, aug, x0; moi_optimizer=opt)
+    solution = ExaOpt.optimize!(algo, aug, x0; moi_optimizer=opt)
     return aug, solution
 end
 
-datafile = PROBLEMS["case57"]
+datafile = PROBLEMS["case300"]
 aug = build_problem(datafile)
-solution = @time madnlp_subproblem(aug)
+solution = @time solve_auglag(aug)
 
