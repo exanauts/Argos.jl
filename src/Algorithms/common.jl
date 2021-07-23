@@ -80,6 +80,7 @@ end
 function project!(y, x, x♭, x♯)
     y .= max.(min.(x, x♯), x♭)
 end
+
 function project_step!(y, x, d, x♭, x♯, α)
     y .= x .+ α .* d
     y .= max.(min.(y, x♯), x♭)
@@ -106,44 +107,3 @@ function log_iter(nit, obj, inf_pr, inf_du, alpha, rho, n_inner)
     )
 end
 
-function active_gradient!(
-    model::ExaPF.AbstractNLPEvaluator,
-    ∇f::AbstractVector,
-    u::AbstractVector,
-)
-    u♭, u♯ = ExaPF.bounds(model, ExaPF.Variables())
-    ExaPF.gradient!(model, ∇f, u)
-    active!(∇f, u, u♭, u♯)
-end
-
-function proj_gradient!(w::VT, u::VT, u♭::VT, u♯::VT; tol=1e-12) where VT<:AbstractArray
-    @assert length(w) == length(u)
-    for i in eachindex(u)
-        if (u[i] < u♭[i] + tol)
-            w[i] = min(w[i], 0.0)
-        elseif (u[i] > u♯[i] - tol)
-            w[i] = max(w[i], 0.0)
-        end
-    end
-end
-
-# !! Support only FeasibilityEvaluator
-function update_slack!(
-    aug::ExaPF.AugLagEvaluator{Evaluator, T, VT},
-    x::VT,
-) where {Evaluator<:ExaPF.SlackEvaluator, T, VT}
-    slk = aug.inner
-    x♭, x♯ = ExaPF.bounds(slk, ExaPF.Variables())
-    @views begin
-        u  = x[1:slk.nv]
-        s  = x[slk.nv+1:end]
-        s♭ = x♭[slk.nv+1:end]
-        s♯ = x♯[slk.nv+1:end]
-    end
-    # Update AugLag
-    ExaPF.update!(aug, x)
-
-    # Magic step
-    s .= min.(s♯, max.(s♭, (1/aug.ρ) .* aug.λ .+ aug.cons))
-    return
-end

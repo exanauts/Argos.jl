@@ -2,19 +2,20 @@ module ExaOpt
 
 using LinearAlgebra
 using Printf
-using ExaPF
-using MathOptInterface
+using SparseArrays
 
+using KernelAbstractions
+
+using ExaPF
+import ExaPF: LinearSolvers, AutoDiff, PowerSystem
+const LS = LinearSolvers
+const PS = PowerSystem
+
+import MathOptInterface
 const MOI = MathOptInterface
 
-# Generic type to define new optimization method
-abstract type AbstractExaOptimizer end
+include("Evaluators/Evaluators.jl")
 
-include("utils.jl")
-include("line_model.jl")
-include("projected_gradient.jl")
-include("conjugategradient.jl")
-include("activeset.jl")
-include("auglag.jl")
+include("Algorithms/Algorithms.jl")
 
 end # module

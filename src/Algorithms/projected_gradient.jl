@@ -25,13 +25,13 @@ function projected_gradient(
     for i in 1:max_iter
         n_iter += 1
         # solve power flow and compute gradients
-        ExaPF.update!(nlp, uk)
+        update!(nlp, uk)
 
         # evaluate cost
-        c = ExaPF.objective(nlp, uk)
+        c = objective(nlp, uk)
         # Evaluate cost of problem without penalties
-        c_ref = nlp.scaler.scale_obj * ExaPF.objective(nlp.inner, uk)
-        ExaPF.gradient!(nlp, grad, uk)
+        c_ref = nlp.scaler.scale_obj * objective(nlp.inner, uk)
+        gradient!(nlp, grad, uk)
 
         # compute control step
         # Armijo line-search (Bertsekas, 1976)
@@ -39,9 +39,9 @@ function projected_gradient(
         step = α0
         for j_ls in 1:ls_itermax
             step *= β
-            ExaPF.project!(wk, uk .- step .* dk, u♭, u♯)
-            ExaPF.update!(nlp, wk)
-            ft = ExaPF.objective(nlp, wk)
+            project!(wk, uk .- step .* dk, u♭, u♯)
+            update!(nlp, wk)
+            ft = objective(nlp, wk)
             if ft <= c - τ * dot(dk, wk .- uk)
                 break
             end
@@ -49,8 +49,8 @@ function projected_gradient(
 
         # step = αi
         wk .= uk .- step * dk
-        ExaPF.project!(uk, wk, u♭, u♯)
-        f = ExaPF.objective(nlp, uk)
+        project!(uk, wk, u♭, u♯)
+        f = objective(nlp, uk)
 
         # Stopping criteration: uₖ₊₁ - uₖ
         ## Dual infeasibility set to norm of Cauchy step
@@ -59,7 +59,7 @@ function projected_gradient(
         #
         norm_grad = norm(uk .- u_prev, Inf)
         ## Primal infeasibility
-        inf_pr = ExaPF.primal_infeasibility(nlp.inner, nlp.cons)
+        inf_pr = primal_infeasibility(nlp.inner, nlp.cons)
 
         # check convergence
         if (i % verbose_it == 0)
@@ -100,19 +100,19 @@ function ngpa(
     ls_algo=3,
 )
 
-    n = ExaPF.n_variables(nlp)
+    n = n_variables(nlp)
     # Status
     status = NotSolved
     u_prev = copy(uk)
     ∇f = copy(uk)
     wk = copy(uk)
     dk = copy(uk)
-    u♭, u♯ = bounds(nlp, ExaPF.Variables())
+    u♭, u♯ = bounds(nlp, Variables())
 
     # Initial evaluation
-    ExaPF.update!(nlp, uk)
-    f = ExaPF.objective(nlp, uk)
-    ExaPF.gradient!(nlp, ∇f, uk)
+    update!(nlp, uk)
+    f = objective(nlp, uk)
+    gradient!(nlp, ∇f, uk)
 
     # Memory
     grad_prev = copy(∇f)
@@ -166,8 +166,8 @@ function ngpa(
         d∇g = dot(dk, ∇f)
         for j_ls in 1:ls_itermax
             project_step!(wk, uk, dk, u♭, u♯, step)
-            conv = ExaPF.update!(nlp, wk)
-            f₊ = ExaPF.objective(nlp, wk)
+            conv = update!(nlp, wk)
+            f₊ = objective(nlp, wk)
             if f₊ <= min(fᵣ, f♯_ref) + step * δ * d∇g
                 break
             end
@@ -184,9 +184,9 @@ function ngpa(
         ## Update parameters
         uk .= wk
         # Objective
-        f = ExaPF.objective(nlp, uk)
+        f = objective(nlp, uk)
         # Gradient
-        ExaPF.gradient!(nlp, ∇f, uk)
+        gradient!(nlp, ∇f, uk)
         sk = uk - u_prev
         yk = ∇f - grad_prev
 
@@ -202,7 +202,7 @@ function ngpa(
 
         # check convergence
         if (n_iter % verbose_it == 0)
-            inf_pr = ExaPF.primal_infeasibility(nlp.inner, nlp.cons ./ nlp.scaler.scale_cons)
+            inf_pr = primal_infeasibility(nlp.inner, nlp.cons ./ nlp.scaler.scale_cons)
             @printf("%6d %.6e %.2e %.2e %.2e\n", n_iter, f, norm_grad, inf_pr, step)
         end
 

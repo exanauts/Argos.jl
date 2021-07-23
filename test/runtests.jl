@@ -1,29 +1,42 @@
 
 using Test
-using ExaOpt
-using ExaPF
-using MathOptInterface
+using LinearAlgebra
+using SparseArrays
 
+using KernelAbstractions
+
+using ExaPF
+using ExaOpt
+
+using MathOptInterface
 const MOI = MathOptInterface
 
-const CASE = joinpath(dirname(@__FILE__), "case57.m")
+const INSTANCES_DIR = joinpath(dirname(pathof(ExaPF)), "..", "data")
+const CASES = ["case9.m", "case30.m"]
+ARCHS = Any[(CPU(), Array, SparseMatrixCSC)]
 
-@testset "Augmented Lagrangian solver" begin
-    nlp = ExaPF.ReducedSpaceEvaluator(CASE)
+# Load test modules
+@isdefined(TestEvaluators) || include("Evaluators/TestEvaluators.jl")
 
-    @testset "NGPA backend" begin
-        algo = ExaOpt.AugLagSolver(;
-            max_iter=20,
-            verbose=0,
-            ωtol=1e-5,
-            scaling=true,
-            inner_algo=:ngpa,
-            ε_dual=1e-2,
-        )
-        solution = ExaPF.optimize!(algo, nlp, ExaPF.initial(nlp))
-        @test solution.status == MOI.ITERATION_LIMIT
-        # NGPA slow to converges (no second order information)
-        # Solution is larger than expected.
-        @test solution.minimum ≈ 3.7593e+04 rtol=1e-3
+init_time = time()
+@testset "Test device specific code on $device" for (device, AT, SMT) in ARCHS
+    @info "Test device $device"
+    println("Test Evaluators ...")
+    tic = time()
+    @testset "ExaPF.Evaluator $(case)" for case in CASES
+        datafile = joinpath(INSTANCES_DIR, case)
+        TestEvaluators.runtests(datafile, device, AT)
     end
+    println("Took $(round(time() - tic; digits=1)) seconds.")
 end
+println()
+
+@testset "Test reduced gradient algorithms on CPU" begin
+    @info "Test reduced gradient algorithm ..."
+    tic = time()
+    include("Algorithms/reduced_gradient.jl")
+    include("Algorithms/MOI_wrapper.jl")
+    println("Took $(round(time() - tic; digits=1)) seconds.")
+end
+println("\nTOTAL RUNNING TIME: $(round(time() - init_time; digits=1)) seconds.")
+
