@@ -3,6 +3,7 @@ using Test
 using LinearAlgebra
 using SparseArrays
 
+using CUDA
 using KernelAbstractions
 
 using ExaPF
@@ -14,6 +15,13 @@ const MOI = MathOptInterface
 const INSTANCES_DIR = joinpath(dirname(pathof(ExaPF)), "..", "data")
 const CASES = ["case9.m", "case30.m"]
 ARCHS = Any[(CPU(), Array, SparseMatrixCSC)]
+
+if has_cuda_gpu()
+    using CUDAKernels
+    include("cusolver.jl")
+    CUDA_ARCH = (CUDADevice(), CuArray, nothing)
+    push!(ARCHS, CUDA_ARCH)
+end
 
 # Load test modules
 @isdefined(TestEvaluators) || include("Evaluators/TestEvaluators.jl")
