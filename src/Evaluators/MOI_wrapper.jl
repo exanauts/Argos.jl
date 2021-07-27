@@ -3,7 +3,7 @@
 """
     MOIEvaluator <: MOI.AbstractNLPEvaluator
 
-Bridge from a [`ExaPF.AbstractNLPEvaluator`](@ref) to a `MOI.AbstractNLPEvaluator`.
+Bridge from a [`AbstractNLPEvaluator`](@ref) to a `MOI.AbstractNLPEvaluator`.
 
 ## Attributes
 

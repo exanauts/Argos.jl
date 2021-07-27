@@ -3,7 +3,7 @@
     AbstractNLPEvaluator
 
 AbstractNLPEvaluator implements the bridge between the
-problem formulation (see [`AbstractFormulation`](@ref)) and the optimization
+problem formulation (see `ExaPF.AbstractFormulation`) and the optimization
 solver. Once the problem formulation bridged, the evaluator allows
 to evaluate:
 - the objective;

@@ -13,7 +13,7 @@ Once a new point `u` is passed to the evaluator,
 the user needs to call the method `update!` to find the corresponding
 state ``x(u)`` satisfying the balance equation ``g(x(u), u) = 0``.
 
-Taking as input a [`PolarForm`](@ref) structure, the reduced evaluator
+Taking as input an `ExaPF.PolarForm` structure, the reduced evaluator
 builds the bounds corresponding to the control `u`,
 The reduced evaluator could be instantiated on the host memory, or on a specific device
 (currently, only CUDA is supported).
