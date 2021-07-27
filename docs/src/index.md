@@ -1,16 +1,16 @@
 # ExaPF
 
 [`ExaOpt.jl`](https://github.com/exanauts/ExaPF-Opt.jl) is a
-package extending [`ExaPF.jl`]((https://github.com/exanauts/ExaPF-Opt.jl)
+package extending [`ExaPF.jl`](https://github.com/exanauts/ExaPF-Opt.jl)
 for the resolution of large-scale optimal power flow (OPF) problems
 on exascale architectures.
 
-[`ExaOpt.jl`]((https://github.com/exanauts/ExaPF-Opt.jl) implements
+[`ExaOpt.jl`](https://github.com/exanauts/ExaPF-Opt.jl) implements
 a generic interface for the various callbacks needed by nonlinear
 optimization solvers. The callbacks are defined inside `Evaluators`
 structure, each `Evaluator` having its particular use-case.
 Among these evaluators, the `[`ReducedSpaceEvaluator`](@ref)` uses
-the fast power flow solver implemented in [`ExaPF.jl`]((https://github.com/exanauts/ExaPF-Opt.jl)
+the fast power flow solver implemented in [`ExaPF.jl`](https://github.com/exanauts/ExaPF-Opt.jl)
 to run the optimization directly in the reduced space induced by the
 power flow equations.
 

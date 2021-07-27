@@ -5,7 +5,7 @@
 [docs-latest-img]: https://img.shields.io/badge/docs-latest-blue.svg
 [docs-latest-url]: https://exanauts.github.io/ExaOpt/
 
-ExaOpt extends [`ExaPF.jl`]((https://github.com/exanauts/ExaPF.jl) by implementing
+ExaOpt extends [ExaPF.jl](https://github.com/exanauts/ExaPF.jl) by implementing
 the optimization routines required to solve the optimal power flow (OPF) problems.
 The routines come in two flavors:
 - in `src/Evaluators/`, various optimization evaluators implement the different callbacks
@@ -16,7 +16,7 @@ The routines come in two flavors:
 ## Installation
 
 ExaOpt is currently unregistered. To install it, you should be a member
-of the [`exanauts`](https://exanauts.github.io/) organization.
+of the [*exanauts*](https://exanauts.github.io/) organization.
 
 ```julia
 add "git@github.com:exanauts/ExaPF-Opt.git"
@@ -60,7 +60,7 @@ ExaPF.hessian(nlp, u)   # reduced Hessian
 ```
 
 ### Use the ReducedSpaceEvaluator on GPU accelerators
-[`ExaPF.jl`]((https://github.com/exanauts/ExaPF-Opt.jl) is
+[`ExaPF.jl`](https://github.com/exanauts/ExaPF-Opt.jl) is
 using [`KernelAbstractions`](https://github.com/JuliaGPU/KernelAbstractions.jl)
 to implement all its core operations. Hence, deporting the computation in ExaPF
 on GPU accelerators is straightforward. ExaOpt inherits this behavior and
