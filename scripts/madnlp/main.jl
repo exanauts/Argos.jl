@@ -40,21 +40,21 @@ function build_problem(datafile; scale=true, ρ=0.1, pf_tol=1e-10)
     return ExaOpt.AugLagEvaluator(slk, x0; c₀=ρ, scale=scale)
 end
 
-function madnlp_subproblem(aug)
-    optimizer = MadNLP.Optimizer(linear_solver=MadNLP.LapackCPU)
+function madnlp_subproblem(aug; linear_solver=MadNLPLapackCPU)
+    optimizer = MadNLP.Optimizer(linear_solver=linear_solver)
     MOI.set(optimizer, MOI.RawParameter("tol"), 1e-5)
     solution = @time ExaOpt.optimize!(optimizer, aug)
     MOI.empty!(optimizer)
 end
 
-function solve_auglag(aug)
+function solve_auglag(aug; linear_solver=MadNLPLapackCPU)
     algo = ExaOpt.AugLagSolver(;
         max_iter=20,
         max_inner_iter=100,
         scaling=true,
         α0=1.0,
         ρ0=1e1,
-        rate=10.0,
+        rate=100.0,
         ωtol=1e-5,
         verbose=1,
         inner_algo=:MOI,
@@ -67,10 +67,10 @@ function solve_auglag(aug)
     x0 = ExaOpt.initial(aug)
 
     opt = () -> MadNLP.Optimizer(
-        linear_solver=MadNLP.LapackGPU,
+        linear_solver=linear_solver,
         print_level=MadNLP.ERROR,
         max_iter=1000,
-        tol=1e-5
+        tol=1e-5,
     )
 
     solution = ExaOpt.optimize!(algo, aug, x0; moi_optimizer=opt)
