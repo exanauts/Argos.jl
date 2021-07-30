@@ -28,7 +28,7 @@ function ExaOpt._batch_hessian_factorization(J::CuSparseMatrixCSR, nbatch)
     return (lufac, lufact)
 end
 
-function ExaOpt.update_factorization!(hlag::AbstractHessianStorage, J::CUSPARSE.CuSparseMatrixCSR)
+function ExaOpt.update_factorization!(hlag::ExaOpt.AbstractHessianStorage, J::CUSPARSE.CuSparseMatrixCSR)
     LinearAlgebra.lu!(hlag.lu, J)
     ∇gₓᵀ = CUSPARSE.CuSparseMatrixCSC(J)
     LinearAlgebra.lu!(hlag.adjlu, ∇gₓᵀ)
