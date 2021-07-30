@@ -237,6 +237,7 @@ Reset evaluator `nlp` to default configuration.
 function reset! end
 
 include("common.jl")
+include("scalers.jl")
 include("bridge_evaluator.jl")
 
 # Basic evaluators

@@ -112,51 +112,72 @@ function _inf_pr(nlp::AbstractNLPEvaluator, cons)
 end
 
 #=
-    SCALER
+    HESSIAN
 =#
-abstract type AbstractScaler end
-
-scale_factor(h, tol, η) = max(tol, η / max(1.0, h))
-
-struct MaxScaler{T, VT} <: AbstractScaler
-    scale_obj::T
-    scale_cons::VT
-    g_min::VT
-    g_max::VT
-end
-function MaxScaler(g_min, g_max)
-    @assert length(g_min) == length(g_max)
-    m = length(g_min)
-    sc = similar(g_min) ; fill!(sc, 1.0)
-    return MaxScaler{eltype(g_min), typeof(g_min)}(1.0, sc, g_min, g_max)
-end
-
-
-function MaxScaler(nlp::AbstractNLPEvaluator, u0::VT;
-                   η=100.0, tol=1e-8) where VT
-    n = n_variables(nlp)
-    m = n_constraints(nlp)
-    conv = update!(nlp, u0)
-    ∇g = similar(u0) ; fill!(∇g, 0)
-    gradient!(nlp, ∇g, u0)
-
-    s_obj = scale_factor(ExaPF.xnorm_inf(∇g), tol, η)
-
-    ∇c = VT(undef, n)
-    v = VT(undef, m)
-    h_s_cons = zeros(m)
-    h_v = zeros(m)
-    for i in eachindex(h_s_cons)
-        fill!(h_v, 0.0)
-        h_v[i] = 1.0
-        copyto!(v, h_v)
-        jtprod!(nlp, ∇c, u0, v)
-        h_s_cons[i] = scale_factor(ExaPF.xnorm_inf(∇c), tol, η)
+# Small utils to compute the factorization for batch Hessian algorithm
+function _batch_hessian_factorization(J::AbstractSparseMatrix, nbatch)
+    lufac = LS.exa_factorize(J)
+    if isnothing(lufac)
+        error("Unable to find a factorization routine for type $(typeof(J))")
     end
+    return (lufac, lufac')
+end
 
-    g♭, g♯ = bounds(nlp, Constraints())
-    s_cons = h_s_cons |> VT
+abstract type AbstractHessianStorage end
 
-    return MaxScaler{typeof(s_obj), typeof(s_cons)}(s_obj, s_cons, s_cons .* g♭, s_cons .* g♯)
+struct HessianLagrangian{VT,Hess,Fac1,Fac2} <: AbstractHessianStorage
+    hess::Hess
+    # Adjoints
+    y::VT
+    z::VT
+    ψ::VT
+    tmp_tgt::VT
+    tmp_hv::VT
+    lu::Fac1
+    adjlu::Fac2
+end
+function HessianLagrangian(polar::PolarForm{T, VI, VT, MT}, J::AbstractSparseMatrix) where {T, VI, VT, MT}
+    lu1, lu2 = _batch_hessian_factorization(J, 1)
+    nx, nu = ExaPF.get(polar, ExaPF.NumberOfState()), ExaPF.get(polar, ExaPF.NumberOfControl())
+    m = ExaPF.size_constraint(polar, ExaPF.network_operations)
+    H = AutoDiff.Hessian(polar, ExaPF.network_operations)
+    y = VT(undef, m)
+    z = VT(undef, nx)
+    ψ = VT(undef, nx)
+    tgt = VT(undef, nx+nu)
+    hv = VT(undef, nx+nu)
+    return HessianLagrangian(H, y, z, ψ, tgt, hv, lu1, lu2)
+end
+n_batches(hlag::HessianLagrangian) = 1
+
+struct BatchHessianLagrangian{MT,Hess,Fac1,Fac2} <: AbstractHessianStorage
+    nbatch::Int
+    hess::Hess
+    # Adjoints
+    y::MT
+    z::MT
+    ψ::MT
+    tmp_tgt::MT
+    tmp_hv::MT
+    lu::Fac1
+    adjlu::Fac2
+end
+function BatchHessianLagrangian(polar::PolarForm{T, VI, VT, MT}, J, nbatch) where {T, VI, VT, MT}
+    lu1, lu2 = _batch_hessian_factorization(J, nbatch)
+    nx, nu = ExaPF.get(polar, ExaPF.NumberOfState()), ExaPF.get(polar, ExaPF.NumberOfControl())
+    m = ExaPF.size_constraint(polar, ExaPF.network_operations)
+    H = ExaPF.BatchHessian(polar, ExaPF.network_operations, nbatch)
+    y   = MT(undef, m, 1)  # adjoint is the same for all batches
+    z   = MT(undef, nx, nbatch)
+    ψ   = MT(undef, nx, nbatch)
+    tgt = MT(undef, nx+nu, nbatch)
+    hv  = MT(undef, nx+nu, nbatch)
+    return BatchHessianLagrangian(nbatch, H, y, z, ψ, tgt, hv, lu1, lu2)
+end
+n_batches(hlag::BatchHessianLagrangian) = hlag.nbatch
+
+function update_factorization!(hlag::AbstractHessianStorage, J::AbstractSparseMatrix)
+    LinearAlgebra.lu!(hlag.lu, J)
+    return
 end
 
