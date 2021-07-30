@@ -1,4 +1,3 @@
-import ExaPF: BatchHessianLagrangian, HessianLagrangian
 
 """
     ReducedSpaceEvaluator{T, VI, VT, MT, Jacx, Jacu, JacCons, Hess} <: AbstractNLPEvaluator
@@ -142,9 +141,9 @@ function ReducedSpaceEvaluator(
     hess_ad = nothing
     if want_hessian
         hess_ad = if nbatch_hessian > 1
-            ExaPF.BatchHessianLagrangian(model, J, nbatch_hessian)
+            BatchHessianLagrangian(model, J, nbatch_hessian)
         else
-            ExaPF.HessianLagrangian(model, J)
+            HessianLagrangian(model, J)
         end
     end
 
@@ -167,7 +166,7 @@ n_constraints(nlp::ReducedSpaceEvaluator) = length(nlp.g_min)
 
 constraints_type(::ReducedSpaceEvaluator) = :inequality
 has_hessian(nlp::ReducedSpaceEvaluator) = nlp.has_hessian
-number_batches_hessian(nlp::ReducedSpaceEvaluator) = nlp.has_hessian ? ExaPF.n_batches(nlp.hesslag) : 0
+number_batches_hessian(nlp::ReducedSpaceEvaluator) = nlp.has_hessian ? n_batches(nlp.hesslag) : 0
 
 adjoint_jacobian(nlp::ReducedSpaceEvaluator, ::State) = nlp.state_jacobian.x.J
 adjoint_jacobian(nlp::ReducedSpaceEvaluator, ::Control) = nlp.state_jacobian.u.J
@@ -247,7 +246,7 @@ function update!(nlp::ReducedSpaceEvaluator, u)
     # Update Hessian factorization
     if !isnothing(nlp.hesslag)
         ∇gₓ = nlp.state_jacobian.x.J
-        ExaPF.update_factorization!(nlp.hesslag, ∇gₓ)
+        update_factorization!(nlp.hesslag, ∇gₓ)
         # Update values for Hessian's AutoDiff
         ExaPF.update_hessian!(nlp.model, nlp.hesslag.hess, nlp.buffer)
     end
@@ -562,7 +561,7 @@ macro define_batch_hessian(function_name, target_function, args...)
     quote
         function $(esc(fname_dispatch))(nlp::ReducedSpaceEvaluator, hesslag::BatchHessianLagrangian, dest, $(map(esc, argstup)...))
             @assert has_hessian(nlp)
-            @assert ExaPF.n_batches(hesslag) > 1
+            @assert n_batches(hesslag) > 1
             n = n_variables(nlp)
             ∇²f = hesslag.hess
             nbatch = size(hesslag.tmp_hv, 2)
