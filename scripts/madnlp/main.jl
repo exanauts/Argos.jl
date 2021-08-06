@@ -9,6 +9,8 @@ using CUDA
 
 const MOI = MathOptInterface
 
+# MadNLP wrapper
+include("wrapper.jl")
 include(joinpath(dirname(@__FILE__), "..", "common.jl"))
 include(joinpath(dirname(@__FILE__), "..", "problems.jl"))
 
