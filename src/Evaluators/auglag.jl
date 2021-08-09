@@ -197,5 +197,6 @@ function reset!(ag::AugLagEvaluator)
     fill!(ag.cons, 0)
     fill!(ag.λ, 0)
     fill!(ag.λc, 0)
+    return
 end
 

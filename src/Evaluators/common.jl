@@ -181,3 +181,31 @@ function update_factorization!(hlag::AbstractHessianStorage, J::AbstractSparseMa
     return
 end
 
+function transfer_auglag_hessian!(
+    dest::AbstractMatrix{T},
+    H::AbstractMatrix{T},
+    J::AbstractMatrix{T},
+    ρ::AbstractVector{T},
+) where T
+    n = size(H, 1)
+    m = size(J, 1)
+    @assert size(dest, 1) == n + m
+    @assert size(ρ, 1) == m
+
+    @views begin
+        Hᵤᵤ = dest[1:n, 1:n]
+        Hᵤᵥ = dest[1:n, 1+n:end]
+        Hᵥᵤ = dest[1+n:end, 1:n]
+        Hᵥᵥ = dest[1+n:end, 1+n:end]
+    end
+    # Block (1, 1)
+    copyto!(Hᵤᵤ, H)
+
+    D = Diagonal(ρ)
+    mul!(Hᵤᵥ, J', -D)
+    mul!(Hᵥᵤ, - D, J)
+    fill!(Hᵥᵥ, 0)
+    ind = diagind(Hᵥᵥ) # extract coefficients on the diagonal
+    Hᵥᵥ[ind] .= ρ
+    return
+end

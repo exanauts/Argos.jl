@@ -224,35 +224,18 @@ function hessian_lagrangian_penalty!(
     nlp::SlackEvaluator, H, x, y, σ, w,
 )
     n = n_variables(nlp)
-    @views begin
-        u   = x[1:nlp.nv]
-        Hᵤᵤ = H[1:nlp.nv, 1:nlp.nv]
-        Hᵤᵥ = H[1:nlp.nv, 1+nlp.nv:n]
-        Hᵥᵤ = H[1+nlp.nv:n, 1:nlp.nv]
-        Hᵥᵥ = H[1+nlp.nv:n, 1+nlp.nv:n]
-    end
+    u = @view x[1:nlp.nv]
     # w.r.t. uu
     # ∇²L + ρ Jᵤ' * Jᵤ
     #
     # Passing a contiguous array for H is more appropriate
     # than passing a non-contiguous view
     hessian_lagrangian_penalty!(nlp.inner, nlp.H, u, y, σ, w)
-    copyto!(Hᵤᵤ, nlp.H)
-
+    fill!(nlp.J, 0.0)
     if !iszero(w)
-        D = Diagonal(w)
-        Jᵤ = nlp.J ; fill!(Jᵤ, 0.0)
-        jacobian!(nlp.inner, Jᵤ, u)
-        mul!(Hᵤᵥ, Jᵤ', -D)
-        mul!(Hᵥᵤ, - D, Jᵤ)
-        fill!(Hᵥᵥ, 0)
-        ind = diagind(Hᵥᵥ) # extract coefficients on the diagonal
-        Hᵥᵥ[ind] .= w
-    else
-        fill!(Hᵤᵥ, 0)
-        fill!(Hᵥᵤ, 0)
-        fill!(Hᵥᵥ, 0)
+        jacobian!(nlp.inner, nlp.J, u)
     end
+    transfer_auglag_hessian!(H, nlp.H, nlp.J, w)
 end
 
 # TODO: return sparse sparsity pattern for bottom-left block
