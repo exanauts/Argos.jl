@@ -48,6 +48,17 @@ function MadNLP.NonlinearProgram(nlp::ExaOpt.AbstractNLPEvaluator)
         J = reshape(jac, m, n)
         ExaOpt.jacobian!(nlp, J, x)
     end
+    function con_jac!(jac::AbstractArray{Float64,2}, x::AbstractArray{Float64,1})
+        _update!(x)
+        ExaOpt.jacobian!(nlp, jac, x)
+    end
+    function lag_hess!(hess::AbstractArray{Float64,2},x::AbstractArray{Float64,1},l::AbstractArray{Float64,1}, sig::Float64)
+        _update!(x)
+        # Evaluate full reduced Hessian in the preallocated buffer.
+        ExaOpt.hessian!(nlp, hess, x)
+        hess .*= sig
+        return
+    end
     function lag_hess!(hess::AbstractArray{Float64,1},x::AbstractArray{Float64,1},l::AbstractArray{Float64,1}, sig::Float64)
         _update!(x)
         # Evaluate full reduced Hessian in the preallocated buffer.
@@ -91,3 +102,23 @@ function ExaOpt.optimize!(
     MadNLP.optimize!(ips)
     return
 end
+
+function test_dense(aug)
+    ExaOpt.reset!(aug)
+    mnlp = MadNLP.NonlinearProgram(aug)
+    options = Dict{Symbol, Any}(:tol=>1e-5, :max_iter=>30)
+    ipp = MadNLP.DenseSolver(mnlp, Vector{Float64}, Matrix{Float64};
+                             option_dict=options)
+    MadNLP.optimize!(ipp)
+    return ipp
+end
+
+function test_sparse(aug)
+    ExaOpt.reset!(aug)
+    mnlp = MadNLP.NonlinearProgram(aug)
+    options = Dict{Symbol, Any}(:tol=>1e-5, :max_iter=>30)
+    ips = MadNLP.Solver(mnlp; option_dict=options)
+    MadNLP.optimize!(ips)
+    return ips
+end
+

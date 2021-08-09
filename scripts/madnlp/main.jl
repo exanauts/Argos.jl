@@ -28,6 +28,7 @@ function madnlp_subproblem(aug; linear_solver=MadNLPLapackCPU)
     MOI.set(optimizer, MOI.RawParameter("tol"), 1e-5)
     solution = @time ExaOpt.optimize!(optimizer, aug)
     MOI.empty!(optimizer)
+    return solution
 end
 
 function solve_auglag(aug; linear_solver=MadNLPLapackCPU, max_iter=20, penalty=0.1, rate=10.0)
@@ -55,5 +56,5 @@ end
 
 datafile = PROBLEMS["case300"]
 aug = build_problem(datafile)
-solution = @time solve_auglag(aug)
+solution = @time madnlp_subproblem(aug)
 
