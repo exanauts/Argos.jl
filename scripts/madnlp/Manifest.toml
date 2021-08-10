@@ -29,9 +29,9 @@ version = "0.1.0"
 
 [[ArrayInterface]]
 deps = ["IfElse", "LinearAlgebra", "Requires", "SparseArrays", "Static"]
-git-tree-sha1 = "2e004e61f76874d153979effc832ae53b56c20ee"
+git-tree-sha1 = "cdb00a6fb50762255021e5571cf95df3e1797a51"
 uuid = "4fba245c-0d91-5ea0-9b3e-6abc04ee57a9"
-version = "3.1.22"
+version = "3.1.23"
 
 [[Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
@@ -129,9 +129,9 @@ uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
 
 [[DataStructures]]
 deps = ["Compat", "InteractiveUtils", "OrderedCollections"]
-git-tree-sha1 = "4437b64df1e0adccc3e5d1adbc3ac741095e4677"
+git-tree-sha1 = "7d9d316f04214f7efdbb6398d545446e246eff02"
 uuid = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
-version = "0.18.9"
+version = "0.18.10"
 
 [[Dates]]
 deps = ["Printf"]
@@ -169,7 +169,7 @@ uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 
 [[ExaOpt]]
 deps = ["BlockPowerFlow", "CUDA", "CUDAKernels", "ExaPF", "FiniteDiff", "Ipopt", "KernelAbstractions", "LinearAlgebra", "MathOptInterface", "Printf", "Random", "SparseArrays", "Test"]
-git-tree-sha1 = "550196f4f083fe20a138f1f220a06b0c82b8db15"
+git-tree-sha1 = "d7c697f39c209f80128130dc464d2ed4b70e6f1b"
 repo-rev = "master"
 repo-url = "git@github.com:exanauts/ExaPF-Opt.git"
 uuid = "ef244971-cf80-42b0-9762-2c2c832df5d5"
@@ -281,9 +281,9 @@ version = "0.7.0"
 
 [[Krylov]]
 deps = ["LinearAlgebra", "Printf", "SparseArrays"]
-git-tree-sha1 = "8f514b8ee8499be07538c6a263beba3776e3d5b4"
+git-tree-sha1 = "e9e37e375e65c9d6be1373479704494f25a7367a"
 uuid = "ba0b0d4f-ebba-5204-a429-3ac8c609bfb7"
-version = "0.7.4"
+version = "0.7.5"
 
 [[LLVM]]
 deps = ["CEnum", "LLVMExtra_jll", "Libdl", "Printf", "Unicode"]
@@ -332,9 +332,9 @@ uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[LinearOperators]]
 deps = ["FastClosures", "LinearAlgebra", "Printf", "SparseArrays", "TimerOutputs"]
-git-tree-sha1 = "12a8ce0c3ef28df3cb372ca7ae964345251fb12d"
+git-tree-sha1 = "f0ad282c9c75b1de2bc177c00d7d2874aeabea06"
 uuid = "5c8ed15e-5a4c-59e4-a42b-c7e8811fb125"
-version = "1.3.1"
+version = "2.1.0"
 
 [[LogExpFunctions]]
 deps = ["DocStringExtensions", "LinearAlgebra"]
@@ -364,14 +364,14 @@ uuid = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 version = "0.5.7"
 
 [[MadNLP]]
-deps = ["Libdl", "LinearAlgebra", "Logging", "MathOptInterface", "NLPModels", "Pkg", "Printf", "SolverCore", "SparseArrays", "SuiteSparse"]
-path = "/home/frapac/.julia/dev/MadNLP"
+deps = ["CUDA", "CUDAKernels", "KernelAbstractions", "Libdl", "LinearAlgebra", "Logging", "MadNLPGPU", "MathOptInterface", "NLPModels", "Pkg", "Printf", "SolverCore", "SparseArrays", "SuiteSparse"]
+path = "/home/fpacaud/.julia/dev/MadNLP"
 uuid = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
 version = "0.2.0"
 
 [[MadNLPGPU]]
 deps = ["CUDA", "MadNLP"]
-git-tree-sha1 = "c519ac0b3e17a21780dd912648c0c56056a08c66"
+path = "/home/fpacaud/.julia/dev/MadNLP/lib/MadNLPGPU"
 uuid = "d72a61cc-809d-412f-99be-fd81f4b8a598"
 version = "0.1.0"
 
@@ -427,9 +427,9 @@ version = "0.2.20"
 
 [[NLPModels]]
 deps = ["FastClosures", "LinearAlgebra", "LinearOperators", "Printf", "SparseArrays"]
-git-tree-sha1 = "cf505817b47beeaace54e0c702ac72f8b2fffd92"
+git-tree-sha1 = "e17945150641249d1658637e4faf71a049067d73"
 uuid = "a4795742-8479-5a88-8948-cc11e1c8c1a6"
-version = "0.15.0"
+version = "0.17.2"
 
 [[NaNMath]]
 git-tree-sha1 = "bfe47e760d60b82b66b61d2d44128b62e3a369fb"
@@ -556,9 +556,9 @@ version = "0.3.0"
 
 [[StaticArrays]]
 deps = ["LinearAlgebra", "Random", "Statistics"]
-git-tree-sha1 = "3fedeffc02e47d6e3eb479150c8e5cd8f15a77a0"
+git-tree-sha1 = "3240808c6d463ac46f1c1cd7638375cd22abbccb"
 uuid = "90137ffa-7385-5640-81b9-e52037218182"
-version = "1.2.10"
+version = "1.2.12"
 
 [[Statistics]]
 deps = ["LinearAlgebra", "SparseArrays"]
@@ -588,9 +588,9 @@ version = "0.5.12"
 
 [[TranscodingStreams]]
 deps = ["Random", "Test"]
-git-tree-sha1 = "7c53c35547de1c5b9d46a4797cf6d8253807108c"
+git-tree-sha1 = "216b95ea110b5972db65aa90f88d8d89dcb8851c"
 uuid = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
-version = "0.9.5"
+version = "0.9.6"
 
 [[URIs]]
 git-tree-sha1 = "97bbe755a53fe859669cd907f2d96aee8d2c1355"

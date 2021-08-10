@@ -24,6 +24,7 @@ function madnlp_optimizer(linear_solver)
 end
 
 function madnlp_subproblem(aug; linear_solver=MadNLPLapackCPU)
+    ExaOpt.reset!(aug)
     optimizer = MadNLP.Optimizer(linear_solver=linear_solver)
     MOI.set(optimizer, MOI.RawParameter("tol"), 1e-5)
     solution = @time ExaOpt.optimize!(optimizer, aug)

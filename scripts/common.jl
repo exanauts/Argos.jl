@@ -25,13 +25,17 @@ if has_cuda_gpu()
     using CUDA.CUSPARSE
     device!(CUDA_DEVICE)
 
-    function build_batch_problem(datafile, nbatch; ρ=0.1, scale=false)
+    function build_batch_problem(datafile, nbatch; ρ=0.1, scale=false, wrap=true)
         pf_solver = NewtonRaphson(; tol=1e-10)
         nlp = ExaOpt.ReducedSpaceEvaluator(
             datafile; device=CUDADevice(), nbatch_hessian=nbatch, powerflow_solver=pf_solver,
         )
-        bdg = ExaOpt.BridgeDeviceEvaluator(nlp, CuArray{Float64, 1}, CuArray{Float64, 2})
-        slk = ExaOpt.SlackEvaluator(bdg)
+        if wrap
+            bdg = ExaOpt.BridgeDeviceEvaluator(nlp, CuArray{Float64, 1}, CuArray{Float64, 2})
+            slk = ExaOpt.SlackEvaluator(bdg)
+        else
+            slk = ExaOpt.SlackEvaluator(nlp)
+        end
         x0 = ExaOpt.initial(slk)
         aug = ExaOpt.AugLagEvaluator(slk, x0; c₀=ρ, scale=scale)
         return aug

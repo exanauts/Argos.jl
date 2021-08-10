@@ -4,7 +4,9 @@ using CUDAKernels
 using BlockPowerFlow
 
 using KernelAbstractions
+using CUDA
 using CUDA.CUSPARSE
+using ExaPF
 import ExaPF: LinearSolvers
 import BlockPowerFlow: CUSOLVERRF
 
