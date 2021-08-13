@@ -5,7 +5,8 @@ Base.@kwdef struct AugLagSolver <: AbstractExaOptimizer
     max_inner_iter::Int = 1000
     ρ0::Float64 = 0.1
     rate::Float64 = 10.0
-    ωtol::Float64 = 1e-5
+    ωtol::Float64 = 1.0
+    ωtol_min::Float64 = 1.0e-5
     α0::Float64 = 1.0
     verbose::Int = 0
     inner_algo::Symbol = :tron
@@ -102,18 +103,10 @@ function optimize!(
             solution = ngpa(aug, uₖ; α_bb=α0, α♯=α0, tol=ωtol, max_iter=algo.max_inner_iter)
         elseif algo.inner_algo == :projected_gradient
             solution = projected_gradient(aug, ųₖ; α0=α0, tol=ωtol)
-        elseif algo.inner_algo == :tron
-            solution = tron_solve(
-                aug, uₖ;
-                options=Dict(
-                    "max_minor" => algo.max_inner_iter,
-                    "tron_code" => :Julia,
-                    "tol" => ωtol
-                )
-            )
         elseif algo.inner_algo == :MOI
             # Initiate optimizer
             optimizer = moi_optimizer()
+            MOI.set(optimizer, MOI.RawParameter("tol"), ωtol)
             # Pass the problem to the MOIEvaluator
             n_iter = aug.counter.gradient
             moi_solution = optimize!(optimizer, aug, uₖ)
@@ -134,13 +127,9 @@ function optimize!(
         feasible_direction!(wk, wk, uₖ, grad, 1.0, u♭, u♯)
 
         # Primal feasibility
-        primal_feas = primal_infeasibility!(nlp, cons, uₖ)
+        primal_feas = norm(aug.cons, Inf)
         # Dual feasibility
         dual_feas = norm(wk, 2)
-
-        # Log
-        verbose && log_iter(i_out, obj, primal_feas, dual_feas, ηk, aug.ρ, n_iter) # Log evolution
-        push!(tracer, obj, primal_feas, dual_feas)
 
         if (dual_feas < ε_dual) && (primal_feas < ε_primal)
             status = MOI.OPTIMAL
@@ -150,14 +139,22 @@ function optimize!(
         # Update starting point
         u_start .= uₖ
         # Update the penalties (see Nocedal & Wright, page 521)
-        if norm(abs.(aug.cons), Inf) <= ηk
+        if primal_feas <= ηk
             update_multipliers!(aug)
             mul = hcat(mul, aug.λ)
             ηk = ηk / (aug.ρ^0.9)
+            ωtol /= aug.ρ
+            ωtol = max(ωtol, algo.ωtol_min)
         else
             update_penalty!(aug; η=algo.rate)
             ηk = 1.0 / (aug.ρ^0.1)
+            ωtol = 1.0 / aug.ρ
+            ωtol = max(ωtol, algo.ωtol_min)
         end
+
+        # Log
+        verbose && log_iter(i_out, obj, primal_feas, dual_feas, ηk, aug.ρ, n_iter) # Log evolution
+        push!(tracer, obj, primal_feas, dual_feas)
     end
     toc = time() - tic
 

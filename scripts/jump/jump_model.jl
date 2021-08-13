@@ -134,9 +134,6 @@ function attach_callback!(opfmodel::Model)
     index_line_to = constraint_index(opfmodel.ext[:line_to])
     line_flow = [index_line_fr; index_line_to]
 
-    _, flow_max = PS.bounds(pf, PS.Lines(), PS.ActivePower())
-    line_max = [flow_max; flow_max]
-
     opfmodel.ext[:feas_active_pf] = Float64[]
     opfmodel.ext[:feas_reactive_pf] = Float64[]
     opfmodel.ext[:feas_line_flow] = Float64[]
@@ -157,7 +154,7 @@ function attach_callback!(opfmodel::Model)
     )
         push!(opfmodel.ext[:feas_active_pf],   norm(prob.g[pf_active], Inf))
         push!(opfmodel.ext[:feas_reactive_pf], norm(prob.g[pf_reactive], Inf))
-        push!(opfmodel.ext[:feas_line_flow],   maximum(prob.g[line_flow] .- line_max))
+        push!(opfmodel.ext[:feas_line_flow],   max(maximum(prob.g[line_flow]), 0.0))
         return true
     end
 
