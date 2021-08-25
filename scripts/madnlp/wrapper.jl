@@ -114,10 +114,10 @@ end
 function test_dense(aug)
     ExaOpt.reset!(aug)
     mnlp = MadNLP.NonlinearProgram(aug)
-    options = Dict{Symbol, Any}(:tol=>1e-5, :max_iter=>30,
-                                :linear_solver=>MadNLPLapackGPU)
-    ipp = MadNLP.DenseSolver(mnlp, Vector{Float64}, Matrix{Float64};
-                             option_dict=options)
+    options = Dict{Symbol, Any}(:tol=>1e-5, :max_iter=>100,
+                                :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
+                                :linear_solver=>MadNLPLapackCPU)
+    ipp = MadNLP.Solver(mnlp; option_dict=options)
     MadNLP.optimize!(ipp)
     return ipp
 end
@@ -132,6 +132,7 @@ function test_sparse(aug)
     return ips
 end
 
+# TODO: update
 function test_dense_gpu(aug)
     ExaOpt.reset!(aug)
     mnlp = MadNLP.NonlinearProgram(aug)
