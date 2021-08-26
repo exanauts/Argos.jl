@@ -1,9 +1,8 @@
 
-Base.@kwdef struct AugLagSolver <: AbstractExaOptimizer
+Base.@kwdef struct AugLagOptions
     scaling::Bool = true
     max_iter::Int = 100
     max_inner_iter::Int = 1000
-    ρ0::Float64 = 0.1
     rate::Float64 = 10.0
     ωtol::Float64 = 1.0
     ωtol_min::Float64 = 1.0e-5
@@ -15,23 +14,32 @@ Base.@kwdef struct AugLagSolver <: AbstractExaOptimizer
     ε_dual::Float64 = 1e-8
 end
 
-function optimize!(
-    algo::AugLagSolver,
-    model::AbstractNLPEvaluator,
-    u0::AbstractVector;
-    options ...
-)
-    aug = ExaOpt.AugLagEvaluator(model, u0; scale=algo.scaling, c₀=algo.ρ0)
-    return optimize!(algo, aug, u0; options...)
+struct AuglagSolver{InnerOptimizer} <: AbstractExaOptimizer
+    optimizer::InnerOptimizer
+    options::AugLagOptions
+end
+
+function solve_subproblem!(algo::AuglagSolver{<:MOI.AbstractOptimizer}, aug::AugLagEvaluator, uₖ)
+    n_iter = aug.counter.gradient
+    # Initiate optimizer
+    MOI.empty!(algo.optimizer)
+    MOI.set(algo.optimizer, MOI.RawParameter("tol"), algo.options.ωtol)
+    # Pass the problem to the MOIEvaluator
+    moi_solution = optimize!(algo.optimizer, aug, uₖ)
+    return (
+        status=moi_solution.status,
+        iter=aug.counter.gradient - n_iter,
+        minimizer=moi_solution.minimizer,
+    )
 end
 
 # Augmented Lagrangian method
 function optimize!(
-    algo::AugLagSolver,
+    algo::AuglagSolver,
     aug::AugLagEvaluator,
     u0::AbstractVector;
-    moi_optimizer=nothing
 )
+    opt = algo.options
     nlp = aug.inner
     m = n_constraints(nlp)
     u♭, u♯ = bounds(nlp, Variables())
@@ -50,10 +58,10 @@ function optimize!(
 
     tracer = Tracer()
 
-    c0 = algo.ρ0
-    ωtol = algo.ωtol
-    α0 = algo.α0
-    verbose = (algo.verbose > 0)
+    ρ0 = aug.ρ
+    ωtol = opt.ωtol
+    α0 = opt.α0
+    verbose = (opt.verbose > 0)
 
     # Initialization (aka iteration 0)
     update!(aug, uₖ)
@@ -61,22 +69,18 @@ function optimize!(
     gradient!(aug, grad, uₖ)
     feasible_direction!(wk, wk, uₖ, grad, 1.0, u♭, u♯)
 
-    ε_primal = algo.ε_primal
-    ε_dual = algo.ε_dual * (1.0 + norm(wk))
+    ε_primal = opt.ε_primal
+    ε_dual = opt.ε_dual * (1.0 + norm(wk))
 
-    ηk = 1.0 / (c0^0.1)
+    ηk = 1.0 / (ρ0^0.1)
 
     # Init multiplier
-    if algo.lsq_lambda
+    if opt.lsq_lambda
         copy!(aug.λ, estimate_multipliers(aug, uₖ))
     end
 
     if verbose
-        name = if algo.inner_algo == :MOI
-            MOI.get(moi_optimizer(), MOI.SolverName())
-        else
-            algo.inner_algo
-        end
+        name = ""#MOI.get(algo.optimizer, MOI.SolverName())
         println("AugLag algorithm, running with $(name)\n")
 
         println("Total number of variables............................:      ", n_variables(nlp))
@@ -96,27 +100,12 @@ function optimize!(
     mul = copy(aug.λ)
 
     tic = time()
-    for i_out in 1:algo.max_iter
+    for i_out in 1:opt.max_iter
         uₖ .= u_start
-        # Inner iteration: projected gradient algorithm
-        if algo.inner_algo == :ngpa
-            solution = ngpa(aug, uₖ; α_bb=α0, α♯=α0, tol=ωtol, max_iter=algo.max_inner_iter)
-        elseif algo.inner_algo == :projected_gradient
-            solution = projected_gradient(aug, ųₖ; α0=α0, tol=ωtol)
-        elseif algo.inner_algo == :MOI
-            # Initiate optimizer
-            optimizer = moi_optimizer()
-            MOI.set(optimizer, MOI.RawParameter("tol"), ωtol)
-            # Pass the problem to the MOIEvaluator
-            n_iter = aug.counter.gradient
-            moi_solution = optimize!(optimizer, aug, uₖ)
-            MOI.empty!(optimizer)
-            solution = (
-                status=moi_solution.status,
-                iter=aug.counter.gradient - n_iter,
-                minimizer=moi_solution.minimizer,
-            )
-        end
+
+        # Solve inner problem
+        solution = solve_subproblem!(algo, aug, uₖ)
+
         uₖ = solution.minimizer
         n_iter = solution.iter
 
@@ -143,13 +132,13 @@ function optimize!(
             update_multipliers!(aug)
             mul = hcat(mul, aug.λ)
             ηk = ηk / (aug.ρ^0.9)
-            ωtol /= aug.ρ
-            ωtol = max(ωtol, algo.ωtol_min)
+            # ωtol /= aug.ρ
+            # ωtol = max(ωtol, opt.ωtol_min)
         else
-            update_penalty!(aug; η=algo.rate)
+            update_penalty!(aug; η=opt.rate)
             ηk = 1.0 / (aug.ρ^0.1)
-            ωtol = 1.0 / aug.ρ
-            ωtol = max(ωtol, algo.ωtol_min)
+            # ωtol = 1.0 / aug.ρ
+            # ωtol = max(ωtol, opt.ωtol_min)
         end
 
         # Log

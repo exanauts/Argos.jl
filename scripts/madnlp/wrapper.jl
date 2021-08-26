@@ -101,14 +101,43 @@ function MadNLP.NonlinearProgram(nlp::ExaOpt.AbstractNLPEvaluator; allocate_buff
     )
 end
 
-function ExaOpt.optimize!(
-    opt::MadNLP.NonlinearProgram, nlp::ExaOpt.AbstractNLPEvaluator, x0;
-    options=Dict{Symbol, Any}()
-)
-    opt.x .= x0
-    ips = MadNLP.Solver(opt;option_dict=copy(options))
-    MadNLP.optimize!(ips)
-    return
+function ExaOpt.solve_subproblem!(algo::ExaOpt.AuglagSolver{<:MadNLP.Solver}, aug::ExaOpt.AugLagEvaluator, uₖ)
+    n_iter = aug.counter.gradient
+    # Init primal variable
+    copyto!(algo.optimizer.x, uₖ)
+    algo.optimizer.nlp.x[1] *= 1.0001
+    # Optimize
+    MadNLP.optimize!(algo.optimizer)
+    return (
+        status=MadNLP.status_moi_dict[algo.optimizer.status],
+        iter=aug.counter.gradient - n_iter,
+        minimizer=algo.optimizer.nlp.x,
+    )
+end
+
+function solve_auglag_madnlp(aug; linear_solver=MadNLPLapackCPU, max_iter=20, penalty=0.1, rate=10.0)
+    options = ExaOpt.AugLagOptions(;
+        max_iter=max_iter,
+        max_inner_iter=100,
+        α0=1.0,
+        rate=rate,
+        ωtol=1e-5,
+        verbose=1,
+        ε_dual=1e-2,
+        ε_primal=1e-5,
+    )
+    mnlp = MadNLP.NonlinearProgram(aug)
+    madnlp_options = Dict{Symbol, Any}(:tol=>1e-5, :max_iter=>100,
+                                :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
+                                :linear_solver=>linear_solver,
+                                :print_level=>MadNLP.ERROR)
+    ipp = MadNLP.Solver(mnlp; option_dict=madnlp_options)
+    solver = ExaOpt.AuglagSolver(ipp, options)
+
+    x0 = ExaOpt.initial(aug)
+    aug.ρ = penalty # update penalty in Evaluator
+
+    return ExaOpt.optimize!(solver, aug, x0)
 end
 
 function test_dense(aug)

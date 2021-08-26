@@ -2,7 +2,6 @@
 using Revise
 using ExaPF
 using MadNLP
-using MadNLPGPU
 using MathOptInterface
 using ExaOpt
 using CUDA
@@ -32,30 +31,30 @@ function madnlp_subproblem(aug; linear_solver=MadNLPLapackCPU)
     return solution
 end
 
-function solve_auglag(aug; linear_solver=MadNLPLapackCPU, max_iter=20, penalty=0.1, rate=10.0)
-    algo = ExaOpt.AugLagSolver(;
+function solve_auglag_moi(aug; linear_solver=MadNLPLapackCPU, max_iter=20, penalty=0.1, rate=10.0)
+    options = ExaOpt.AugLagOptions(;
         max_iter=max_iter,
         max_inner_iter=100,
         α0=1.0,
-        ρ0=penalty,
         rate=rate,
         ωtol=1e-5,
         verbose=1,
-        inner_algo=:MOI,
         ε_dual=1e-2,
-        ε_primal=1e-3,
+        ε_primal=1e-5,
     )
+    optimizer = MadNLP.Optimizer(
+        linear_solver=linear_solver, print_level=MadNLP.ERROR, max_iter=300,
+    )
+    solver = ExaOpt.AuglagSolver(optimizer, options)
 
     x0 = ExaOpt.initial(aug)
     aug.ρ = penalty # update penalty in Evaluator
 
-    optimizer = () -> madnlp_optimizer(linear_solver)
-
-    solution = ExaOpt.optimize!(algo, aug, x0; moi_optimizer=optimizer)
-    return aug, solution
+    return ExaOpt.optimize!(solver, aug, x0)
 end
 
 datafile = PROBLEMS["case300"]
 aug = build_problem(datafile)
-solution = @time madnlp_subproblem(aug)
+
+# solution = @time solve_auglag(aug, max_iter=10, penalty=1.0)
 
