@@ -19,6 +19,7 @@ struct AuglagSolver{InnerOptimizer} <: AbstractExaOptimizer
     options::AugLagOptions
 end
 
+# Solve subproblem with any MOI compatible solver
 function solve_subproblem!(algo::AuglagSolver{<:MOI.AbstractOptimizer}, aug::AugLagEvaluator, uₖ)
     n_iter = aug.counter.gradient
     # Initiate optimizer
@@ -32,6 +33,29 @@ function solve_subproblem!(algo::AuglagSolver{<:MOI.AbstractOptimizer}, aug::Aug
         minimizer=moi_solution.minimizer,
     )
 end
+
+# Solve subproblem with MadNLP
+function solve_subproblem!(algo::ExaOpt.AuglagSolver{<:MadNLP.Solver}, aug::ExaOpt.AugLagEvaluator, uₖ)
+    n_iter = aug.counter.gradient
+    # Init primal variable
+    copyto!(algo.optimizer.nlp.x, uₖ)
+    algo.optimizer.nlp.x[1] *= 1.0001 # TODO quick fix
+    # Set initial mu if resolve
+    if algo.optimizer.status != MadNLP.INITIAL
+        algo.optimizer.opt.mu_init = 1e-4
+    end
+    # Optimize with IPM
+    MadNLP.optimize!(algo.optimizer)
+    return (
+        status=MadNLP.status_moi_dict[algo.optimizer.status],
+        iter=aug.counter.gradient - n_iter,
+        minimizer=algo.optimizer.nlp.x,
+    )
+end
+
+#=
+    CORE ALGORITHM
+=#
 
 # Augmented Lagrangian method
 function optimize!(
@@ -80,7 +104,7 @@ function optimize!(
     end
 
     if verbose
-        name = ""#MOI.get(algo.optimizer, MOI.SolverName())
+        name = "" #MOI.get(algo.optimizer, MOI.SolverName())
         println("AugLag algorithm, running with $(name)\n")
 
         println("Total number of variables............................:      ", n_variables(nlp))

@@ -12,8 +12,15 @@ const PS = PowerSystem
 import MathOptInterface
 const MOI = MathOptInterface
 
+using MadNLP
+
 include("Evaluators/Evaluators.jl")
 
+# Wrappers
+include("Wrappers/MOI_wrapper.jl")
+include("Wrappers/MadNLP_wrapper.jl")
+
+# Algorithms
 include("Algorithms/Algorithms.jl")
 
 end # module
