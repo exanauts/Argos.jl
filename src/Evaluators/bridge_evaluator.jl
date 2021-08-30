@@ -49,6 +49,7 @@ n_constraints(nlp::BridgeDeviceEvaluator) = n_constraints(nlp.inner)
 constraints_type(nlp::BridgeDeviceEvaluator) = constraints_type(nlp.inner)
 has_hessian(nlp::BridgeDeviceEvaluator) = has_hessian(nlp.inner)
 reset!(nlp::BridgeDeviceEvaluator) = reset!(nlp.inner)
+inner_evaluator(nlp::BridgeDeviceEvaluator) = inner_evaluator(nlp.inner)
 
 # Getters
 get(nlp::BridgeDeviceEvaluator, attr::AbstractNLPAttribute) = get(nlp.inner, attr)
