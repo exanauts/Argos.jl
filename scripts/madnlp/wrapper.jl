@@ -28,25 +28,32 @@ function solve_auglag_madnlp(aug; linear_solver=MadNLPLapackCPU, max_iter=20, pe
     return ipp
 end
 
-function test_dense(aug)
+function test_dense(aug; max_iter=100, scaling=true)
     ExaOpt.reset!(aug)
     mnlp = MadNLP.NonlinearProgram(aug)
-    options = Dict{Symbol, Any}(:tol=>1e-5, :max_iter=>100,
+    options = Dict{Symbol, Any}(:tol=>1e-5, :max_iter=>max_iter,
+                                :nlp_scaling=>scaling,
                                 :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
+                                :print_level=>MadNLP.DEBUG,
                                 :linear_solver=>MadNLPLapackCPU)
     ipp = MadNLP.Solver(mnlp; option_dict=options)
     MadNLP.optimize!(ipp)
     return ipp
 end
 
-function test_sparse(aug)
+function test_dense_new(aug; max_iter=100, scaling=true)
     ExaOpt.reset!(aug)
-    mnlp = MadNLP.NonlinearProgram(aug; allocate_buffer=true)
-    options = Dict{Symbol, Any}(:tol=>1e-5, :max_iter=>30,
+    mnlp = MadNLP.NonlinearProgram(aug)
+    options = Dict{Symbol, Any}(:tol=>1e-5, :max_iter=>max_iter,
+                                :nlp_scaling=>scaling,
+                                # :inertia_correction_method=>MadNLP.INERTIA_FREE,
+                                :print_level=>MadNLP.DEBUG,
+                                :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
                                 :linear_solver=>MadNLPLapackCPU)
-    ips = MadNLP.Solver(mnlp; option_dict=options)
-    MadNLP.optimize!(ips)
-    return ips
+    kkt = ExaOpt.MixedAuglagKKTSystem{Float64, Vector{Float64}, Matrix{Float64}}(aug, Int[])
+    ipp = MadNLP.Solver(mnlp; option_dict=options, kkt=kkt)
+    MadNLP.optimize!(ipp)
+    return ipp
 end
 
 # TODO: update

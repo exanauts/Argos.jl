@@ -26,7 +26,7 @@ function MaxScaler(nlp::AbstractNLPEvaluator, u0::VT;
     ∇g = similar(u0) ; fill!(∇g, 0)
     gradient!(nlp, ∇g, u0)
 
-    s_obj = scale_factor(ExaPF.xnorm_inf(∇g), tol, η)
+    s_obj = 1e-4 #scale_factor(ExaPF.xnorm_inf(∇g), tol, η)
 
     ∇c = VT(undef, n)
     v = VT(undef, m)

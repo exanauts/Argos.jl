@@ -160,6 +160,7 @@ function ReducedSpaceEvaluator(datafile::String; device=ExaPF.CPU(), options...)
 end
 
 backend(nlp::ReducedSpaceEvaluator) = nlp.model
+inner_evaluator(nlp::ReducedSpaceEvaluator) = nlp
 
 n_variables(nlp::ReducedSpaceEvaluator) = length(nlp.u_min)
 n_constraints(nlp::ReducedSpaceEvaluator) = length(nlp.g_min)
@@ -423,6 +424,7 @@ function full_hessprod!(nlp::ReducedSpaceEvaluator, hv::AbstractMatrix, y::Abstr
     nx, nu = ExaPF.get(nlp.model, ExaPF.NumberOfState()), ExaPF.get(nlp.model, ExaPF.NumberOfControl())
     H = nlp.hesslag
     ExaPF.batch_adj_hessian_prod!(nlp.model, H.hess, hv, nlp.buffer, y, tgt)
+    # TODO: remove allocations
     ∂fₓ = hv[1:nx, :]
     ∂fᵤ = hv[nx+1:nx+nu, :]
     return ∂fₓ , ∂fᵤ

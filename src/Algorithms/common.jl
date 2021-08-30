@@ -100,6 +100,7 @@ function log_header()
         "iter    objective    inf_pr   inf_du    η         ρ   #inner\n"
     )
 end
+
 function log_iter(nit, obj, inf_pr, inf_du, alpha, rho, n_inner)
     @printf(
         "%4i %10.7e %6.2e %6.2e %6.2e %6.2e %i\n",

@@ -82,3 +82,170 @@ function MadNLP.NonlinearProgram(nlp::ExaOpt.AbstractNLPEvaluator)
     )
 end
 
+# Special wrapper for Auglag
+
+#=
+    MixedAuglagKKTSystem
+=#
+
+# Supports only bound-constrained optimization problem (so no Jacobian)!
+struct MixedAuglagKKTSystem{T, VT, MT} <: MadNLP.AbstractKKTSystem{T, MT}
+    aug::AugLagEvaluator # for Auglag information
+    aug_com::MT
+    hess::MT
+    jac::MT
+    pr_diag::VT
+    du_diag::VT
+    sl_diag::VT
+    rhs::VT
+    weights::VT
+    ipp_scale::VT
+    # Info
+    ind_fixed::Vector{Int}
+end
+
+function MixedAuglagKKTSystem{T, VT, MT}(aug::AugLagEvaluator, ind_fixed) where {T, VT, MT}
+    inner = inner_evaluator(aug)
+    n = n_variables(inner)
+    m = n_constraints(inner)
+
+    aug_com   = MT(undef, n, n)
+    hess      = MT(undef, n, n)
+    jac       = MT(undef, m, n)
+    pr_diag   = VT(undef, n + m) # Σ  = [Σᵤ, Σₛ]
+    sl_diag   = VT(undef, m)     # Σₛ + ρ I
+    rhs       = VT(undef, n + m)
+    du_diag   = VT(undef, 0)
+    weights   = VT(undef, m)
+    ipp_scale   = VT(undef, 1)
+
+    # Init!
+    fill!(aug_com,   zero(T))
+    fill!(hess,      zero(T))
+    fill!(jac,       zero(T))
+    fill!(pr_diag,   zero(T))
+    fill!(sl_diag,   zero(T))
+    fill!(weights,   zero(T))
+
+    return MixedAuglagKKTSystem{T, VT, MT}(
+        aug, aug_com, hess, jac, pr_diag, du_diag, sl_diag, rhs, weights, ipp_scale, ind_fixed,
+    )
+end
+
+MadNLP.is_reduced(::MixedAuglagKKTSystem) = true
+
+MadNLP.nnz_jacobian(kkt::MixedAuglagKKTSystem) = 0
+MadNLP.nnz_kkt(kkt::MixedAuglagKKTSystem) = length(kkt.hess)
+# We factorize only the Hessian part!
+MadNLP.get_kkt(kkt::MixedAuglagKKTSystem) = kkt.aug_com
+
+function MadNLP.build_kkt!(kkt::MixedAuglagKKTSystem{T, VT, MT}) where {T, VT, MT}
+    ρ = kkt.aug.ρ  # current penalty
+    σ  = kkt.ipp_scale[]
+    ηcons = kkt.aug.scaler.scale_cons
+    n = size(kkt.hess, 1)
+    m = size(kkt.jac, 1)
+
+    Σₛ = view(kkt.pr_diag, n+1:n+m)
+
+    # Update sl_diag
+    kkt.sl_diag .= Σₛ .+ ρ .* ηcons.^2 .* σ
+    # Regularization
+    ρₛ = view(kkt.rhs, n+1:m+n)
+    ρₛ .= ρ .* (1.0 ./ (ηcons.^2 .* σ) .- ρ ./ kkt.sl_diag)
+
+    # Huu
+    copyto!(kkt.aug_com, kkt.hess)
+    # Huu + Σᵤ
+    for i in 1:n
+        kkt.aug_com[i, i] += kkt.pr_diag[i]
+    end
+    # Huu + Σᵤ + Aᵤ' * ρₛ * Aᵤ
+    DJ = Diagonal(ρₛ) * kkt.jac
+    mul!(kkt.aug_com, kkt.jac', DJ, 1.0, 1.0)
+    return
+end
+
+MadNLP.compress_hessian!(kkt::MixedAuglagKKTSystem) = nothing
+MadNLP.compress_jacobian!(kkt::MixedAuglagKKTSystem) = nothing
+MadNLP.jtprod!(y::AbstractVector, kkt::MixedAuglagKKTSystem, x::AbstractVector) = nothing
+set_jacobian_scaling!(kkt::MixedAuglagKKTSystem, constraint_scaling::AbstractVector) = nothing
+
+# TODO
+function MadNLP.mul!(y::AbstractVector, kkt::MixedAuglagKKTSystem, x::AbstractVector)
+    mul!(y, kkt.aug_com, x)
+end
+
+# Overload Hessian evaluation
+function MadNLP.eval_lag_hess_wrapper!(ipp::MadNLP.Solver, kkt::MixedAuglagKKTSystem, x::Vector{Float64},l::Vector{Float64};is_resto=false)
+    nlp = ipp.nlp
+    cnt = ipp.cnt
+    # Scaling
+    ηcons = kkt.aug.scaler.scale_cons
+    # TODO
+    σ = kkt.aug.scaler.scale_obj
+    λ = kkt.aug.λc .* ηcons
+    kkt.ipp_scale[] = ipp.obj_scale[]
+
+    inner = inner_evaluator(kkt.aug)
+    n = n_variables(inner)
+    m = n_constraints(inner)
+    D = kkt.weights
+    xᵤ = @view x[1:n]
+
+    # Update Hessian-Lagrangian (powerflow updated in this step)
+    cnt.eval_function_time += @elapsed hessian_lagrangian_penalty!(inner, kkt.hess, xᵤ, λ, σ, D)
+    kkt.hess .*= ipp.obj_scale[]
+
+    # Update inner constraints' Jacobian
+    cnt.eval_function_time += @elapsed jacobian!(inner, kkt.jac, xᵤ)
+    # IPM's scaling
+    kkt.jac .*= ipp.obj_scale[]
+    # Auglag's scaling D² * J
+    kkt.jac .= Diagonal(ηcons.^2) * kkt.jac
+
+    MadNLP.compress_hessian!(kkt)
+    cnt.lag_hess_cnt+=1
+
+    return kkt.hess
+end
+
+# Overload linear solve by Schur complement approach
+function MadNLP.solve_refine_wrapper!(ipp::MadNLP.Solver{<:MixedAuglagKKTSystem}, x, b)
+    kkt = ipp.kkt
+    cnt = ipp.cnt
+    ρ = kkt.aug.ρ # current penalty
+    J = kkt.jac
+    σ = kkt.ipp_scale[]
+
+    inner = inner_evaluator(kkt.aug)
+    n = n_variables(inner)
+    m = n_constraints(inner)
+
+    MadNLP.fixed_variable_treatment_vec!(b, ipp.ind_fixed)
+
+    x_u = @view x[1:n]
+    x_s = @view x[1+n:n+m]
+
+    b_u = @view b[1:n]
+    b_s = @view b[1+n:n+m]
+
+    rhs_u = @view kkt.rhs[1:n]
+    rhs_s = @view kkt.rhs[1+n:n+m]
+
+    # Init x_u
+    copyto!(x_u, b_u)
+    copyto!(rhs_s, b_s)
+    rhs_s ./= kkt.sl_diag
+    mul!(x_u, J', rhs_s, ρ, 1.0)
+
+    cnt.linear_solver_time += @elapsed (MadNLP.solve!(ipp.linear_solver, x_u))
+
+    copyto!(x_s, b_s)
+    mul!(x_s, J, x_u, ρ, 1.0)
+    x_s ./= kkt.sl_diag
+
+    MadNLP.fixed_variable_treatment_vec!(x, ipp.ind_fixed)
+    return true
+end
+
