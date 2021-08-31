@@ -83,6 +83,7 @@ mutable struct ReducedSpaceEvaluator{T, VI, VT, MT, Jacx, Jacu, JacCons, HessLag
 
     # Options
     linear_solver::LS.AbstractLinearSolver
+    backward_solver::LS.AbstractLinearSolver
     powerflow_solver::ExaPF.AbstractNonLinearSolver
     has_jacobian::Bool
     update_jacobian::Bool
@@ -93,6 +94,7 @@ function ReducedSpaceEvaluator(
     model::PolarForm{T, VI, VT, MT};
     constraints=Function[ExaPF.voltage_magnitude_constraints, ExaPF.active_power_constraints, ExaPF.reactive_power_constraints],
     linear_solver=nothing,
+    backward_solver=nothing,
     powerflow_solver=NewtonRaphson(tol=1e-12),
     want_jacobian=true,
     nbatch_hessian=1,
@@ -122,6 +124,8 @@ function ReducedSpaceEvaluator(
     # Build Linear Algebra
     J = ExaPF.powerflow_jacobian_device(model)
     _linear_solver = isnothing(linear_solver) ? LS.DirectSolver(J) : linear_solver
+    # Work because J has a symmetric sparsity structure
+    _backward_solver = isnothing(backward_solver) ? LS.DirectSolver(J) : backward_solver
 
     obj_ad = ExaPF.pullback_objective(model)
     state_ad = ExaPF.FullSpaceJacobian(model, ExaPF.power_balance)
@@ -152,7 +156,8 @@ function ReducedSpaceEvaluator(
         constraints, g_min, g_max,
         buffer,
         state_ad, obj_ad, cons_ad, cons_jac, hess_ad,
-        _linear_solver, powerflow_solver, want_jacobian, false, want_hessian,
+        _linear_solver, _backward_solver,
+        powerflow_solver, want_jacobian, false, want_hessian,
     )
 end
 function ReducedSpaceEvaluator(datafile::String; device=ExaPF.CPU(), options...)
@@ -287,7 +292,7 @@ function reduced_gradient!(
     ∇gₓ = nlp.state_jacobian.x.J
 
     # λ = ∇gₓ' \ ∂fₓ
-    LS.rdiv!(nlp.linear_solver, λ, ∇gₓ, ∂fₓ)
+    LS.rdiv!(nlp.backward_solver, λ, ∇gₓ, ∂fₓ)
 
     grad .= ∂fᵤ
     mul!(grad, transpose(∇gᵤ), λ, -1.0, 1.0)

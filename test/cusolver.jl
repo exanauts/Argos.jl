@@ -15,8 +15,14 @@ const LS = LinearSolvers
 ExaPF.default_sparse_matrix(::CUDADevice) = CUSPARSE.CuSparseMatrixCSR
 
 # Overload factorization routine to use cusolverRF
-LS.exa_factorize(J::CuSparseMatrixCSR) = CUSOLVERRF.CusolverRfLU(J)
-LS.exa_factorize(J::CuSparseMatrixCSC) = CUSOLVERRF.CusolverRfLU(J)
+LS.DirectSolver(J::CuSparseMatrixCSR) = LS.DirectSolver(CUSOLVERRF.CusolverRfLU(J))
+
+function LS.rdiv!(s::LS.DirectSolver{Fac}, y::CuVector, J::CuSparseMatrixCSR, x::CuVector)
+    Jt = CuSparseMatrixCSC(J) # Transpose of CSR is CSC
+    lu!(s.factorization, Jt) # Update factorization inplace with transpose matrix
+    LinearAlgebra.ldiv!(y, s.factorization, x) # Forward-backward solve
+    return 0
+end
 
 # Overload factorization for batch Hessian computation
 function ExaOpt._batch_hessian_factorization(J::CuSparseMatrixCSR, nbatch)
