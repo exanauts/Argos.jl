@@ -88,3 +88,22 @@ function test_dense_gpu(aug; max_iter=100)
     MadNLP.optimize!(ipp)
     return ipp
 end
+
+function test_dense_gpu_new(aug; max_iter=100)
+    ExaOpt.reset!(aug)
+    mnlp = MadNLP.NonlinearProgram(aug)
+    n = ExaOpt.n_variables(aug)
+    # Instantiate KKT system on the device
+    kkt = ExaOpt.MixedAuglagKKTSystem{Float64, CuVector{Float64}, CuMatrix{Float64}}(aug, Int[])
+    options = Dict{Symbol, Any}(:tol=>1e-5, :max_iter=>max_iter,
+                                :print_level=>MadNLP.DEBUG,
+                                :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
+                                :linear_solver=>MadNLPLapackGPU)
+    ipp = MadNLP.Solver(mnlp; kkt=kkt, option_dict=options)
+    # warmstart
+    MadNLP.eval_lag_hess_wrapper!(ipp, kkt, ipp.x, ipp.l)
+
+    ipp.cnt = MadNLP.Counters(start_time=time())
+    @profile MadNLP.optimize!(ipp)
+    return ipp
+end

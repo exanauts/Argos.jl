@@ -101,7 +101,9 @@ struct MixedAuglagKKTSystem{T, VT, MT} <: MadNLP.AbstractKKTSystem{T, MT}
     sl_diag::VT
     diag_hess::VT
     # Buffers
-    wc::VT
+    _wc::VT
+    _wx::VT
+    _wy::VT
     rhs::VT
     weights::VT
     # Scaling of IPM algorithm (mutable)
@@ -125,7 +127,9 @@ function MixedAuglagKKTSystem{T, VT, MT}(aug::AugLagEvaluator, ind_fixed) where 
     rhs       = VT(undef, n + m)
     du_diag   = VT(undef, 0)
     weights   = VT(undef, m)
-    wc        = VT(undef, m)
+    _wc        = VT(undef, m)
+    _wx        = VT(undef, n + m)
+    _wy        = VT(undef, n + m)
     ipp_scale   = zeros(T, 1)
 
     # Init!
@@ -139,7 +143,7 @@ function MixedAuglagKKTSystem{T, VT, MT}(aug::AugLagEvaluator, ind_fixed) where 
     return MixedAuglagKKTSystem{T, VT, MT}(
         aug, aug_com, hess, jac, jac_scaled,
         pr_diag, du_diag, sl_diag, diag_hess,
-        wc, rhs, weights, ipp_scale, ind_fixed,
+        _wc, _wx, _wy, rhs, weights, ipp_scale, ind_fixed,
     )
 end
 
@@ -168,7 +172,7 @@ function MadNLP.build_kkt!(kkt::MixedAuglagKKTSystem{T, VT, MT}) where {T, VT, M
     # Huu
     copyto!(kkt.aug_com, kkt.hess)
     # Huu + Σᵤ (use MadNLP's function directly for GPU's support)
-    MadNLP._update_diagonal!(kkt.aug_com, kkt.diag_hess, kkt.pr_diag)
+    MadNLP.diag_add!(kkt.aug_com, kkt.diag_hess, kkt.pr_diag)
     # Huu + Σᵤ + Aᵤ' * ρₛ * Aᵤ
     mul!(kkt.jac_scaled, Diagonal(ρₛ), kkt.jac)
     mul!(kkt.aug_com, kkt.jac', kkt.jac_scaled, 1.0, 1.0)
@@ -181,7 +185,7 @@ end
 
 MadNLP.compress_jacobian!(kkt::MixedAuglagKKTSystem) = nothing
 MadNLP.jtprod!(y::AbstractVector, kkt::MixedAuglagKKTSystem, x::AbstractVector) = nothing
-set_jacobian_scaling!(kkt::MixedAuglagKKTSystem, constraint_scaling::AbstractVector) = nothing
+MadNLP.set_jacobian_scaling!(kkt::MixedAuglagKKTSystem, constraint_scaling::AbstractVector) = nothing
 
 function MadNLP.mul!(y::AbstractVector, kkt::MixedAuglagKKTSystem, x::AbstractVector)
     # Load problem
@@ -192,15 +196,18 @@ function MadNLP.mul!(y::AbstractVector, kkt::MixedAuglagKKTSystem, x::AbstractVe
     ηcons = kkt.aug.scaler.scale_cons
     ρ = kkt.aug.ρ
     Σᵤ = view(kkt.pr_diag, 1:n)
-    j = kkt.wc
+    j = kkt._wc
     ρₛ = view(kkt.rhs, n+1:m+n)
     ρₛ .= ρ .* (1.0 ./ (ηcons.^2 .* σ))
 
-    x_u = @view x[1:n]
-    x_s = @view x[1+n:n+m]
+    # Transfer on the device
+    copyto!(kkt._wx, x)
 
-    y_u = @view y[1:n]
-    y_s = @view y[1+n:n+m]
+    x_u = @view kkt._wx[1:n]
+    x_s = @view kkt._wx[1+n:n+m]
+
+    y_u = @view kkt._wy[1:n]
+    y_s = @view kkt._wy[1+n:n+m]
 
     # Structure of the Hessian
     #= [
@@ -223,6 +230,9 @@ function MadNLP.mul!(y::AbstractVector, kkt::MixedAuglagKKTSystem, x::AbstractVe
     y_s .= kkt.sl_diag .* x_s
     # Block (2, 1)
     mul!(y_s, kkt.jac, x_u, -ρ, 1.0)
+
+    # Transfer back on the host
+    copyto!(y, kkt._wy)
     return
 end
 
@@ -233,15 +243,18 @@ function MadNLP.eval_lag_hess_wrapper!(ipp::MadNLP.Solver, kkt::MixedAuglagKKTSy
     # Scaling
     ηcons = kkt.aug.scaler.scale_cons
     σ = kkt.aug.scaler.scale_obj
-    λ = kkt.wc # avoid a new allocation
+    λ = kkt._wc # avoid a new allocation
     λ .= kkt.aug.λc .* ηcons
     kkt.ipp_scale[] = ipp.obj_scale[]
+
+    # Transfer on device
+    copyto!(kkt._wx, x)
 
     inner = inner_evaluator(kkt.aug)
     n = n_variables(inner)
     m = n_constraints(inner)
     D = kkt.weights
-    xᵤ = @view x[1:n]
+    xᵤ = @view kkt._wx[1:n]
 
     # Update Hessian-Lagrangian
     cnt.eval_function_time += @elapsed hessian_lagrangian_penalty!(inner, kkt.hess, xᵤ, λ, σ, D)
@@ -250,8 +263,8 @@ function MadNLP.eval_lag_hess_wrapper!(ipp::MadNLP.Solver, kkt::MixedAuglagKKTSy
     # Update inner constraints' Jacobian
     cnt.eval_function_time += @elapsed jacobian!(inner, kkt.jac, xᵤ)
     # Auglag's scaling D² * J
-    kkt.wc .= ηcons.^2 .* ipp.obj_scale[] # avoid a new allocation
-    mul!(kkt.jac, Diagonal(kkt.wc), kkt.jac)
+    kkt._wc .= ηcons.^2 .* ipp.obj_scale[] # avoid a new allocation
+    mul!(kkt.jac, Diagonal(kkt._wc), kkt.jac)
 
     MadNLP.compress_hessian!(kkt)
     cnt.lag_hess_cnt+=1
@@ -273,11 +286,13 @@ function MadNLP.solve_refine_wrapper!(ipp::MadNLP.Solver{<:MixedAuglagKKTSystem}
 
     MadNLP.fixed_variable_treatment_vec!(b, ipp.ind_fixed)
 
-    x_u = @view x[1:n]
-    x_s = @view x[1+n:n+m]
+    copyto!(kkt._wy, b)
 
-    b_u = @view b[1:n]
-    b_s = @view b[1+n:n+m]
+    x_u = @view kkt._wx[1:n]
+    x_s = @view kkt._wx[1+n:n+m]
+
+    b_u = @view kkt._wy[1:n]
+    b_s = @view kkt._wy[1+n:n+m]
 
     rhs_u = @view kkt.rhs[1:n]
     rhs_s = @view kkt.rhs[1+n:n+m]
@@ -293,6 +308,9 @@ function MadNLP.solve_refine_wrapper!(ipp::MadNLP.Solver{<:MixedAuglagKKTSystem}
     copyto!(x_s, b_s)
     mul!(x_s, J, x_u, ρ, 1.0)
     x_s ./= kkt.sl_diag
+
+    # Move back to the host
+    copyto!(x, kkt._wx)
 
     MadNLP.fixed_variable_treatment_vec!(x, ipp.ind_fixed)
     return true
