@@ -28,39 +28,53 @@ function solve_auglag_madnlp(aug; linear_solver=MadNLPLapackCPU, max_iter=20, pe
     return ipp
 end
 
-function test_dense(aug; max_iter=100, scaling=true)
+function test_dense(
+    aug; max_iter=100, scaling=true,
+    linear_solver=MadNLPLapackCPU,
+    inertia=MadNLP.INERTIA_AUTO,
+)
     ExaOpt.reset!(aug)
     mnlp = MadNLP.NonlinearProgram(aug)
-    options = Dict{Symbol, Any}(:tol=>1e-5, :max_iter=>max_iter,
-                                :nlp_scaling=>scaling,
-                                :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
-                                :print_level=>MadNLP.DEBUG,
-                                :linear_solver=>MadNLPLapackGPU)
+    options = Dict{Symbol, Any}(
+        :tol=>1e-5, :max_iter=>max_iter,
+        :nlp_scaling=>scaling,
+        :inertia_correction_method=>inertia,
+        :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
+        :print_level=>MadNLP.DEBUG,
+        :linear_solver=>linear_solver
+    )
     ipp = MadNLP.Solver(mnlp; option_dict=options)
-    MadNLP.optimize!(ipp)
+    @time MadNLP.optimize!(ipp)
     return ipp
 end
 
-function test_dense_new(aug; max_iter=100, scaling=true)
+function test_dense_new(
+    aug; max_iter=100, scaling=true,
+    linear_solver=MadNLPLapackCPU,
+    inertia=MadNLP.INERTIA_AUTO,
+)
     ExaOpt.reset!(aug)
     mnlp = MadNLP.NonlinearProgram(aug)
-    options = Dict{Symbol, Any}(:tol=>1e-5, :max_iter=>max_iter,
-                                :nlp_scaling=>scaling,
-                                # :inertia_correction_method=>MadNLP.INERTIA_FREE,
-                                :print_level=>MadNLP.DEBUG,
-                                :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
-                                :linear_solver=>MadNLPLapackCPU)
+    options = Dict{Symbol, Any}(
+        :tol=>1e-5, :max_iter=>max_iter,
+        :nlp_scaling=>scaling,
+        :inertia_correction_method=>inertia,
+        :print_level=>MadNLP.DEBUG,
+        :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
+        :linear_solver=>linear_solver
+    )
+    # Custom KKT system
     kkt = ExaOpt.MixedAuglagKKTSystem{Float64, Vector{Float64}, Matrix{Float64}}(aug, Int[])
     ipp = MadNLP.Solver(mnlp; option_dict=options, kkt=kkt)
-    MadNLP.optimize!(ipp)
+    @time MadNLP.optimize!(ipp)
     return ipp
 end
 
-# TODO: update
 function test_dense_gpu(aug; max_iter=100)
     ExaOpt.reset!(aug)
     mnlp = MadNLP.NonlinearProgram(aug)
     n = ExaOpt.n_variables(aug)
+    # Instantiate KKT system on the device
     kkt = MadNLP.DenseKKTSystem{Float64, CuVector{Float64}, CuMatrix{Float64}}(mnlp; buffer_size=n)
     options = Dict{Symbol, Any}(:tol=>1e-5, :max_iter=>max_iter,
                                 :print_level=>MadNLP.DEBUG,
@@ -71,6 +85,6 @@ function test_dense_gpu(aug; max_iter=100)
     MadNLP.eval_lag_hess_wrapper!(ipp, kkt, ipp.x, ipp.l)
 
     ipp.cnt = MadNLP.Counters(start_time=time())
-    @profile MadNLP.optimize!(ipp)
+    MadNLP.optimize!(ipp)
     return ipp
 end

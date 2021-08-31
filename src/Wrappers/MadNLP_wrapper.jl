@@ -94,12 +94,17 @@ struct MixedAuglagKKTSystem{T, VT, MT} <: MadNLP.AbstractKKTSystem{T, MT}
     aug_com::MT
     hess::MT
     jac::MT
+    jac_scaled::MT
+    # Diagonal terms
     pr_diag::VT
     du_diag::VT
     sl_diag::VT
+    # Buffers
+    wc::VT
     rhs::VT
     weights::VT
-    ipp_scale::VT
+    # Scaling of IPM algorithm (mutable)
+    ipp_scale::Vector{T}
     # Info
     ind_fixed::Vector{Int}
 end
@@ -109,15 +114,17 @@ function MixedAuglagKKTSystem{T, VT, MT}(aug::AugLagEvaluator, ind_fixed) where 
     n = n_variables(inner)
     m = n_constraints(inner)
 
-    aug_com   = MT(undef, n, n)
-    hess      = MT(undef, n, n)
-    jac       = MT(undef, m, n)
+    aug_com    = MT(undef, n, n)
+    hess       = MT(undef, n, n)
+    jac        = MT(undef, m, n)
+    jac_scaled = MT(undef, m, n)
     pr_diag   = VT(undef, n + m) # Σ  = [Σᵤ, Σₛ]
     sl_diag   = VT(undef, m)     # Σₛ + ρ I
     rhs       = VT(undef, n + m)
     du_diag   = VT(undef, 0)
     weights   = VT(undef, m)
-    ipp_scale   = VT(undef, 1)
+    wc        = VT(undef, m)
+    ipp_scale   = zeros(T, 1)
 
     # Init!
     fill!(aug_com,   zero(T))
@@ -128,7 +135,9 @@ function MixedAuglagKKTSystem{T, VT, MT}(aug::AugLagEvaluator, ind_fixed) where 
     fill!(weights,   zero(T))
 
     return MixedAuglagKKTSystem{T, VT, MT}(
-        aug, aug_com, hess, jac, pr_diag, du_diag, sl_diag, rhs, weights, ipp_scale, ind_fixed,
+        aug, aug_com, hess, jac, jac_scaled,
+        pr_diag, du_diag, sl_diag,
+        wc, rhs, weights, ipp_scale, ind_fixed,
     )
 end
 
@@ -157,12 +166,14 @@ function MadNLP.build_kkt!(kkt::MixedAuglagKKTSystem{T, VT, MT}) where {T, VT, M
     # Huu
     copyto!(kkt.aug_com, kkt.hess)
     # Huu + Σᵤ
-    for i in 1:n
+    #
+    # _update_diagonal!(kkt.aug_com, kkt.diag_hess, kkt.pr_diag)
+    @inbounds for i in 1:n
         kkt.aug_com[i, i] += kkt.pr_diag[i]
     end
     # Huu + Σᵤ + Aᵤ' * ρₛ * Aᵤ
-    DJ = Diagonal(ρₛ) * kkt.jac
-    mul!(kkt.aug_com, kkt.jac', DJ, 1.0, 1.0)
+    mul!(kkt.jac_scaled, Diagonal(ρₛ), kkt.jac)
+    mul!(kkt.aug_com, kkt.jac', kkt.jac_scaled, 1.0, 1.0)
     return
 end
 
@@ -171,9 +182,47 @@ MadNLP.compress_jacobian!(kkt::MixedAuglagKKTSystem) = nothing
 MadNLP.jtprod!(y::AbstractVector, kkt::MixedAuglagKKTSystem, x::AbstractVector) = nothing
 set_jacobian_scaling!(kkt::MixedAuglagKKTSystem, constraint_scaling::AbstractVector) = nothing
 
-# TODO
 function MadNLP.mul!(y::AbstractVector, kkt::MixedAuglagKKTSystem, x::AbstractVector)
-    mul!(y, kkt.aug_com, x)
+    # Load problem
+    inner = inner_evaluator(kkt.aug)
+    n = n_variables(inner)
+    m = n_constraints(inner)
+    σ  = kkt.ipp_scale[]
+    ηcons = kkt.aug.scaler.scale_cons
+    ρ = kkt.aug.ρ
+    Σᵤ = view(kkt.pr_diag, 1:n)
+    j = kkt.wc
+    ρₛ = view(kkt.rhs, n+1:m+n)
+    ρₛ .= ρ .* (1.0 ./ (ηcons.^2 .* σ))
+
+    x_u = @view x[1:n]
+    x_s = @view x[1+n:n+m]
+
+    y_u = @view y[1:n]
+    y_s = @view y[1+n:n+m]
+
+    # Structure of the Hessian
+    #= [
+       H + Σᵤ + ρ * J' * D² * J        - ρ J' * D²  ;
+           - ρ J' * D²                   ρ + Σₛ
+       ]
+    =#
+
+    # Block (1, 1)
+    mul!(y_u, kkt.hess, x_u)
+    y_u .+= Σᵤ .* x_u
+    mul!(j, kkt.jac, x_u)
+    j .*= ρₛ
+    mul!(y_u, kkt.jac', j, 1.0, 1.0)
+
+    # Block (1, 2)
+    mul!(y_u, kkt.jac', x_s, -ρ, 1.0)
+
+    # Block (2, 2)
+    y_s .= kkt.sl_diag .* x_s
+    # Block (2, 1)
+    mul!(y_s, kkt.jac, x_u, -ρ, 1.0)
+    return
 end
 
 # Overload Hessian evaluation
@@ -182,9 +231,9 @@ function MadNLP.eval_lag_hess_wrapper!(ipp::MadNLP.Solver, kkt::MixedAuglagKKTSy
     cnt = ipp.cnt
     # Scaling
     ηcons = kkt.aug.scaler.scale_cons
-    # TODO
     σ = kkt.aug.scaler.scale_obj
-    λ = kkt.aug.λc .* ηcons
+    λ = kkt.wc # avoid a new allocation
+    λ .= kkt.aug.λc .* ηcons
     kkt.ipp_scale[] = ipp.obj_scale[]
 
     inner = inner_evaluator(kkt.aug)
@@ -193,16 +242,15 @@ function MadNLP.eval_lag_hess_wrapper!(ipp::MadNLP.Solver, kkt::MixedAuglagKKTSy
     D = kkt.weights
     xᵤ = @view x[1:n]
 
-    # Update Hessian-Lagrangian (powerflow updated in this step)
+    # Update Hessian-Lagrangian
     cnt.eval_function_time += @elapsed hessian_lagrangian_penalty!(inner, kkt.hess, xᵤ, λ, σ, D)
     kkt.hess .*= ipp.obj_scale[]
 
     # Update inner constraints' Jacobian
     cnt.eval_function_time += @elapsed jacobian!(inner, kkt.jac, xᵤ)
-    # IPM's scaling
-    kkt.jac .*= ipp.obj_scale[]
     # Auglag's scaling D² * J
-    kkt.jac .= Diagonal(ηcons.^2) * kkt.jac
+    kkt.wc .= ηcons.^2 .* ipp.obj_scale[] # avoid a new allocation
+    mul!(kkt.jac, Diagonal(kkt.wc), kkt.jac)
 
     MadNLP.compress_hessian!(kkt)
     cnt.lag_hess_cnt+=1
