@@ -99,6 +99,7 @@ struct MixedAuglagKKTSystem{T, VT, MT} <: MadNLP.AbstractKKTSystem{T, MT}
     pr_diag::VT
     du_diag::VT
     sl_diag::VT
+    diag_hess::VT
     # Buffers
     wc::VT
     rhs::VT
@@ -118,6 +119,7 @@ function MixedAuglagKKTSystem{T, VT, MT}(aug::AugLagEvaluator, ind_fixed) where 
     hess       = MT(undef, n, n)
     jac        = MT(undef, m, n)
     jac_scaled = MT(undef, m, n)
+    diag_hess = VT(undef, n)
     pr_diag   = VT(undef, n + m) # Σ  = [Σᵤ, Σₛ]
     sl_diag   = VT(undef, m)     # Σₛ + ρ I
     rhs       = VT(undef, n + m)
@@ -136,7 +138,7 @@ function MixedAuglagKKTSystem{T, VT, MT}(aug::AugLagEvaluator, ind_fixed) where 
 
     return MixedAuglagKKTSystem{T, VT, MT}(
         aug, aug_com, hess, jac, jac_scaled,
-        pr_diag, du_diag, sl_diag,
+        pr_diag, du_diag, sl_diag, diag_hess,
         wc, rhs, weights, ipp_scale, ind_fixed,
     )
 end
@@ -165,19 +167,18 @@ function MadNLP.build_kkt!(kkt::MixedAuglagKKTSystem{T, VT, MT}) where {T, VT, M
 
     # Huu
     copyto!(kkt.aug_com, kkt.hess)
-    # Huu + Σᵤ
-    #
-    # _update_diagonal!(kkt.aug_com, kkt.diag_hess, kkt.pr_diag)
-    @inbounds for i in 1:n
-        kkt.aug_com[i, i] += kkt.pr_diag[i]
-    end
+    # Huu + Σᵤ (use MadNLP's function directly for GPU's support)
+    MadNLP._update_diagonal!(kkt.aug_com, kkt.diag_hess, kkt.pr_diag)
     # Huu + Σᵤ + Aᵤ' * ρₛ * Aᵤ
     mul!(kkt.jac_scaled, Diagonal(ρₛ), kkt.jac)
     mul!(kkt.aug_com, kkt.jac', kkt.jac_scaled, 1.0, 1.0)
     return
 end
 
-MadNLP.compress_hessian!(kkt::MixedAuglagKKTSystem) = nothing
+function MadNLP.compress_hessian!(kkt::MixedAuglagKKTSystem)
+    MadNLP.diag!(kkt.diag_hess, kkt.hess)
+end
+
 MadNLP.compress_jacobian!(kkt::MixedAuglagKKTSystem) = nothing
 MadNLP.jtprod!(y::AbstractVector, kkt::MixedAuglagKKTSystem, x::AbstractVector) = nothing
 set_jacobian_scaling!(kkt::MixedAuglagKKTSystem, constraint_scaling::AbstractVector) = nothing
