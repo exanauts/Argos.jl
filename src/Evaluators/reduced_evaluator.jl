@@ -573,20 +573,15 @@ macro define_batch_hessian(function_name, target_function, args...)
             ∇²f = hesslag.hess
             nbatch = size(hesslag.tmp_hv, 2)
 
-            # Allocate memory
-            v_cpu = zeros(n, nbatch)
-            v = similar(x, n, nbatch)
+            # Allocate memory for tangents
+            v = hesslag.tangents
 
             N = div(n, nbatch, RoundDown)
             for i in 1:N
                 # Init tangents on CPU
-                fill!(v_cpu, 0.0)
-                @inbounds for j in 1:nbatch
-                    v_cpu[j+(i-1)*nbatch, j] = 1.0
-                end
-                # Pass tangents to the device
-                copyto!(v, v_cpu)
-
+                offset = (i-1) * nbatch
+                set_batch_tangents!(v, offset, n, nbatch)
+                # Contiguous views!
                 hm = @view dest[:, nbatch * (i-1) + 1: nbatch * i]
                 $target_function(nlp, hm, $(map(esc, argstup)...), v)
             end
@@ -594,11 +589,8 @@ macro define_batch_hessian(function_name, target_function, args...)
             # Last slice
             last_batch = n - N*nbatch
             if last_batch > 0
-                fill!(v_cpu, 0.0)
-                @inbounds for j in 1:nbatch
-                    v_cpu[n-nbatch+j, j] = 1.0
-                end
-                copyto!(v, v_cpu)
+                offset = n - nbatch
+                set_batch_tangents!(v, offset, n, nbatch)
 
                 hm = @view dest[:, (n - nbatch + 1) : n]
                 $target_function(nlp, hm, $(map(esc, argstup)...), v)

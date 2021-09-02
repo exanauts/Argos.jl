@@ -76,6 +76,14 @@ function hessian(nlp::AbstractNLPEvaluator, x)
     return H
 end
 
+function set_batch_tangents!(seeds, offset, n, n_batches)
+    @assert size(seeds) == (n, n_batches)
+    fill!(seeds, 0.0)
+    @inbounds for j in 1:n_batches
+        seeds[j+offset, j] = 1.0
+    end
+end
+
 # Counters
 abstract type AbstractCounter end
 
@@ -157,6 +165,8 @@ struct BatchHessianLagrangian{MT,Hess,Fac1,Fac2} <: AbstractHessianStorage
     y::MT
     z::MT
     ψ::MT
+    # Tangents
+    tangents::MT
     tmp_tgt::MT
     tmp_hv::MT
     lu::Fac1
@@ -172,7 +182,8 @@ function BatchHessianLagrangian(polar::PolarForm{T, VI, VT, MT}, J, nbatch) wher
     ψ   = MT(undef, nx, nbatch)
     tgt = MT(undef, nx+nu, nbatch)
     hv  = MT(undef, nx+nu, nbatch)
-    return BatchHessianLagrangian(nbatch, H, y, z, ψ, tgt, hv, lu1, lu2)
+    v  = MT(undef, nu, nbatch)
+    return BatchHessianLagrangian(nbatch, H, y, z, ψ, v, tgt, hv, lu1, lu2)
 end
 n_batches(hlag::BatchHessianLagrangian) = hlag.nbatch
 
