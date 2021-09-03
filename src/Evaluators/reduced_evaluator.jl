@@ -92,7 +92,7 @@ end
 
 function ReducedSpaceEvaluator(
     model::PolarForm{T, VI, VT, MT};
-    constraints=Function[ExaPF.voltage_magnitude_constraints, ExaPF.active_power_constraints, ExaPF.reactive_power_constraints],
+    line_constraints=false,
     linear_solver=nothing,
     backward_solver=nothing,
     powerflow_solver=NewtonRaphson(tol=1e-12),
@@ -107,6 +107,15 @@ function ReducedSpaceEvaluator(
 
     u_min, u_max = ExaPF.bounds(model, Control())
     λ = similar(buffer.dx)
+
+    constraints = Function[
+        ExaPF.voltage_magnitude_constraints,
+        ExaPF.active_power_constraints,
+        ExaPF.reactive_power_constraints
+    ]
+    if line_constraints
+        push!(constraints, ExaPF.flow_constraints)
+    end
 
     m = sum([ExaPF.size_constraint(model, cons) for cons in constraints])
     g_min = VT(undef, m)
@@ -144,10 +153,11 @@ function ReducedSpaceEvaluator(
     want_hessian = (nbatch_hessian > 0)
     hess_ad = nothing
     if want_hessian
+        func = line_constraints ? ExaPF.network_line_operations : ExaPF.network_operations
         hess_ad = if nbatch_hessian > 1
-            BatchHessianLagrangian(model, J, nbatch_hessian)
+            BatchHessianLagrangian(model, func, J, nbatch_hessian)
         else
-            HessianLagrangian(model, J)
+            HessianLagrangian(model, func, J)
         end
     end
 
@@ -440,6 +450,8 @@ function hessprod!(nlp::ReducedSpaceEvaluator, hessvec, u, w)
 
     nx = ExaPF.get(nlp.model, ExaPF.NumberOfState())
     nu = ExaPF.get(nlp.model, ExaPF.NumberOfControl())
+    # TODO: remove
+    nbus = ExaPF.get(nlp.model, ExaPF.PowerSystem.NumberOfBuses())
     H = nlp.hesslag
     ∇gᵤ = nlp.state_jacobian.u.J
 
@@ -469,7 +481,7 @@ function hessprod!(nlp::ReducedSpaceEvaluator, hessvec, u, w)
 
     # Init adjoint
     fill!(y, 0.0)
-    y[end:end] .= 1.0       # / objective
+    y[2*nbus+1:2*nbus+1] .= 1.0         # / objective
     y[1:nx] .-= nlp.λ  # / power balance
 
     # STEP 2: AutoDiff
@@ -493,6 +505,8 @@ function hessian_lagrangian_penalty_prod!(
     nbatch = size(w, 2)
     nx = ExaPF.get(nlp.model, ExaPF.NumberOfState())
     nu = ExaPF.get(nlp.model, ExaPF.NumberOfControl())
+    # TODO: remove
+    nbus = ExaPF.get(nlp.model, ExaPF.PowerSystem.NumberOfBuses())
     buffer = nlp.buffer
     H = nlp.hesslag
     ∇gᵤ = nlp.state_jacobian.u.J
@@ -522,16 +536,19 @@ function hessian_lagrangian_penalty_prod!(
     ## OBJECTIVE HESSIAN
     fill!(μ, 0.0)
     μ[1:nx] .-= nlp.λ  # / power balance
-    μ[end:end] .= σ         # / objective
+    μ[2*nbus+1:2*nbus+1] .= σ         # / objective
     # / constraints
     shift_m = nx
     shift_y = ExaPF.size_constraint(nlp.model, ExaPF.voltage_magnitude_constraints)
-    for cons in nlp.constraints
-        isa(cons, typeof(ExaPF.voltage_magnitude_constraints)) && continue
+    for cons in [ExaPF.active_power_constraints, ExaPF.reactive_power_constraints]
         m = ExaPF.size_constraint(nlp.model, cons)::Int
         μ[shift_m+1:m+shift_m] .= view(y, shift_y+1:shift_y+m)
         shift_m += m
         shift_y += m
+    end
+    if nlp.constraints[end] == ExaPF.flow_constraints
+        m = ExaPF.size_constraint(nlp.model, ExaPF.flow_constraints)::Int
+        μ[2*nbus+2:2*nbus+1+m] .= view(y, shift_y+1:shift_y+m)
     end
 
     ∇²Lx, ∇²Lu = full_hessprod!(nlp, hv, μ, tgt)

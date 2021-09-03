@@ -144,11 +144,11 @@ struct HessianLagrangian{VT,Hess,Fac1,Fac2} <: AbstractHessianStorage
     lu::Fac1
     adjlu::Fac2
 end
-function HessianLagrangian(polar::PolarForm{T, VI, VT, MT}, J::AbstractSparseMatrix) where {T, VI, VT, MT}
+function HessianLagrangian(polar::PolarForm{T, VI, VT, MT}, func::Function, J::AbstractSparseMatrix) where {T, VI, VT, MT}
     lu1, lu2 = _batch_hessian_factorization(J, 1)
     nx, nu = ExaPF.get(polar, ExaPF.NumberOfState()), ExaPF.get(polar, ExaPF.NumberOfControl())
-    m = ExaPF.size_constraint(polar, ExaPF.network_operations)
-    H = AutoDiff.Hessian(polar, ExaPF.network_operations)
+    m = ExaPF.size_constraint(polar, func)
+    H = AutoDiff.Hessian(polar, func)
     y = VT(undef, m)
     z = VT(undef, nx)
     ψ = VT(undef, nx)
@@ -172,11 +172,11 @@ struct BatchHessianLagrangian{MT,Hess,Fac1,Fac2} <: AbstractHessianStorage
     lu::Fac1
     adjlu::Fac2
 end
-function BatchHessianLagrangian(polar::PolarForm{T, VI, VT, MT}, J, nbatch) where {T, VI, VT, MT}
+function BatchHessianLagrangian(polar::PolarForm{T, VI, VT, MT}, func::Function, J, nbatch) where {T, VI, VT, MT}
     lu1, lu2 = _batch_hessian_factorization(J, nbatch)
     nx, nu = ExaPF.get(polar, ExaPF.NumberOfState()), ExaPF.get(polar, ExaPF.NumberOfControl())
-    m = ExaPF.size_constraint(polar, ExaPF.network_operations)
-    H = ExaPF.BatchHessian(polar, ExaPF.network_operations, nbatch)
+    m = ExaPF.size_constraint(polar, func)
+    H = ExaPF.BatchHessian(polar, func, nbatch)
     y   = MT(undef, m, 1)  # adjoint is the same for all batches
     z   = MT(undef, nx, nbatch)
     ψ   = MT(undef, nx, nbatch)

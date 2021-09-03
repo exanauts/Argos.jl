@@ -65,7 +65,7 @@ mutable struct AugLagEvaluator{Evaluator<:AbstractNLPEvaluator, T, VT} <: Abstra
     counter::NLPCounter
 end
 function AugLagEvaluator(
-    nlp::AbstractNLPEvaluator, u0;
+    nlp::AbstractNLPEvaluator, u0=ExaOpt.initial(nlp);
     scale=false, c₀=0.1,
 )
     if !is_constrained(nlp)

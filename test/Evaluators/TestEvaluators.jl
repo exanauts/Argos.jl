@@ -34,13 +34,7 @@ include("proxal_evaluator.jl")
 include("auglag.jl")
 
 function _init(datafile, ::Type{ExaOpt.ReducedSpaceEvaluator}, device)
-    constraints = Function[
-        ExaPF.voltage_magnitude_constraints,
-        ExaPF.active_power_constraints,
-        ExaPF.reactive_power_constraints,
-        # ExaPF.flow_constraints,
-    ]
-    return ExaOpt.ReducedSpaceEvaluator(datafile; device=device, constraints=constraints)
+    return ExaOpt.ReducedSpaceEvaluator(datafile; device=device)
 end
 function _init(datafile, ::Type{ExaOpt.ProxALEvaluator}, device)
     nlp = ExaOpt.ReducedSpaceEvaluator(datafile; device=device)
