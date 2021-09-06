@@ -21,7 +21,7 @@ end
 
 # Solve subproblem with any MOI compatible solver
 function solve_subproblem!(algo::AuglagSolver{<:MOI.AbstractOptimizer}, aug::AugLagEvaluator, uₖ)
-    n_iter = aug.counter.gradient
+    n_iter = aug.counter.hessian
     # Initiate optimizer
     MOI.empty!(algo.optimizer)
     MOI.set(algo.optimizer, MOI.RawParameter("tol"), algo.options.ωtol)
@@ -29,14 +29,14 @@ function solve_subproblem!(algo::AuglagSolver{<:MOI.AbstractOptimizer}, aug::Aug
     moi_solution = optimize!(algo.optimizer, aug, uₖ)
     return (
         status=moi_solution.status,
-        iter=aug.counter.gradient - n_iter,
+        iter=aug.counter.hessian - n_iter,
         minimizer=moi_solution.minimizer,
     )
 end
 
 # Solve subproblem with MadNLP
 function solve_subproblem!(algo::ExaOpt.AuglagSolver{<:MadNLP.Solver}, aug::ExaOpt.AugLagEvaluator, uₖ)
-    n_iter = aug.counter.gradient
+    n_iter = aug.counter.hessian
     # Init primal variable
     copyto!(algo.optimizer.nlp.x, uₖ)
     algo.optimizer.nlp.x[1] *= 1.0001 # TODO quick fix
@@ -48,10 +48,13 @@ function solve_subproblem!(algo::ExaOpt.AuglagSolver{<:MadNLP.Solver}, aug::ExaO
     MadNLP.optimize!(algo.optimizer)
     return (
         status=MadNLP.status_moi_dict[algo.optimizer.status],
-        iter=aug.counter.gradient - n_iter,
+        iter=aug.counter.hessian - n_iter,
         minimizer=algo.optimizer.nlp.x,
     )
 end
+
+get_name(solver::AuglagSolver{<:MOI.AbstractOptimizer}) = MOI.get(solver.optimizer, MOI.SolverName())
+get_name(solver::AuglagSolver{<:MadNLP.Solver}) = "MadNLP+"
 
 #=
     CORE ALGORITHM
@@ -70,7 +73,6 @@ function optimize!(
 
     # Initialize arrays
     uₖ        = copy(u0)
-    u_start   = copy(u0)
     wk        = copy(u0)
     u_prev    = copy(u0)
     grad      = similar(u0) ; fill!(grad, 0)
@@ -104,7 +106,7 @@ function optimize!(
     end
 
     if verbose
-        name = "" #MOI.get(algo.optimizer, MOI.SolverName())
+        name = get_name(algo)
         println("AugLag algorithm, running with $(name)\n")
 
         println("Total number of variables............................:      ", n_variables(nlp))
@@ -125,12 +127,17 @@ function optimize!(
 
     tic = time()
     for i_out in 1:opt.max_iter
-        uₖ .= u_start
 
         # Solve inner problem
         solution = solve_subproblem!(algo, aug, uₖ)
 
-        uₖ = solution.minimizer
+        if (solution.status != MOI.OPTIMAL) && (solution.status != MOI.LOCALLY_SOLVED)
+            println("[AugLag] Fail to solve inner subproblem. Exiting.")
+            status = MOI.NUMERICAL_ERROR
+            break
+        end
+
+        uₖ .= solution.minimizer
         n_iter = solution.iter
 
         # Update information w.r.t. original evaluator
@@ -149,8 +156,6 @@ function optimize!(
             break
         end
 
-        # Update starting point
-        u_start .= uₖ
         # Update the penalties (see Nocedal & Wright, page 521)
         if primal_feas <= ηk
             update_multipliers!(aug)

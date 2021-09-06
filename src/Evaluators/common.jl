@@ -147,7 +147,7 @@ end
 function HessianLagrangian(polar::PolarForm{T, VI, VT, MT}, func::Function, J::AbstractSparseMatrix) where {T, VI, VT, MT}
     lu1, lu2 = _batch_hessian_factorization(J, 1)
     nx, nu = ExaPF.get(polar, ExaPF.NumberOfState()), ExaPF.get(polar, ExaPF.NumberOfControl())
-    m = ExaPF.size_constraint(polar, func)
+    m = ExaPF.size_constraint(polar, func)::Int
     H = AutoDiff.Hessian(polar, func)
     y = VT(undef, m)
     z = VT(undef, nx)
@@ -175,7 +175,7 @@ end
 function BatchHessianLagrangian(polar::PolarForm{T, VI, VT, MT}, func::Function, J, nbatch) where {T, VI, VT, MT}
     lu1, lu2 = _batch_hessian_factorization(J, nbatch)
     nx, nu = ExaPF.get(polar, ExaPF.NumberOfState()), ExaPF.get(polar, ExaPF.NumberOfControl())
-    m = ExaPF.size_constraint(polar, func)
+    m = ExaPF.size_constraint(polar, func)::Int
     H = ExaPF.BatchHessian(polar, func, nbatch)
     y   = MT(undef, m, 1)  # adjoint is the same for all batches
     z   = MT(undef, nx, nbatch)
