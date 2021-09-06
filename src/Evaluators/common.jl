@@ -139,12 +139,15 @@ struct HessianLagrangian{VT,Hess,Fac1,Fac2} <: AbstractHessianStorage
     y::VT
     z::VT
     ψ::VT
+    # Buffers
+    _w1::VT
+    # Tangents
     tmp_tgt::VT
     tmp_hv::VT
     lu::Fac1
     adjlu::Fac2
 end
-function HessianLagrangian(polar::PolarForm{T, VI, VT, MT}, func::Function, J::AbstractSparseMatrix) where {T, VI, VT, MT}
+function HessianLagrangian(polar::PolarForm{T, VI, VT, MT}, func::Function, J::AbstractSparseMatrix, ncons::Int) where {T, VI, VT, MT}
     lu1, lu2 = _batch_hessian_factorization(J, 1)
     nx, nu = ExaPF.get(polar, ExaPF.NumberOfState()), ExaPF.get(polar, ExaPF.NumberOfControl())
     m = ExaPF.size_constraint(polar, func)::Int
@@ -154,7 +157,8 @@ function HessianLagrangian(polar::PolarForm{T, VI, VT, MT}, func::Function, J::A
     ψ = VT(undef, nx)
     tgt = VT(undef, nx+nu)
     hv = VT(undef, nx+nu)
-    return HessianLagrangian(H, y, z, ψ, tgt, hv, lu1, lu2)
+    _w1 = VT(undef, ncons)
+    return HessianLagrangian(H, y, z, ψ, _w1, tgt, hv, lu1, lu2)
 end
 n_batches(hlag::HessianLagrangian) = 1
 
@@ -165,6 +169,10 @@ struct BatchHessianLagrangian{MT,Hess,Fac1,Fac2} <: AbstractHessianStorage
     y::MT
     z::MT
     ψ::MT
+    # Buffer
+    _w1::MT
+    _w2::MT
+    _w3::MT
     # Tangents
     tangents::MT
     tmp_tgt::MT
@@ -172,7 +180,7 @@ struct BatchHessianLagrangian{MT,Hess,Fac1,Fac2} <: AbstractHessianStorage
     lu::Fac1
     adjlu::Fac2
 end
-function BatchHessianLagrangian(polar::PolarForm{T, VI, VT, MT}, func::Function, J, nbatch) where {T, VI, VT, MT}
+function BatchHessianLagrangian(polar::PolarForm{T, VI, VT, MT}, func::Function, J, nbatch, ncons) where {T, VI, VT, MT}
     lu1, lu2 = _batch_hessian_factorization(J, nbatch)
     nx, nu = ExaPF.get(polar, ExaPF.NumberOfState()), ExaPF.get(polar, ExaPF.NumberOfControl())
     m = ExaPF.size_constraint(polar, func)::Int
@@ -183,7 +191,10 @@ function BatchHessianLagrangian(polar::PolarForm{T, VI, VT, MT}, func::Function,
     tgt = MT(undef, nx+nu, nbatch)
     hv  = MT(undef, nx+nu, nbatch)
     v  = MT(undef, nu, nbatch)
-    return BatchHessianLagrangian(nbatch, H, y, z, ψ, v, tgt, hv, lu1, lu2)
+    _w1 = MT(undef, ncons, nbatch)
+    _w2 = MT(undef, nx, nbatch)
+    _w3 = MT(undef, nu, nbatch)
+    return BatchHessianLagrangian(nbatch, H, y, z, ψ, _w1, _w2, _w3, v, tgt, hv, lu1, lu2)
 end
 n_batches(hlag::BatchHessianLagrangian) = hlag.nbatch
 

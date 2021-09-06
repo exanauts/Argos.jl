@@ -121,3 +121,52 @@ function test_batch_tangents!(seeds::Matrix, offset, n, n_batches)
     wait(ev)
     return
 end
+
+#=
+    ExaOpt._init_tangent!
+=#
+@kernel function _init_tangent_kernel!(tgt, z, w, nx, nu, nbatch)
+    i, j = @index(Global, NTuple)
+    if i <= nx
+        tgt[i, j] = z[i, j]
+    else
+        tgt[i, j] = w[i - nx, j]
+    end
+end
+
+function ExaOpt._init_tangent!(tgt::CuMatrix, z::CuMatrix, w::CuMatrix, nx, nu, nbatch)
+    ndrange = size(tgt)
+    ev = _init_tangent_kernel!(CUDADevice())(tgt, z, w, nx, nu, nbatch, ndrange=ndrange)
+    wait(ev)
+end
+
+function test_init_tangent!(tgt::Matrix, z::Matrix, w::Matrix, nx, nu, nbatch)
+    ndrange = size(tgt)
+    ev = _init_tangent_kernel!(CPU())(tgt, z, w, nx, nu, nbatch, ndrange=ndrange)
+    wait(ev)
+end
+
+#=
+    ExaOpt._fetch_batch_hessprod!
+=#
+@kernel function _fetch_batch_hessprod_kernel!(dfx, dfu, hv, nx, nu)
+    i, j = @index(Global, NTuple)
+    if i <= nx
+        dfx[i, j] = hv[i, j]
+    else
+        dfu[i - nx, j] = hv[i, j]
+    end
+end
+
+function ExaOpt._fetch_batch_hessprod!(dfx::CuMatrix, dfu::CuMatrix, hv::CuMatrix, nx, nu)
+    ndrange = size(hv)
+    ev = _fetch_batch_hessprod_kernel!(CUDADevice())(dfx, dfu, hv, nx, nu, ndrange=ndrange)
+    wait(ev)
+end
+
+function test_fetch_batch_hessprod!(dfx::Matrix, dfu::Matrix, hv::Matrix, nx, nu)
+    ndrange = size(hv)
+    ev = _fetch_batch_hessprod_kernel!(CPU())(dfx, dfu, hv, nx, nu, ndrange=ndrange)
+    wait(ev)
+end
+

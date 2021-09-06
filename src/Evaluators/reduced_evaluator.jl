@@ -117,7 +117,7 @@ function ReducedSpaceEvaluator(
         push!(constraints, ExaPF.flow_constraints)
     end
 
-    m = sum([ExaPF.size_constraint(model, cons) for cons in constraints])
+    m = sum(Int[ExaPF.size_constraint(model, cons)::Int for cons in constraints])
     g_min = VT(undef, m)
     g_max = VT(undef, m)
 
@@ -153,11 +153,12 @@ function ReducedSpaceEvaluator(
     want_hessian = (nbatch_hessian > 0)
     hess_ad = nothing
     if want_hessian
+        m = length(g_min)
         func = line_constraints ? ExaPF.network_line_operations : ExaPF.network_operations
         hess_ad = if nbatch_hessian > 1
-            BatchHessianLagrangian(model, func, J, nbatch_hessian)
+            BatchHessianLagrangian(model, func, J, nbatch_hessian, m)
         else
-            HessianLagrangian(model, func, J)
+            HessianLagrangian(model, func, J, m)
         end
     end
 
@@ -435,13 +436,31 @@ function full_hessprod!(nlp::ReducedSpaceEvaluator, hv::AbstractVector, y::Abstr
 end
 
 # Batch version
+#
+## Auxiliary functions
+function _fetch_batch_hessprod!(dfx::AbstractArray, dfu::AbstractArray, hv::AbstractArray, nx, nu)
+    dfx .= @view hv[1:nx, :]
+    dfu .= @view hv[nx+1:nx+nu, :]
+    return
+end
+function _init_tangent!(tgt::AbstractArray, z::AbstractArray, w::AbstractArray, nx, nu, nbatch)
+    for i in 1:nbatch
+        mxu = 1 + (i-1)*(nx+nu)
+        mx = 1 + (i-1)*nx
+        mu = 1 + (i-1)*nu
+        copyto!(tgt, mxu,    z, mx, nx)
+        copyto!(tgt, mxu+nx, w, mu, nu)
+    end
+end
+
 function full_hessprod!(nlp::ReducedSpaceEvaluator, hv::AbstractMatrix, y::AbstractMatrix, tgt::AbstractMatrix)
     nx, nu = ExaPF.get(nlp.model, ExaPF.NumberOfState()), ExaPF.get(nlp.model, ExaPF.NumberOfControl())
     H = nlp.hesslag
     ExaPF.batch_adj_hessian_prod!(nlp.model, H.hess, hv, nlp.buffer, y, tgt)
-    # TODO: remove allocations
-    ∂fₓ = hv[1:nx, :]
-    ∂fᵤ = hv[nx+1:nx+nu, :]
+    # Use buffers to avoid large allocations on the GPU
+    ∂fₓ = H._w2
+    ∂fᵤ = H._w3
+    _fetch_batch_hessprod!(∂fₓ, ∂fᵤ, hv, nx, nu) # Overload this function on the GPU
     return ∂fₓ , ∂fᵤ
 end
 
@@ -471,13 +490,7 @@ function hessprod!(nlp::ReducedSpaceEvaluator, hessvec, u, w)
     LinearAlgebra.ldiv!(H.lu, z)
 
     # Init tangent with z and w
-    for i in 1:nbatch
-        mxu = 1 + (i-1)*(nx+nu)
-        mx = 1 + (i-1)*nx
-        mu = 1 + (i-1)*nu
-        copyto!(tgt, mxu,    z, mx, nx)
-        copyto!(tgt, mxu+nx, w, mu, nu)
-    end
+    _init_tangent!(tgt, z, w, nx, nu, nbatch)
 
     # Init adjoint
     fill!(y, 0.0)
@@ -525,13 +538,7 @@ function hessian_lagrangian_penalty_prod!(
     hv = H.tmp_hv
 
     # Init tangent with z and w
-    for i in 1:nbatch
-        mxu = 1 + (i-1)*(nx+nu)
-        mx = 1 + (i-1)*nx
-        mu = 1 + (i-1)*nu
-        copyto!(tgt, mxu,    z, mx, nx)
-        copyto!(tgt, mxu+nx, w, mu, nu)
-    end
+    _init_tangent!(tgt, z, w, nx, nu, nbatch)
 
     ## OBJECTIVE HESSIAN
     fill!(μ, 0.0)
@@ -555,7 +562,7 @@ function hessian_lagrangian_penalty_prod!(
 
     # Add Hessian of quadratic penalty
     m = length(y)
-    diagjac = (nbatch > 1) ? similar(y, m, nbatch) : similar(y)
+    diagjac = H._w1
     _update_full_jacobian_constraints!(nlp)
     Jx = nlp.constraint_jacobians.Jx
     Ju = nlp.constraint_jacobians.Ju
