@@ -102,7 +102,8 @@ function optimize!(
     feasible_direction!(dₖ, uₖ, grad, 1.0, u♭, u♯)
 
     ε_primal = opt.ε_primal
-    ε_dual = opt.ε_dual * (1.0 + norm(dₖ))
+    ε_dual = opt.ε_dual * max(1.0, norm(dₖ))
+    !isnothing(aug.tracker) && (aug.tracker.ext[:scale_sd] = norm(dₖ))
 
     ηk = 1.0 / (ρ0^0.1)
 

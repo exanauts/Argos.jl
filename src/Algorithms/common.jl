@@ -102,11 +102,20 @@ function feasible_direction!(d, x, ∇f, α, x♭, x♯)
 end
 
 # Return 0.0 if xl <= x <= xu
-function max_infeasibility(x, xl, xu)
+function max_infeasibility_abs(x, xl, xu)
     feas = 0.0
     for i in eachindex(x)
         feas = max(feas, xl[i] - x[i])
         feas = max(feas, x[i] - xu[i])
+    end
+    return feas
+end
+
+function max_infeasibility_rel(x, xl, xu)
+    feas = 0.0
+    for i in eachindex(x)
+        feas = max(feas, (xl[i] - x[i]) / max(1.0, abs(xl[i])))
+        feas = max(feas, (x[i] - xu[i]) / max(1.0, abs(xu[i])))
     end
     return feas
 end

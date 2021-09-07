@@ -13,6 +13,8 @@ function solve_auglag_madnlp(aug; linear_solver=MadNLPLapackCPU, max_iter=20, pe
                                    ε_dual=1e-2,
                                    ε_primal=1e-5,
                                   )
+    ExaOpt.reset!(aug)
+    aug.tracker = ExaOpt.NLPTracker(aug)
     mnlp = MadNLP.NonlinearProgram(aug)
     madnlp_options = Dict{Symbol, Any}(:tol=>1e-5,
                                        :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
@@ -24,8 +26,7 @@ function solve_auglag_madnlp(aug; linear_solver=MadNLPLapackCPU, max_iter=20, pe
     x0 = ExaOpt.initial(aug)
     aug.ρ = penalty # update penalty in Evaluator
 
-    ExaOpt.optimize!(solver, aug, x0)
-    return ipp
+    return ExaOpt.optimize!(solver, aug, x0)
 end
 
 function test_dense(
@@ -104,6 +105,6 @@ function test_dense_gpu_new(aug; max_iter=100)
     MadNLP.eval_lag_hess_wrapper!(ipp, kkt, ipp.x, ipp.l)
 
     ipp.cnt = MadNLP.Counters(start_time=time())
-    @profile MadNLP.optimize!(ipp)
+    MadNLP.optimize!(ipp)
     return ipp
 end

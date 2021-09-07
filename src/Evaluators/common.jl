@@ -103,6 +103,88 @@ function Base.empty!(c::NLPCounter)
     end
 end
 
+# Tracker
+struct NLPTracker{VT}
+    bounds::Tuple{VT, VT}
+    g::VT
+    d::VT
+    dual_infeasibility::Vector{Float64}
+    primal_infeasibility::Vector{Float64}
+    cv::Tuple{VT, VT, VT}
+    inf_voltage::Vector{Float64}
+    cp::Tuple{VT, VT, VT}
+    inf_active_power::Vector{Float64}
+    cq::Tuple{VT, VT, VT}
+    inf_reactive_power::Vector{Float64}
+    cl::Tuple{VT, VT, VT}
+    inf_line_constraints::Vector{Float64}
+    pf::VT
+    inf_power_flow::Vector{Float64}
+    ext::Dict
+end
+
+function NLPTracker(nlp::AbstractNLPEvaluator)
+    model = backend(nlp)
+    buffer = Base.get(nlp, ExaPF.PhysicalState())
+
+    u_L, u_U = bounds(nlp, ExaOpt.Variables())
+    g = similar(u_L)
+    d = similar(u_L)
+    v_lb, v_ub = ExaPF.bounds(model, ExaPF.voltage_magnitude_constraints)
+    cv = similar(v_lb)
+    p_lb, p_ub = ExaPF.bounds(model, ExaPF.active_power_constraints)
+    cp = similar(p_lb)
+    q_lb, q_ub = ExaPF.bounds(model, ExaPF.reactive_power_constraints)
+    cq = similar(q_lb)
+    l_lb, l_ub = ExaPF.bounds(model, ExaPF.flow_constraints)
+    cl = similar(l_lb) ; fill!(cl, 0.0)
+    pf = similar(buffer.dx)
+
+    return NLPTracker{typeof(u_L)}(
+        (u_L, u_U), g, d,
+        Float64[], Float64[],
+        (cv, v_lb, v_ub), Float64[],
+        (cp, p_lb, p_ub), Float64[],
+        (cq, q_lb, q_ub), Float64[],
+        (cl, l_lb, l_ub), Float64[],
+        pf, Float64[],
+        Dict{Symbol, Any}(:it=>1, :current_iter=>Int[], :scale_sd=>1.0),
+    )
+end
+
+function store!(aug::AbstractNLPEvaluator, track::NLPTracker, u::AbstractArray)
+    # Load model
+    model = backend(aug)
+    buffer = Base.get(aug, ExaPF.PhysicalState())
+    # Load working arrays
+    u_lb, u_ub = track.bounds
+    cv, v_lb, v_ub = track.cv
+    cp, p_lb, p_ub = track.cp
+    cq, q_lb, q_ub = track.cq
+    cl, l_lb, l_ub = track.cl
+    # Evaluate gradient
+    gradient!(aug, track.g, u)
+    feasible_direction!(track.d, u, track.g, 1.0, u_lb, u_ub)
+    # Evaluate constraints
+    ExaPF.voltage_magnitude_constraints(model, cv, buffer)
+    ExaPF.active_power_constraints(model, cp, buffer)
+    ExaPF.reactive_power_constraints(model, cq, buffer)
+    ExaPF.flow_constraints(model, cl, buffer)
+    ExaPF.power_balance(model, track.pf, buffer)
+    # Store results
+    push!(track.primal_infeasibility, norm(aug.cons, Inf))
+    push!(track.inf_voltage, max_infeasibility_rel(cv, v_lb, v_ub))
+    push!(track.inf_active_power, max_infeasibility_rel(cp, p_lb, p_ub))
+    push!(track.inf_reactive_power, max_infeasibility_rel(cq, q_lb, q_ub))
+    push!(track.inf_line_constraints, max_infeasibility_rel(cl, l_lb, l_ub))
+    push!(track.inf_power_flow, norm(track.pf, Inf))
+    push!(track.dual_infeasibility, norm(track.d, Inf) / track.ext[:scale_sd])
+
+    push!(track.ext[:current_iter], track.ext[:it])
+
+    return
+end
+
 # Active set utils
 function _check(val, val_min, val_max)
     violated_inf = findall(val .< val_min)

@@ -63,6 +63,7 @@ mutable struct AugLagEvaluator{Evaluator<:AbstractNLPEvaluator, T, VT} <: Abstra
     scaler::MaxScaler{T, VT}
     # Stats
     counter::NLPCounter
+    tracker::Union{Nothing, NLPTracker}
 end
 function AugLagEvaluator(
     nlp::AbstractNLPEvaluator, u0=ExaOpt.initial(nlp);
@@ -85,7 +86,7 @@ function AugLagEvaluator(
     λ = similar(g_min) ; fill!(λ, 0)
 
     scaler = scale ?  MaxScaler(nlp, u0) : MaxScaler(g_min, g_max)
-    return AugLagEvaluator(nlp, cons_type, cx, c₀, λ, λc, scaler, NLPCounter())
+    return AugLagEvaluator(nlp, cons_type, cx, c₀, λ, λc, scaler, NLPCounter(), nothing)
 end
 function AugLagEvaluator(
     datafile::String; device=ExaPF.CPU(), scale=false, c₀=0.1, options...
@@ -126,10 +127,12 @@ end
 
 function update_penalty!(ag::AugLagEvaluator; η=10.0)
     ag.ρ = min(η * ag.ρ, 10e12)
+    !isnothing(ag.tracker) && (ag.tracker.ext[:it] += 1)
 end
 
 function update_multipliers!(ag::AugLagEvaluator)
     ag.λ .= ag.λc
+    !isnothing(ag.tracker) && (ag.tracker.ext[:it] += 1)
     return
 end
 
@@ -181,6 +184,10 @@ function hessian!(ag::AugLagEvaluator, H, u)
     y = (scaler.scale_cons .* ag.λc .* mask)
     ρ = ag.ρ .* (scaler.scale_cons .* scaler.scale_cons .* mask)
     hessian_lagrangian_penalty!(ag.inner, H, u, y, σ, ρ)
+
+    if !isnothing(ag.tracker)
+        store!(ag, ag.tracker, u)
+    end
     return
 end
 
