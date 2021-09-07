@@ -20,7 +20,10 @@ struct AuglagSolver{InnerOptimizer} <: AbstractExaOptimizer
 end
 
 # Solve subproblem with any MOI compatible solver
-function solve_subproblem!(algo::AuglagSolver{<:MOI.AbstractOptimizer}, aug::AugLagEvaluator, uₖ)
+function solve_subproblem!(
+    algo::AuglagSolver{<:MOI.AbstractOptimizer}, aug::AugLagEvaluator, uₖ;
+    tol=-1,
+)
     n_iter = aug.counter.hessian
     # Initiate optimizer
     MOI.empty!(algo.optimizer)
@@ -35,14 +38,17 @@ function solve_subproblem!(algo::AuglagSolver{<:MOI.AbstractOptimizer}, aug::Aug
 end
 
 # Solve subproblem with MadNLP
-function solve_subproblem!(algo::ExaOpt.AuglagSolver{<:MadNLP.Solver}, aug::ExaOpt.AugLagEvaluator, uₖ)
+function solve_subproblem!(
+    algo::ExaOpt.AuglagSolver{<:MadNLP.Solver}, aug::ExaOpt.AugLagEvaluator, uₖ;
+    tol=-1,
+)
     n_iter = aug.counter.hessian
     # Init primal variable
     copyto!(algo.optimizer.nlp.x, uₖ)
     algo.optimizer.nlp.x[1] *= 1.0001 # TODO quick fix
     # Set initial mu if resolve
     if algo.optimizer.status != MadNLP.INITIAL
-        algo.optimizer.opt.mu_init = 1e-4
+        algo.optimizer.opt.mu_init = 1e-6
     end
     # Optimize with IPM
     MadNLP.optimize!(algo.optimizer)
@@ -73,7 +79,7 @@ function optimize!(
 
     # Initialize arrays
     uₖ        = copy(u0)
-    wk        = copy(u0)
+    dₖ        = copy(u0)
     u_prev    = copy(u0)
     grad      = similar(u0) ; fill!(grad, 0)
     ut        = similar(u0) ; fill!(ut, 0)
@@ -93,10 +99,10 @@ function optimize!(
     update!(aug, uₖ)
     # Get gradient of Augmented Lagrangian
     gradient!(aug, grad, uₖ)
-    feasible_direction!(wk, wk, uₖ, grad, 1.0, u♭, u♯)
+    feasible_direction!(dₖ, uₖ, grad, 1.0, u♭, u♯)
 
     ε_primal = opt.ε_primal
-    ε_dual = opt.ε_dual * (1.0 + norm(wk))
+    ε_dual = opt.ε_dual * (1.0 + norm(dₖ))
 
     ηk = 1.0 / (ρ0^0.1)
 
@@ -117,7 +123,7 @@ function optimize!(
         # O-th iteration
         obj = objective(nlp, uₖ)
         primal_feas = primal_infeasibility!(nlp, cons, uₖ)
-        dual_feas = norm(wk, 2)
+        dual_feas = norm(dₖ, 2)
         log_iter(0, obj, primal_feas, dual_feas, ηk, aug.ρ, 0)
     end
 
@@ -137,24 +143,20 @@ function optimize!(
             break
         end
 
-        uₖ .= solution.minimizer
+        copyto!(uₖ, solution.minimizer)
         n_iter = solution.iter
 
         # Update information w.r.t. original evaluator
         obj = objective(nlp, uₖ)
         # Get gradient of Augmented Lagrangian
         gradient!(aug, grad, uₖ)
-        feasible_direction!(wk, wk, uₖ, grad, 1.0, u♭, u♯)
+        # d = P[u - grad] - u
+        feasible_direction!(dₖ, uₖ, grad, 1.0, u♭, u♯)
 
         # Primal feasibility
         primal_feas = norm(aug.cons, Inf)
         # Dual feasibility
-        dual_feas = norm(wk, 2)
-
-        if (dual_feas < ε_dual) && (primal_feas < ε_primal)
-            status = MOI.OPTIMAL
-            break
-        end
+        dual_feas = norm(dₖ, 2)
 
         # Update the penalties (see Nocedal & Wright, page 521)
         if primal_feas <= ηk
@@ -173,6 +175,11 @@ function optimize!(
         # Log
         verbose && log_iter(i_out, obj, primal_feas, dual_feas, ηk, aug.ρ, n_iter) # Log evolution
         push!(tracer, obj, primal_feas, dual_feas)
+
+        if (dual_feas < ε_dual) && (primal_feas < ε_primal)
+            status = MOI.OPTIMAL
+            break
+        end
     end
     toc = time() - tic
 

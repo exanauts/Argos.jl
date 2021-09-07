@@ -94,6 +94,23 @@ function feasible_direction!(d, w, u, ∇f, α, u♭, u♯)
     return
 end
 
+# P[x - α ∇f] - x
+function feasible_direction!(d, x, ∇f, α, x♭, x♯)
+    project!(d, x .- α .* ∇f, x♭, x♯)  # P[x - α ∇f]
+    d .-= x                            # P[x - α ∇f] - x
+    return
+end
+
+# Return 0.0 if xl <= x <= xu
+function max_infeasibility(x, xl, xu)
+    feas = 0.0
+    for i in eachindex(x)
+        feas = max(feas, xl[i] - x[i])
+        feas = max(feas, x[i] - xu[i])
+    end
+    return feas
+end
+
 ## Printing procedure
 function log_header()
     @printf(
