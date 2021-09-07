@@ -54,11 +54,11 @@ end
     i, j = @index(Global, NTuple)
 
     if i <= n
-        dest[i, j] = H[i, j]
+        @inbounds dest[i, j] = H[i, j]
     elseif i <= n + m
-        dest[i, j] = - ρ[i - n] * J[i - n, j]
-        dest[j, i] = - ρ[i - n] * J[i - n, j]
-        dest[i, i] = ρ[i - n]
+        @inbounds dest[i, j] = - ρ[i - n] * J[i - n, j]
+        @inbounds dest[j, i] = - ρ[i - n] * J[i - n, j]
+        @inbounds dest[i, i] =   ρ[i - n]
     end
 end
 
@@ -102,9 +102,9 @@ end
 @kernel function _batch_tangents_kernel!(seeds, offset, n, n_batches)
     i, j = @index(Global, NTuple)
     val = (i == j + offset) ? 1.0 : 0.0
-    seeds[i, j] = val
+    @inbounds seeds[i, j] = val
     if (i == j + offset)
-        seeds[i, j] = 1.0
+        @inbounds seeds[i, j] = 1.0
     end
 end
 
@@ -128,9 +128,9 @@ end
 @kernel function _init_tangent_kernel!(tgt, z, w, nx, nu, nbatch)
     i, j = @index(Global, NTuple)
     if i <= nx
-        tgt[i, j] = z[i, j]
+        @inbounds tgt[i, j] = z[i, j]
     else
-        tgt[i, j] = w[i - nx, j]
+        @inbounds tgt[i, j] = w[i - nx, j]
     end
 end
 
@@ -152,9 +152,9 @@ end
 @kernel function _fetch_batch_hessprod_kernel!(dfx, dfu, hv, nx, nu)
     i, j = @index(Global, NTuple)
     if i <= nx
-        dfx[i, j] = hv[i, j]
+        @inbounds dfx[i, j] = hv[i, j]
     else
-        dfu[i - nx, j] = hv[i, j]
+        @inbounds dfu[i - nx, j] = hv[i, j]
     end
 end
 
