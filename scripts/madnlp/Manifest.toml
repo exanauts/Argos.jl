@@ -169,9 +169,7 @@ uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 
 [[ExaOpt]]
 deps = ["BlockPowerFlow", "CUDA", "CUDAKernels", "ExaPF", "FiniteDiff", "Ipopt", "KernelAbstractions", "LinearAlgebra", "MathOptInterface", "Printf", "Random", "SparseArrays", "Test"]
-git-tree-sha1 = "d7c697f39c209f80128130dc464d2ed4b70e6f1b"
-repo-rev = "master"
-repo-url = "git@github.com:exanauts/ExaPF-Opt.git"
+path = "/home/fpacaud/exa/ExaOpt"
 uuid = "ef244971-cf80-42b0-9762-2c2c832df5d5"
 version = "0.1.0"
 
@@ -364,13 +362,13 @@ uuid = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 version = "0.5.7"
 
 [[MadNLP]]
-deps = ["CUDA", "CUDAKernels", "KernelAbstractions", "Libdl", "LinearAlgebra", "Logging", "MadNLPGPU", "MathOptInterface", "NLPModels", "Pkg", "Printf", "SolverCore", "SparseArrays", "SuiteSparse"]
+deps = ["Libdl", "LinearAlgebra", "Logging", "MathOptInterface", "NLPModels", "Pkg", "Printf", "SolverCore", "SparseArrays", "SuiteSparse"]
 path = "/home/fpacaud/.julia/dev/MadNLP"
 uuid = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
 version = "0.2.0"
 
 [[MadNLPGPU]]
-deps = ["CUDA", "MadNLP"]
+deps = ["CUDA", "CUDAKernels", "KernelAbstractions", "MadNLP"]
 path = "/home/fpacaud/.julia/dev/MadNLP/lib/MadNLPGPU"
 uuid = "d72a61cc-809d-412f-99be-fd81f4b8a598"
 version = "0.1.0"

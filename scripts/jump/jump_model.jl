@@ -165,8 +165,8 @@ end
 
 function main(datafile::String)
     pf = PS.PowerNetwork(datafile)
-    m = build_opf_model(pf, Ipopt.Optimizer; line_constraints=true)
-    attach_callback!(m)
+    m = build_opf_model(pf, Ipopt.Optimizer; line_constraints=false)
+    # attach_callback!(m)
     JuMP.optimize!(m)
     return m
 end

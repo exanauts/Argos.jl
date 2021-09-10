@@ -37,16 +37,16 @@ function solve_auglag_moi(aug; linear_solver=MadNLPLapackCPU, max_iter=20, penal
     aug.tracker = ExaOpt.NLPTracker(aug)
     options = ExaOpt.AugLagOptions(;
         max_iter=max_iter,
-        max_inner_iter=100,
+        max_inner_iter=1000,
         α0=1.0,
         rate=rate,
-        ωtol=1e-5,
+        ωtol=1e-6,
         verbose=1,
         ε_dual=1e-2,
         ε_primal=1e-5,
     )
     optimizer = MadNLP.Optimizer(
-        linear_solver=linear_solver, print_level=MadNLP.ERROR, max_iter=300,
+        linear_solver=linear_solver, print_level=MadNLP.ERROR, max_iter=500,
     )
     solver = ExaOpt.AuglagSolver(optimizer, options)
 

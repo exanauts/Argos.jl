@@ -138,8 +138,11 @@ function optimize!(
         # Solve inner problem
         solution = solve_subproblem!(algo, aug, uₖ)
 
-        if (solution.status != MOI.OPTIMAL) && (solution.status != MOI.LOCALLY_SOLVED)
-            println("[AugLag] Fail to solve inner subproblem. Exiting.")
+        if (solution.status != MOI.OPTIMAL) &&
+           (solution.status != MOI.LOCALLY_SOLVED)  &&
+           (solution.status != MOI.SLOW_PROGRESS) &&
+           (solution.status != MOI.ITERATION_LIMIT)
+            println("[AugLag] Fail to solve inner subproblem. Status: $(solution.status). Exiting.")
             status = MOI.NUMERICAL_ERROR
             break
         end

@@ -238,6 +238,7 @@ end
 
 # Overload Hessian evaluation
 function MadNLP.eval_lag_hess_wrapper!(ipp::MadNLP.Solver, kkt::MixedAuglagKKTSystem, x::Vector{Float64},l::Vector{Float64};is_resto=false)
+    kkt.aug.counter.hessian += 1
     nlp = ipp.nlp
     cnt = ipp.cnt
     # Scaling
@@ -268,6 +269,10 @@ function MadNLP.eval_lag_hess_wrapper!(ipp::MadNLP.Solver, kkt::MixedAuglagKKTSy
 
     MadNLP.compress_hessian!(kkt)
     cnt.lag_hess_cnt+=1
+
+    if !isnothing(kkt.aug.tracker)
+        store!(kkt.aug, kkt.aug.tracker, kkt._wx)
+    end
 
     return kkt.hess
 end

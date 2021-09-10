@@ -2,7 +2,7 @@
 using MadNLP
 
 
-function solve_auglag_madnlp(aug; linear_solver=MadNLPLapackCPU, max_iter=20, penalty=0.1, rate=10.0)
+function solve_auglag_madnlp(aug; linear_solver=MadNLPLapackGPU, max_iter=20, penalty=0.1, rate=10.0)
     options = ExaOpt.AugLagOptions(;
                                    max_iter=max_iter,
                                    max_inner_iter=100,
@@ -14,13 +14,14 @@ function solve_auglag_madnlp(aug; linear_solver=MadNLPLapackCPU, max_iter=20, pe
                                    ε_primal=1e-5,
                                   )
     ExaOpt.reset!(aug)
-    aug.tracker = ExaOpt.NLPTracker(aug)
+    # aug.tracker = ExaOpt.NLPTracker(aug)
     mnlp = MadNLP.NonlinearProgram(aug)
     madnlp_options = Dict{Symbol, Any}(:tol=>1e-5,
                                        :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
                                        :linear_solver=>linear_solver,
-                                       :print_level=>MadNLP.ERROR)
-    ipp = MadNLP.Solver(mnlp; option_dict=madnlp_options)
+                                       :print_level=>MadNLP.INFO)
+    kkt = ExaOpt.MixedAuglagKKTSystem{Float64, CuVector{Float64}, CuMatrix{Float64}}(aug, Int[])
+    ipp = MadNLP.Solver(mnlp; option_dict=madnlp_options, kkt=kkt)
     solver = ExaOpt.AuglagSolver(ipp, options)
 
     x0 = ExaOpt.initial(aug)
@@ -45,7 +46,7 @@ function test_dense(
         :linear_solver=>linear_solver
     )
     ipp = MadNLP.Solver(mnlp; option_dict=options)
-    @time MadNLP.optimize!(ipp)
+    CUDA.@time MadNLP.optimize!(ipp)
     return ipp
 end
 
@@ -67,7 +68,7 @@ function test_dense_new(
     # Custom KKT system
     kkt = ExaOpt.MixedAuglagKKTSystem{Float64, Vector{Float64}, Matrix{Float64}}(aug, Int[])
     ipp = MadNLP.Solver(mnlp; option_dict=options, kkt=kkt)
-    @time MadNLP.optimize!(ipp)
+    CUDA.@time MadNLP.optimize!(ipp)
     return ipp
 end
 
@@ -86,7 +87,7 @@ function test_dense_gpu(aug; max_iter=100)
     MadNLP.eval_lag_hess_wrapper!(ipp, kkt, ipp.x, ipp.l)
 
     ipp.cnt = MadNLP.Counters(start_time=time())
-    MadNLP.optimize!(ipp)
+    CUDA.@time MadNLP.optimize!(ipp)
     return ipp
 end
 
@@ -105,6 +106,6 @@ function test_dense_gpu_new(aug; max_iter=100)
     MadNLP.eval_lag_hess_wrapper!(ipp, kkt, ipp.x, ipp.l)
 
     ipp.cnt = MadNLP.Counters(start_time=time())
-    MadNLP.optimize!(ipp)
+    CUDA.@time MadNLP.optimize!(ipp)
     return ipp
 end
