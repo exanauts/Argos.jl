@@ -100,7 +100,7 @@ function initial(nlp::SlackEvaluator{Ev, T, VT}) where {Ev, T, VT}
     u0 = initial(nlp.inner)
     update!(nlp.inner, u0)
     cons = constraint(nlp.inner, u0)
-    return [u0; -cons] |> VT
+    return [u0; cons] |> VT
 end
 
 function update!(nlp::SlackEvaluator, w)
