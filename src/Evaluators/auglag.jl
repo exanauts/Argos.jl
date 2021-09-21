@@ -67,7 +67,7 @@ mutable struct AugLagEvaluator{Evaluator<:AbstractNLPEvaluator, T, VT} <: Abstra
 end
 function AugLagEvaluator(
     nlp::AbstractNLPEvaluator, u0=ExaOpt.initial(nlp);
-    scale=false, c₀=0.1,
+    scale=false, c₀=10.0,
 )
     if !is_constrained(nlp)
         error("Model specified in `nlp` is unconstrained. Instead of using" *
@@ -178,13 +178,12 @@ function hessian!(ag::AugLagEvaluator, H, u)
     ag.counter.hessian += 1
     scaler = ag.scaler
     cx = ag.cons
-    mask = abs.(cx) .> 0
+    mask = abs.(cx) .>= 0
 
     σ = scaler.scale_obj
     y = (scaler.scale_cons .* ag.λc .* mask)
     ρ = ag.ρ .* (scaler.scale_cons .* scaler.scale_cons .* mask)
     hessian_lagrangian_penalty!(ag.inner, H, u, y, σ, ρ)
-
     if !isnothing(ag.tracker)
         store!(ag, ag.tracker, u)
     end

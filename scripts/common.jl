@@ -10,7 +10,7 @@ const CUDA_DEVICE = 1
 # Remove iterative refinement in UMFPACK
 SuiteSparse.UMFPACK.umf_ctrl[8] = 0.0
 
-function build_problem(datafile; scale=true, ρ=0.1, pf_tol=1e-10, line_constraints=false)
+function build_problem(datafile; scale=true, ρ=10.0, pf_tol=1e-10, line_constraints=false)
     nlp = ExaOpt.ReducedSpaceEvaluator(
         datafile;
         powerflow_solver=ExaPF.NewtonRaphson(tol=pf_tol),
