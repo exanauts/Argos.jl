@@ -44,7 +44,7 @@ const MOI = MathOptInterface
         MOI.set(optimizer, MOI.RawParameter("print_level"), 0)
         MOI.set(optimizer, MOI.RawParameter("tol"), 1e-4)
         MOI.set(optimizer, MOI.RawParameter("max_iter"), 30)
-        aug = ExaOpt.AugLagEvaluator(nlp, ExaOpt.initial(nlp))
+        aug = ExaOpt.AugLagEvaluator(nlp, ExaOpt.initial(nlp); c₀=0.1)
 
         solution = ExaOpt.optimize!(optimizer, aug)
         MOI.empty!(optimizer)
