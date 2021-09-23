@@ -178,7 +178,7 @@ function hessian!(ag::AugLagEvaluator, H, u)
     ag.counter.hessian += 1
     scaler = ag.scaler
     cx = ag.cons
-    mask = abs.(cx) .>= 0
+    mask = abs.(cx) .> 0
 
     σ = scaler.scale_obj
     y = (scaler.scale_cons .* ag.λc .* mask)
