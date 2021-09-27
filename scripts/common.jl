@@ -26,7 +26,7 @@ if has_cuda_gpu()
     using CUDA.CUSPARSE
     device!(CUDA_DEVICE)
 
-    function build_batch_problem(datafile, nbatch; ρ=0.1, scale=false, wrap=true, line_constraints=false)
+    function build_batch_problem(datafile, nbatch; ρ=10.0, scale=false, wrap=true, line_constraints=false)
         pf_solver = NewtonRaphson(; tol=1e-10)
         nlp = ExaOpt.ReducedSpaceEvaluator(
             datafile; device=CUDADevice(), nbatch_hessian=nbatch, powerflow_solver=pf_solver,

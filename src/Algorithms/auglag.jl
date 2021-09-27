@@ -40,15 +40,19 @@ end
 # Solve subproblem with MadNLP
 function solve_subproblem!(
     algo::ExaOpt.AuglagSolver{<:MadNLP.Solver}, aug::ExaOpt.AugLagEvaluator, uₖ;
-    tol=-1,
+    tol=-1, niter=1
 )
     n_iter = aug.counter.hessian
     # Init primal variable
     copyto!(algo.optimizer.nlp.x, uₖ)
-    algo.optimizer.nlp.x[1] *= 1.0001 # TODO quick fix
+    algo.optimizer.nlp.x[end] *= 1.001 # TODO quick fix
     # Set initial mu if resolve
     if algo.optimizer.status != MadNLP.INITIAL
-        algo.optimizer.opt.mu_init = 1e-6
+        if niter < 6
+            algo.optimizer.opt.mu_init = 1e-4
+        else
+            algo.optimizer.opt.mu_init = 1e-6
+        end
     end
     # Optimize with IPM
     MadNLP.optimize!(algo.optimizer)
@@ -136,7 +140,7 @@ function optimize!(
     for i_out in 1:opt.max_iter
 
         # Solve inner problem
-        solution = solve_subproblem!(algo, aug, uₖ)
+        solution = solve_subproblem!(algo, aug, uₖ; niter=i_out)
 
         if (solution.status != MOI.OPTIMAL) &&
            (solution.status != MOI.LOCALLY_SOLVED)  &&

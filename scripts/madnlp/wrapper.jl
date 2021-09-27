@@ -1,8 +1,34 @@
 
 using MadNLP
 
+function solve_auglag_madnlp(aug; linear_solver=MadNLPLapackGPU, max_iter=10, penalty=10.0, rate=10.0)
+    options = ExaOpt.AugLagOptions(;
+                                   max_iter=max_iter,
+                                   max_inner_iter=100,
+                                   α0=1.0,
+                                   rate=rate,
+                                   ωtol=1e-5,
+                                   verbose=1,
+                                   ε_dual=1e-2,
+                                   ε_primal=1e-5,
+    )
+    ExaOpt.reset!(aug)
+    aug.ρ = penalty # update penalty in Evaluator
+    # aug.tracker = ExaOpt.NLPTracker(aug)
+    mnlp = MadNLP.NonlinearProgram(aug)
+    madnlp_options = Dict{Symbol, Any}(:tol=>1e-5,
+                                       :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
+                                       :linear_solver=>linear_solver,
+                                       :print_level=>MadNLP.ERROR)
+    ipp = MadNLP.Solver(mnlp; option_dict=madnlp_options)
+    solver = ExaOpt.AuglagSolver(ipp, options)
 
-function solve_auglag_madnlp(aug; linear_solver=MadNLPLapackGPU, max_iter=20, penalty=0.1, rate=10.0)
+    x0 = ExaOpt.initial(aug)
+
+    return ExaOpt.optimize!(solver, aug, x0)
+end
+
+function solve_auglag_madnlp_schur(aug; linear_solver=MadNLPLapackGPU, max_iter=10, penalty=10.0, rate=10.0)
     options = ExaOpt.AugLagOptions(;
                                    max_iter=max_iter,
                                    max_inner_iter=100,
@@ -19,7 +45,7 @@ function solve_auglag_madnlp(aug; linear_solver=MadNLPLapackGPU, max_iter=20, pe
     madnlp_options = Dict{Symbol, Any}(:tol=>1e-5,
                                        :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
                                        :linear_solver=>linear_solver,
-                                       :print_level=>MadNLP.INFO)
+                                       :print_level=>MadNLP.ERROR)
     kkt = ExaOpt.MixedAuglagKKTSystem{Float64, CuVector{Float64}, CuMatrix{Float64}}(aug, Int[])
     ipp = MadNLP.Solver(mnlp; option_dict=madnlp_options, kkt=kkt)
     solver = ExaOpt.AuglagSolver(ipp, options)

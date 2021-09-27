@@ -74,7 +74,7 @@ function ExaOpt.transfer_auglag_hessian!(
     @assert size(ρ, 1) == m
 
     ndrange = (n+m, n)
-    ev = _transfer_auglag_hessian!(CUDADevice())(dest, H, J, ρ, n, m, ndrange=ndrange)
+    ev = _transfer_auglag_hessian!(CUDADevice())(dest, H, J, ρ, n, m, ndrange=ndrange, dependencies=Event(CUDADevice()))
     wait(ev)
     return
 end
@@ -110,7 +110,7 @@ end
 
 function ExaOpt.set_batch_tangents!(seeds::CuMatrix, offset, n, n_batches)
     ndrange = (n, n_batches)
-    ev = _batch_tangents_kernel!(CUDADevice())(seeds, offset, n, n_batches, ndrange=ndrange)
+    ev = _batch_tangents_kernel!(CUDADevice())(seeds, offset, n, n_batches, ndrange=ndrange, dependencies=Event(CUDADevice()))
     wait(ev)
     return
 end
@@ -136,7 +136,7 @@ end
 
 function ExaOpt._init_tangent!(tgt::CuMatrix, z::CuMatrix, w::CuMatrix, nx, nu, nbatch)
     ndrange = size(tgt)
-    ev = _init_tangent_kernel!(CUDADevice())(tgt, z, w, nx, nu, nbatch, ndrange=ndrange)
+    ev = _init_tangent_kernel!(CUDADevice())(tgt, z, w, nx, nu, nbatch, ndrange=ndrange, dependencies=Event(CUDADevice()))
     wait(ev)
 end
 
@@ -160,7 +160,8 @@ end
 
 function ExaOpt._fetch_batch_hessprod!(dfx::CuMatrix, dfu::CuMatrix, hv::CuMatrix, nx, nu)
     ndrange = size(hv)
-    ev = _fetch_batch_hessprod_kernel!(CUDADevice())(dfx, dfu, hv, nx, nu, ndrange=ndrange)
+    ev = _fetch_batch_hessprod_kernel!(CUDADevice())(dfx, dfu, hv, nx, nu,
+                                                     ndrange=ndrange, dependencies=Event(CUDADevice()))
     wait(ev)
 end
 

@@ -27,7 +27,7 @@ function MaxScaler(nlp::AbstractNLPEvaluator, u0::VT;
     ∇g = similar(u0) ; fill!(∇g, 0)
     gradient!(nlp, ∇g, u0)
 
-    s_obj = scale_factor(ExaPF.xnorm_inf(∇g), tol, η)
+    s_obj = scale_factor2(ExaPF.xnorm_inf(∇g), tol, η)
 
     ∇c = VT(undef, n)
     v = VT(undef, m)
@@ -38,7 +38,7 @@ function MaxScaler(nlp::AbstractNLPEvaluator, u0::VT;
         h_v[i] = 1.0
         copyto!(v, h_v)
         jtprod!(nlp, ∇c, u0, v)
-        h_s_cons[i] = scale_factor(ExaPF.xnorm_inf(∇c), tol, η)
+        h_s_cons[i] = scale_factor2(ExaPF.xnorm_inf(∇c), tol, η)
     end
     s_cons = h_s_cons |> VT
 
@@ -64,7 +64,7 @@ function NetworkScaler(nlp::AbstractNLPEvaluator, g_min, g_max; σ=1e-3)
         elseif cons === ExaPF.reactive_power_constraints
             μ = 1e-1
         elseif cons === ExaPF.flow_constraints
-            μ = 1e-2
+            μ = 2e-3
         else
             error("Unsupported constraint")
         end
