@@ -191,6 +191,21 @@ function hessian!(ag::AugLagEvaluator, H, u)
     return
 end
 
+# Access inner Hessian and Jacobian
+function inner_jacobian!(ag::AugLagEvaluator, J, u)
+    inner = inner_evaluator(ag)
+    jacobian!(inner, J, u)
+    return
+end
+
+function inner_hessian!(ag::AugLagEvaluator, H, u, λ, D)
+    ag.counter.hessian += 1
+    σ = ag.scaler.scale_obj
+    inner = inner_evaluator(ag)
+    hessian_lagrangian_penalty!(inner, H, u, λ, σ, D)
+    return
+end
+
 function estimate_multipliers(ag::AugLagEvaluator, u)
     J = Diagonal(ag.scaler.scale_cons) * jacobian(ag.inner, u)
     ∇f = gradient(ag.inner, u)

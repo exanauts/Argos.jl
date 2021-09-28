@@ -13,7 +13,7 @@ TS = "onehour_60"
 
 function _load_jump_problem(case)
     datafile = joinpath(OPF_DATA_DIR, "$case.m")
-    polar = ExaPF.PolarForm(datafile)
+    polar = ExaPF.PolarForm(datafile, CPU())
     # Buffer
     buffer = ExaPF.get(polar, ExaPF.PhysicalState())
     ExaPF.init_buffer!(polar, buffer)
@@ -203,6 +203,7 @@ function test_qp(
         :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
         :print_level=>MadNLP.DEBUG,
         :linear_solver=>linear_solver,
+        :lapackcpu_algorithm=>MadNLPLapackCPU.CHOLESKY,
         :hessian_constant=>true,
         :jacobian_constant=>true,
         :mu_init=>1e-4,
@@ -210,5 +211,18 @@ function test_qp(
     ipp = MadNLP.Solver(mnlp; option_dict=options)
     MadNLP.optimize!(ipp)
     return (qp, ipp)
+end
+
+function rto(datafile)
+    opf_jump = JuMPRealTimeOPF(datafile)
+    # Compute reference with Ipopt
+    obj_ref, v_ref = solve!(opf_jump)
+
+    opf_exa = ExaRealTimeOPF(datafile)
+    opf_exa.aug.ρ = 0.1 # small penalty is better
+    warmstart!(opf_exa)
+    obj_res = tracking_algorithm!(opf_exa)
+
+    return obj_ref, obj_res
 end
 

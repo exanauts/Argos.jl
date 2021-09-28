@@ -3,10 +3,10 @@ function MadNLP.NonlinearProgram(nlp::ExaOpt.AbstractNLPEvaluator)
     n = ExaOpt.n_variables(nlp)
     m = ExaOpt.n_constraints(nlp)
 
-    hrows, hcols = ExaOpt.hessian_structure(nlp)
-    jrows, jcols = ExaOpt.jacobian_structure(nlp)
-    nnz_hess = length(hrows)
-    nnz_jac = length(jrows)
+    # hrows, hcols = ExaOpt.hessian_structure(nlp)
+    # jrows, jcols = ExaOpt.jacobian_structure(nlp)
+    nnz_hess = 0 # length(hrows)
+    nnz_jac = 0 # length(jrows)
 
     d_x0  = ExaOpt.initial(nlp)
     x0 = d_x0 |> Array
@@ -90,7 +90,9 @@ end
 
 # Supports only bound-constrained optimization problem (so no Jacobian)!
 struct MixedAuglagKKTSystem{T, VT, MT} <: MadNLP.AbstractKKTSystem{T, MT}
-    aug::AugLagEvaluator # for Auglag information
+    aug::AbstractNLPEvaluator # for Auglag information
+    n::Int
+    m::Int
     aug_com::MT
     hess::MT
     jac::MT
@@ -112,7 +114,7 @@ struct MixedAuglagKKTSystem{T, VT, MT} <: MadNLP.AbstractKKTSystem{T, MT}
     ind_fixed::Vector{Int}
 end
 
-function MixedAuglagKKTSystem{T, VT, MT}(aug::AugLagEvaluator, ind_fixed) where {T, VT, MT}
+function MixedAuglagKKTSystem{T, VT, MT}(aug::AbstractNLPEvaluator, ind_fixed) where {T, VT, MT}
     inner = inner_evaluator(aug)
     n = n_variables(inner)
     m = n_constraints(inner)
@@ -141,7 +143,7 @@ function MixedAuglagKKTSystem{T, VT, MT}(aug::AugLagEvaluator, ind_fixed) where 
     fill!(weights,   zero(T))
 
     return MixedAuglagKKTSystem{T, VT, MT}(
-        aug, aug_com, hess, jac, jac_scaled,
+        aug, n, m, aug_com, hess, jac, jac_scaled,
         pr_diag, du_diag, sl_diag, diag_hess,
         _wc, _wx, _wy, rhs, weights, ipp_scale, ind_fixed,
     )
@@ -189,9 +191,8 @@ MadNLP.set_jacobian_scaling!(kkt::MixedAuglagKKTSystem, constraint_scaling::Abst
 
 function MadNLP.mul!(y::AbstractVector, kkt::MixedAuglagKKTSystem, x::AbstractVector)
     # Load problem
-    inner = inner_evaluator(kkt.aug)
-    n = n_variables(inner)
-    m = n_constraints(inner)
+    n = kkt.n
+    m = kkt.m
     σ  = kkt.ipp_scale[]
     ηcons = kkt.aug.scaler.scale_cons
     ρ = kkt.aug.ρ
@@ -238,12 +239,11 @@ end
 
 # Overload Hessian evaluation
 function MadNLP.eval_lag_hess_wrapper!(ipp::MadNLP.Solver, kkt::MixedAuglagKKTSystem, x::Vector{Float64},l::Vector{Float64};is_resto=false)
-    kkt.aug.counter.hessian += 1
     nlp = ipp.nlp
     cnt = ipp.cnt
     # Scaling
+
     ηcons = kkt.aug.scaler.scale_cons
-    σ = kkt.aug.scaler.scale_obj
     λ = kkt._wc # avoid a new allocation
     λ .= kkt.aug.λc .* ηcons
     kkt.ipp_scale[] = ipp.obj_scale[]
@@ -251,18 +251,18 @@ function MadNLP.eval_lag_hess_wrapper!(ipp::MadNLP.Solver, kkt::MixedAuglagKKTSy
     # Transfer on device
     copyto!(kkt._wx, x)
 
-    inner = inner_evaluator(kkt.aug)
-    n = n_variables(inner)
-    m = n_constraints(inner)
+    n = kkt.n
+    m = kkt.m
     D = kkt.weights
     xᵤ = @view kkt._wx[1:n]
 
     # Update Hessian-Lagrangian
-    cnt.eval_function_time += @elapsed hessian_lagrangian_penalty!(inner, kkt.hess, xᵤ, λ, σ, D)
+    cnt.eval_function_time += @elapsed inner_hessian!(kkt.aug, kkt.hess, xᵤ, λ, D)
     kkt.hess .*= ipp.obj_scale[]
 
     # Update inner constraints' Jacobian
-    cnt.eval_function_time += @elapsed jacobian!(inner, kkt.jac, xᵤ)
+    cnt.eval_function_time += @elapsed inner_jacobian!(kkt.aug, kkt.jac, xᵤ)
+
     # Auglag's scaling D² * J
     kkt._wc .= ηcons.^2 .* ipp.obj_scale[] # avoid a new allocation
     mul!(kkt.jac, Diagonal(kkt._wc), kkt.jac)
@@ -285,9 +285,8 @@ function MadNLP.solve_refine_wrapper!(ipp::MadNLP.Solver{<:MixedAuglagKKTSystem}
     J = kkt.jac
     σ = kkt.ipp_scale[]
 
-    inner = inner_evaluator(kkt.aug)
-    n = n_variables(inner)
-    m = n_constraints(inner)
+    n = kkt.n
+    m = kkt.m
 
     MadNLP.fixed_variable_treatment_vec!(b, ipp.ind_fixed)
 
