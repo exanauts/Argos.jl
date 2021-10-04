@@ -1,6 +1,5 @@
 using ExaPF
 using MadNLP
-using MathOptInterface
 using ExaOpt
 using CUDA
 
@@ -8,9 +7,11 @@ if CUDA.has_cuda_gpu()
     using CUDAKernels
     using CUDA.CUSPARSE
     device!(0)
+    include(joinpath(dirname(pathof(ExaOpt)), "..", "test", "cusolver.jl"))
 end
 
-const DATA_DIRECTORY = joinpath(dirname(ExaOpt), "..", "data")
+const DATA_DIRECTORY = joinpath(dirname(pathof(ExaOpt)), "..", "data")
+
 
 function solve_auglag_madnlp(aug; linear_solver=MadNLPLapackCPU, max_iter=10, penalty=10.0, rate=10.0)
     # Clean AugLagEvaluator
@@ -62,7 +63,9 @@ function _set_manual_scaler!(aug)
     return
 end
 
-# Used to reproduce results from the article
+"""
+    Used to reproduce results displayed in Table II, page 6 (need a GPU)
+"""
 function pscc_solve_static_opf()
     @assert CUDA.has_cuda_gpu()
     nbatches = 250
