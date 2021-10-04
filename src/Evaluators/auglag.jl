@@ -86,7 +86,6 @@ function AugLagEvaluator(
     λ = similar(g_min) ; fill!(λ, 0)
 
     scaler = scale ?  MaxScaler(nlp, u0) : MaxScaler(g_min, g_max)
-    # scaler = NetworkScaler(nlp, g_min, g_max)
     return AugLagEvaluator(nlp, cons_type, cx, c₀, λ, λc, scaler, NLPCounter(), nothing)
 end
 function AugLagEvaluator(
@@ -128,12 +127,10 @@ end
 
 function update_penalty!(ag::AugLagEvaluator; η=10.0)
     ag.ρ = min(η * ag.ρ, 10e12)
-    !isnothing(ag.tracker) && (ag.tracker.ext[:it] += 1)
 end
 
 function update_multipliers!(ag::AugLagEvaluator)
     ag.λ .= ag.λc
-    !isnothing(ag.tracker) && (ag.tracker.ext[:it] += 1)
     return
 end
 

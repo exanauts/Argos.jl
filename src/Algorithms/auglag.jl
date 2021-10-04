@@ -173,13 +173,9 @@ function optimize!(
             update_multipliers!(aug)
             mul = hcat(mul, aug.λ)
             ηk = ηk / (aug.ρ^0.9)
-            # ωtol /= aug.ρ
-            # ωtol = max(ωtol, opt.ωtol_min)
         else
             update_penalty!(aug; η=opt.rate)
             ηk = 1.0 / (aug.ρ^0.1)
-            # ωtol = 1.0 / aug.ρ
-            # ωtol = max(ωtol, opt.ωtol_min)
         end
 
         # Log
