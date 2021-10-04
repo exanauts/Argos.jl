@@ -19,6 +19,10 @@ struct AuglagSolver{InnerOptimizer} <: AbstractExaOptimizer
     options::AugLagOptions
 end
 
+function AuglagSolver(optimizer; options...)
+    return AuglagSolver(optimizer, AugLagOptions(; options...))
+end
+
 # Solve subproblem with any MOI compatible solver
 function solve_subproblem!(
     algo::AuglagSolver{<:MOI.AbstractOptimizer}, aug::AugLagEvaluator, uₖ;
