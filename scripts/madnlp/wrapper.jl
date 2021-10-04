@@ -132,6 +132,6 @@ function test_dense_gpu_new(aug; max_iter=100)
     MadNLP.eval_lag_hess_wrapper!(ipp, kkt, ipp.x, ipp.l)
 
     ipp.cnt = MadNLP.Counters(start_time=time())
-    CUDA.@time MadNLP.optimize!(ipp)
+    MadNLP.optimize!(ipp)
     return ipp
 end

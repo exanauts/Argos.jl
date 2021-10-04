@@ -3,8 +3,8 @@
 =#
 abstract type AbstractScaler end
 
-scale_factor(h, tol, η) = max(tol, η / max(1.0, h))
-scale_factor2(h, tol, η) = min(1.0, η / h)
+scale_factor_old(h, tol, η) = max(tol, η / max(1.0, h))
+scale_factor(h, tol, η) = min(1.0, η / h)
 
 struct MaxScaler{T, VT} <: AbstractScaler
     scale_obj::T
@@ -27,7 +27,7 @@ function MaxScaler(nlp::AbstractNLPEvaluator, u0::VT;
     ∇g = similar(u0) ; fill!(∇g, 0)
     gradient!(nlp, ∇g, u0)
 
-    s_obj = scale_factor2(ExaPF.xnorm_inf(∇g), tol, η)
+    s_obj = scale_factor(ExaPF.xnorm_inf(∇g), tol, η)
 
     ∇c = VT(undef, n)
     v = VT(undef, m)
@@ -38,7 +38,7 @@ function MaxScaler(nlp::AbstractNLPEvaluator, u0::VT;
         h_v[i] = 1.0
         copyto!(v, h_v)
         jtprod!(nlp, ∇c, u0, v)
-        h_s_cons[i] = scale_factor2(ExaPF.xnorm_inf(∇c), tol, η)
+        h_s_cons[i] = scale_factor(ExaPF.xnorm_inf(∇c), tol, η)
     end
     s_cons = h_s_cons |> VT
 

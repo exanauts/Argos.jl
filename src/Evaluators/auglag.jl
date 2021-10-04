@@ -85,8 +85,8 @@ function AugLagEvaluator(
     λc = similar(g_min) ; fill!(λc, 0)
     λ = similar(g_min) ; fill!(λ, 0)
 
-    # scaler = scale ?  MaxScaler(nlp, u0) : MaxScaler(g_min, g_max)
-    scaler = NetworkScaler(nlp, g_min, g_max)
+    scaler = scale ?  MaxScaler(nlp, u0) : MaxScaler(g_min, g_max)
+    # scaler = NetworkScaler(nlp, g_min, g_max)
     return AugLagEvaluator(nlp, cons_type, cx, c₀, λ, λc, scaler, NLPCounter(), nothing)
 end
 function AugLagEvaluator(
@@ -185,9 +185,6 @@ function hessian!(ag::AugLagEvaluator, H, u)
     y = (scaler.scale_cons .* ag.λc .* mask)
     ρ = ag.ρ .* (scaler.scale_cons .* scaler.scale_cons .* mask)
     hessian_lagrangian_penalty!(ag.inner, H, u, y, σ, ρ)
-    if !isnothing(ag.tracker)
-        store!(ag, ag.tracker, u)
-    end
     return
 end
 

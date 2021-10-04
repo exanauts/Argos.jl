@@ -50,8 +50,10 @@ function solve_subproblem!(
     if algo.optimizer.status != MadNLP.INITIAL
         if niter < 6
             algo.optimizer.opt.mu_init = 1e-4
-        else
+        elseif niter < 10
             algo.optimizer.opt.mu_init = 1e-6
+        else
+            algo.optimizer.opt.mu_init = 1e-8
         end
     end
     # Optimize with IPM
