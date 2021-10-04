@@ -40,6 +40,14 @@ function BridgeDeviceEvaluator(nlp::ReducedSpaceEvaluator{T, VID, VTD, MTD}) whe
     bridge = BridgeDeviceArrays(n, m, VTD, MTD)
     return BridgeDeviceEvaluator{typeof(nlp), VT, MT, VTD, MTD}(nlp, bridge)
 end
+function BridgeDeviceEvaluator(nlp::AbstractNLPEvaluator, ::Type{VTD}, ::Type{MTD}) where {VTD, MTD}
+    n, m = n_variables(nlp), n_constraints(nlp)
+    # Deporting device
+    VT = Array{Float64, 1}
+    MT = Array{Float64, 2}
+    bridge = BridgeDeviceArrays(n, m, VTD, MTD)
+    return BridgeDeviceEvaluator{typeof(nlp), VT, MT, VTD, MTD}(nlp, bridge)
+end
 
 n_variables(nlp::BridgeDeviceEvaluator) = n_variables(nlp.inner)
 n_constraints(nlp::BridgeDeviceEvaluator) = n_constraints(nlp.inner)

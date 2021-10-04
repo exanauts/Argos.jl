@@ -1,38 +1,37 @@
 
+using Printf
+using JuMP
 
-using Revise, JuMP, ExaPF
-using DelimitedFiles
+# Tools to solve the static OPF problem
+include(joinpath(dirname(@__FILE__), "static_opf.jl"))
+# JuMP extension
+include(joinpath(dirname(pathof(ExaOpt)), "..", "scripts", "jump", "jump_model.jl"))
 
-include(joinpath(@__DIR__, "..", "common.jl"))
-include(joinpath(@__DIR__, "..", "jump", "jump_model.jl"))
+#=
+    UTILS
+=#
 
-#= PATHS =#
-OPF_DATA_DIR = "/home/frapac/dev/anl/proxALM/data/"
-OPF_DATA_DIR = "/home/fpacaud/exa/proxALM/data/"
-CASE = "case118"
-TS = "onehour_60"
+function _load_ts_data(case)
+    pd_src = joinpath(joinpath(dirname(@__FILE__), "data", "$(case)_pd.txt"))
+    qd_src = joinpath(joinpath(dirname(@__FILE__), "data", "$(case)_qd.txt"))
+    ploads = readdlm(pd_src)
+    qloads = readdlm(qd_src)
+    return (ploads, qloads)
+end
 
 kpi(a, b) = norm(abs.(a .- b) / max.(1.0, b), Inf)
 
+#=
+    JuMP
+=#
 function _load_jump_problem(case)
-    datafile = joinpath(OPF_DATA_DIR, "$case.m")
+    datafile = joinpath(DATA_DIRECTORY, case)
     polar = ExaPF.PolarForm(datafile, CPU())
     # Buffer
     buffer = ExaPF.get(polar, ExaPF.PhysicalState())
     ExaPF.init_buffer!(polar, buffer)
     # Build model
     return build_opf_model(polar, buffer, Ipopt.Optimizer; line_constraints=false)
-end
-
-function _load_ts_data(case; perturb=true)
-    ploads = readdlm(joinpath(OPF_DATA_DIR, "mp_demand", "$(case)_$TS.Pd"))
-    qloads = readdlm(joinpath(OPF_DATA_DIR, "mp_demand", "$(case)_$TS.Qd"))
-
-    if perturb
-        ploads[:, 3:end] .*= 0.8
-        qloads[:, 3:end] .*= 0.8
-    end
-    return (ploads, qloads)
 end
 
 struct JuMPRealTimeOPF
@@ -43,7 +42,7 @@ struct JuMPRealTimeOPF
 end
 
 function JuMPRealTimeOPF(case::String)
-    model = _load_jump_problem(case)
+    model = _load_jump_problem("$(case).m")
     ploads, qloads = _load_ts_data(case)
     baseMVA = model.ext[:exapf].baseMVA
     horizon = size(ploads, 2)
@@ -73,6 +72,15 @@ function solve!(opf::JuMPRealTimeOPF)
     return (obj_vals, pg_vals)
 end
 
+function rto_ref(datafile)
+    opf_jump = JuMPRealTimeOPF(datafile)
+    # Compute reference with Ipopt
+    return solve!(opf_jump)
+end
+
+#=
+    REAL-TIME OPF
+=#
 struct ExaRealTimeOPF
     T::Int
     aug::ExaOpt.AugLagEvaluator
@@ -96,8 +104,7 @@ function ExaRealTimeOPF(aug, case::String; line_constraints=false)
     return ExaRealTimeOPF(horizon, aug, ploads ./ baseMVA, qloads ./ baseMVA, line_constraints)
 end
 
-dual_variable(model, key) = -JuMP.dual.(JuMP.LowerBoundRef.(model[key])) .- JuMP.dual.(JuMP.UpperBoundRef.(model[key]))
-
+# Warmstart with Ipopt's solution
 function warmstart!(opf::ExaRealTimeOPF)
     polar = ExaOpt.backend(opf.aug)
     buffer = get(opf.aug, ExaPF.PhysicalState())
@@ -105,36 +112,13 @@ function warmstart!(opf::ExaRealTimeOPF)
     JuMP.optimize!(m)
     # Primal solution
     store_solution!(buffer, m)
-
     return
-end
-
-function solve!(opf::ExaRealTimeOPF; max_iter=100)
-    optimizer = MadNLP.Optimizer(linear_solver=MadNLPLapackCPU)
-    MOI.set(optimizer, MOI.RawParameter("tol"), 1e-5)
-    MOI.set(optimizer, MOI.RawParameter("print_level"), MadNLP.DEBUG)
-    MOI.set(optimizer, MOI.RawParameter("max_iter"), max_iter)
-    MOI.set(optimizer, MOI.RawParameter("mu_init"), 1e-7)
-    return @time ExaOpt.optimize!(optimizer, opf.aug)
-end
-
-function bsolve!(opf::ExaRealTimeOPF)
-    ExaOpt.reset!(opf.aug)
-    warmstart!(opf)
-    solve!(opf)
-end
-
-function solve!(opf::ExaRealTimeOPF, t::Int)
-    pd = opf.ploads[:, t]
-    qd = opf.qloads[:, t]
-    ExaOpt.setvalues!(opf.aug, PS.ActiveLoad(), pd)
-    ExaOpt.setvalues!(opf.aug, PS.ReactiveLoad(), qd)
-    warmstart!(opf)
 end
 
 function set_loads!(opf::ExaRealTimeOPF, t::Int)
     pd = opf.ploads[:, t]
     qd = opf.qloads[:, t]
+    # Update loads inside Augmented Lagrangian evaluator
     ExaOpt.setvalues!(opf.aug, PS.ActiveLoad(), pd)
     ExaOpt.setvalues!(opf.aug, PS.ReactiveLoad(), qd)
     return
@@ -162,6 +146,7 @@ function _solve_qp!(
     qp::ExaOpt.AuglagQuadraticModel;
     max_iter=100, linear_solver=MadNLPLapackGPU,
 )
+    @assert CUDA.has_cuda_gpu()
     mnlp = MadNLP.NonlinearProgram(qp)
     kkt = ExaOpt.MixedAuglagKKTSystem{Float64, CuVector{Float64}, CuMatrix{Float64}}(qp, Int[])
     options = Dict{Symbol, Any}(
@@ -210,12 +195,7 @@ function tracking_algorithm!(opf::ExaRealTimeOPF, xₖ=ExaOpt.initial(opf.aug); 
         x₊ = _solve_qp!(qp)
         # Update dual
         conv = ExaOpt.update!(aug, x₊)
-        # if !conv.has_converged
-        #     ExaOpt.reset!(aug.inner)
-        #     conv = ExaOpt.update!(aug, x₊)
-        #     println("Iteration $t")
-        #     break
-        # end
+        # Backtracking line-search
         if !conv.has_converged
             ExaOpt.reset!(aug.inner)
             dₖ = (x₊ .- xₖ)
@@ -252,7 +232,6 @@ function tracking_algorithm!(opf::ExaRealTimeOPF, xₖ=ExaOpt.initial(opf.aug); 
     return obj_vals, prfeas_vals, pg_vals
 end
 
-
 #=
     Unit-tests
 =#
@@ -281,27 +260,9 @@ function test_qp(
     return (qp, ipp)
 end
 
-function rto_ref(datafile)
-    opf_jump = JuMPRealTimeOPF(datafile)
-    # Compute reference with Ipopt
-    return solve!(opf_jump)
-end
-
-function rto_exa(datafile; penalty=0.1, y=nothing)
-    aug_g =
-    opf_exa = ExaRealTimeOPF(datafile)
-    opf_exa.aug.ρ = penalty # small penalty is better
-    if !isnothing(y)
-        copyto!(opf_exa.aug.λ, y)
-    end
-    warmstart!(opf_exa)
-    obj_res = tracking_algorithm!(opf_exa)
-    return obj_res
-end
-
 function test_qp_schur(aug, u; max_iter=100, tol=1e-3, inertia=true, verbose=false)
     qpaug = ExaOpt.AuglagQuadraticModel(aug, u)
-    @time ExaOpt.refresh!(qpaug, u)
+    t1 = @timed ExaOpt.refresh!(qpaug, u)
     mnlp = MadNLP.NonlinearProgram(qpaug)
     kkt = ExaOpt.MixedAuglagKKTSystem{Float64, CuVector{Float64}, CuMatrix{Float64}}(qpaug, Int[])
     inertia_alg = inertia ? MadNLP.INERTIA_BASED : MadNLP.INERTIA_FREE
@@ -315,7 +276,61 @@ function test_qp_schur(aug, u; max_iter=100, tol=1e-3, inertia=true, verbose=fal
         # :jacobian_constant=>true,
     )
     ipp = MadNLP.Solver(mnlp; kkt=kkt, option_dict=options)
-    @time MadNLP.optimize!(ipp)
-    return ipp
+    t2 = @timed MadNLP.optimize!(ipp)
+    return ipp, t1, t2
+end
+
+"""
+    Measure the time to update the tracking control.
+    Reproduce the results displayed in Table III.
+"""
+function pscc_time_tracking_update()
+    nbatches = 250
+    for case in [
+        "case1354pegase.m",
+        "case2869pegase.m",
+        "case9241pegase.m",
+    ]
+        @info "Benchmark tracking update: $case"
+        datafile = joinpath(DATA_DIRECTORY, case)
+        aug_g = ExaOpt.instantiate_auglag_model(
+            datafile;
+            scale=false, line_constraints=true,
+            device=CUDADevice(), nbatches=nbatches,
+        )
+        _set_manual_scaler!(aug_g)
+        res = solve_auglag_madnlp_schur(aug_g; rate=5.0, max_iter=20)
+        ipp, t1, t2 = test_qp_schur(aug_g, res.minimizer; verbose=true)
+        @printf("Update Hessian:    %.3f \n", t1.time)
+        @printf("Solve QP with IPM: %.3f \n", t2.time)
+        @printf("    #iter:          %i\n", ipp.cnt.k)
+        @printf("    Linalg (s):    %.4f\n", ipp.cnt.linear_solver_time)
+        @printf("    Eval (s):      %.4f\n", ipp.cnt.eval_function_time)
+        @printf("TOTAL Δt:          %.3f\n", t1.time + t2.time)
+    end
+end
+
+function pscc_real_time_opf(case; line_constraints=false)
+    nbatches = 250
+    datafile = joinpath(DATA_DIRECTORY, "$(case).m")
+
+    # Initiate model
+    aug_g = ExaOpt.instantiate_auglag_model(
+        datafile;
+        scale=false, line_constraints=line_constraints,
+        device=CUDADevice(), nbatches=nbatches,
+    )
+    _set_manual_scaler!(aug_g)
+
+    # Run static OPF algorithm
+    res = solve_auglag_madnlp_schur(aug_g; rate=5.0, max_iter=20)
+    y = copy(aug_g.λ)
+    x0 = copy(res.minimizer)
+
+    opf = ExaRealTimeOPF(aug_g, case)
+
+    # Decrease ρ
+    aug_g.ρ = 0.01
+    return tracking_algorithm!(opf, x0; y=y)
 end
 
