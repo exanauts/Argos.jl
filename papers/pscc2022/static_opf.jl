@@ -6,7 +6,8 @@ using CUDA
 if CUDA.has_cuda_gpu()
     using CUDAKernels
     using CUDA.CUSPARSE
-    device!(0)
+    using MadNLPGPU
+    # Include CUDA extension for ExaOpt
     include(joinpath(dirname(pathof(ExaOpt)), "..", "test", "cusolver.jl"))
 end
 
@@ -34,7 +35,7 @@ function solve_auglag_madnlp(aug; linear_solver=MadNLPLapackCPU, max_iter=10, pe
     return ExaOpt.optimize!(solver, aug, x0)
 end
 
-function solve_auglag_madnlp_schur(aug; linear_solver=MadNLPLapackCPU, max_iter=10, penalty=10.0, rate=10.0)
+function solve_auglag_madnlp_schur(aug; linear_solver=MadNLPLapackGPU, max_iter=10, penalty=10.0, rate=10.0)
     @assert CUDA.has_cuda_gpu()
     # Clean AugLagEvaluator
     ExaOpt.reset!(aug)
@@ -75,12 +76,15 @@ function pscc_solve_static_opf()
         "case9241pegase.m",
     ]
         datafile = joinpath(DATA_DIRECTORY, case)
+        # Instantiate auglag problem
         aug_g = ExaOpt.instantiate_auglag_model(
-            case;
-            scale=true, line_constraints=true,
+            datafile;
+            scale=false, line_constraints=true,
             device=CUDADevice(), nbatches=nbatches,
         )
+        # Scale the problem manually
         _set_manual_scaler!(aug_g)
+        # Solve!
         res = solve_auglag_madnlp_schur(aug_g; rate=5.0, max_iter=20)
     end
 end

@@ -1,18 +1,21 @@
 
+using Printf
 using JuMP
+
+# Tools to solve the static OPF problem
+include(joinpath(dirname(@__FILE__), "static_opf.jl"))
+# JuMP extension
+include(joinpath(dirname(pathof(ExaOpt)), "..", "scripts", "jump", "jump_model.jl"))
 
 #=
     UTILS
 =#
 
-function _load_ts_data(case; perturb=true)
-    ploads = readdlm(joinpath(OPF_DATA_DIR, "mp_demand", "$(case)_$TS.Pd"))
-    qloads = readdlm(joinpath(OPF_DATA_DIR, "mp_demand", "$(case)_$TS.Qd"))
-
-    if perturb
-        ploads[:, 3:end] .*= 0.8
-        qloads[:, 3:end] .*= 0.8
-    end
+function _load_ts_data(case)
+    pd_src = joinpath(joinpath(dirname(@__FILE__), "data", "$(case)_pd.txt"))
+    qd_src = joinpath(joinpath(dirname(@__FILE__), "data", "$(case)_qd.txt"))
+    ploads = readdlm(pd_src)
+    qloads = readdlm(qd_src)
     return (ploads, qloads)
 end
 
@@ -39,7 +42,7 @@ struct JuMPRealTimeOPF
 end
 
 function JuMPRealTimeOPF(case::String)
-    model = _load_jump_problem(case)
+    model = _load_jump_problem("$(case).m")
     ploads, qloads = _load_ts_data(case)
     baseMVA = model.ext[:exapf].baseMVA
     horizon = size(ploads, 2)
@@ -259,7 +262,7 @@ end
 
 function test_qp_schur(aug, u; max_iter=100, tol=1e-3, inertia=true, verbose=false)
     qpaug = ExaOpt.AuglagQuadraticModel(aug, u)
-    @time ExaOpt.refresh!(qpaug, u)
+    t1 = @timed ExaOpt.refresh!(qpaug, u)
     mnlp = MadNLP.NonlinearProgram(qpaug)
     kkt = ExaOpt.MixedAuglagKKTSystem{Float64, CuVector{Float64}, CuMatrix{Float64}}(qpaug, Int[])
     inertia_alg = inertia ? MadNLP.INERTIA_BASED : MadNLP.INERTIA_FREE
@@ -273,8 +276,8 @@ function test_qp_schur(aug, u; max_iter=100, tol=1e-3, inertia=true, verbose=fal
         # :jacobian_constant=>true,
     )
     ipp = MadNLP.Solver(mnlp; kkt=kkt, option_dict=options)
-    @time MadNLP.optimize!(ipp)
-    return ipp
+    t2 = @timed MadNLP.optimize!(ipp)
+    return ipp, t1, t2
 end
 
 """
@@ -288,28 +291,33 @@ function pscc_time_tracking_update()
         "case2869pegase.m",
         "case9241pegase.m",
     ]
+        @info "Benchmark tracking update: $case"
         datafile = joinpath(DATA_DIRECTORY, case)
         aug_g = ExaOpt.instantiate_auglag_model(
             datafile;
-            scale=true, line_constraints=true,
+            scale=false, line_constraints=true,
             device=CUDADevice(), nbatches=nbatches,
         )
         _set_manual_scaler!(aug_g)
-        res = solve_auglag_madnlp_schur(aug_g; rate=5.0, max_iter=10)
-        test_qp_schur(aug_g, res.minimizer; verbose=true)
+        res = solve_auglag_madnlp_schur(aug_g; rate=5.0, max_iter=20)
+        ipp, t1, t2 = test_qp_schur(aug_g, res.minimizer; verbose=true)
+        @printf("Update Hessian:    %.3f \n", t1.time)
+        @printf("Solve QP with IPM: %.3f \n", t2.time)
+        @printf("    #iter:          %i\n", ipp.cnt.k)
+        @printf("    Linalg (s):    %.4f\n", ipp.cnt.linear_solver_time)
+        @printf("    Eval (s):      %.4f\n", ipp.cnt.eval_function_time)
+        @printf("TOTAL Δt:          %.3f\n", t1.time + t2.time)
     end
 end
 
 function pscc_real_time_opf(case; line_constraints=false)
     nbatches = 250
-    # Compute reference with JuMP
-    r_jump = rto_ref(case)
-    datafile = joinpath(DATA_DIRECTORY, case)
+    datafile = joinpath(DATA_DIRECTORY, "$(case).m")
 
     # Initiate model
     aug_g = ExaOpt.instantiate_auglag_model(
         datafile;
-        scale=true, line_constraints=line_constraints,
+        scale=false, line_constraints=line_constraints,
         device=CUDADevice(), nbatches=nbatches,
     )
     _set_manual_scaler!(aug_g)
@@ -319,9 +327,10 @@ function pscc_real_time_opf(case; line_constraints=false)
     y = copy(aug_g.λ)
     x0 = copy(res.minimizer)
 
+    opf = ExaRealTimeOPF(aug_g, case)
+
     # Decrease ρ
     aug_g.ρ = 0.01
-    r_exa = tracking_algorithm!(aug_g, x0)
-    return (r_jump, r_exa)
+    return tracking_algorithm!(opf, x0; y=y)
 end
 

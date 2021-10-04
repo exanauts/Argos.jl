@@ -174,7 +174,7 @@ deps = ["ArgTools", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 
 [[ExaOpt]]
-deps = ["BlockPowerFlow", "CUDA", "CUDAKernels", "ExaPF", "FiniteDiff", "Ipopt", "KernelAbstractions", "LinearAlgebra", "MadNLP", "MathOptInterface", "Printf", "Random", "SparseArrays", "Test"]
+deps = ["BlockPowerFlow", "CUDA", "CUDAKernels", "ExaPF", "FiniteDiff", "Ipopt", "JuMP", "KernelAbstractions", "LinearAlgebra", "MadNLP", "MadNLPGPU", "MathOptInterface", "Printf", "Random", "SparseArrays", "Test"]
 path = "../.."
 uuid = "ef244971-cf80-42b0-9762-2c2c832df5d5"
 version = "0.1.0"
@@ -385,6 +385,12 @@ repo-rev = "fp/exaopt"
 repo-url = "https://github.com/frapac/MadNLP.jl"
 uuid = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
 version = "0.2.0"
+
+[[MadNLPGPU]]
+deps = ["CUDA", "CUDAKernels", "KernelAbstractions", "LinearAlgebra", "MadNLP"]
+path = "/home/fpacaud/.julia/dev/MadNLP/lib/MadNLPGPU"
+uuid = "d72a61cc-809d-412f-99be-fd81f4b8a598"
+version = "0.1.0"
 
 [[Markdown]]
 deps = ["Base64"]
