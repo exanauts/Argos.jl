@@ -13,7 +13,6 @@ end
 
 const DATA_DIRECTORY = joinpath(dirname(pathof(ExaOpt)), "..", "data")
 
-
 function solve_auglag_madnlp(aug; linear_solver=MadNLPLapackCPU, max_iter=10, penalty=10.0, rate=10.0)
     # Clean AugLagEvaluator
     ExaOpt.reset!(aug)
@@ -35,8 +34,7 @@ function solve_auglag_madnlp(aug; linear_solver=MadNLPLapackCPU, max_iter=10, pe
     return ExaOpt.optimize!(solver, aug, x0)
 end
 
-function solve_auglag_madnlp_schur(aug; linear_solver=MadNLPLapackGPU, max_iter=10, penalty=10.0, rate=10.0)
-    @assert CUDA.has_cuda_gpu()
+function solve_auglag_madnlp_schur(aug::ExaOpt.AugLagEvaluator{Ev,T,VT}; linear_solver=MadNLPLapackGPU, max_iter=10, penalty=10.0, rate=10.0) where {Ev, T, VT}
     # Clean AugLagEvaluator
     ExaOpt.reset!(aug)
     aug.ρ = penalty # update penalty in Evaluator
@@ -47,7 +45,11 @@ function solve_auglag_madnlp_schur(aug; linear_solver=MadNLPLapackGPU, max_iter=
         :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
         :linear_solver=>linear_solver,
         :print_level=>MadNLP.ERROR)
-    kkt = ExaOpt.MixedAuglagKKTSystem{Float64, CuVector{Float64}, CuMatrix{Float64}}(aug, Int[])
+    kkt = if VT <: Array
+        ExaOpt.MixedAuglagKKTSystem{Float64, Vector{Float64}, Matrix{Float64}}(aug, Int[])
+    elseif VT <: CuArray
+        ExaOpt.MixedAuglagKKTSystem{Float64, CuVector{Float64}, CuMatrix{Float64}}(aug, Int[])
+    end
     ipp = MadNLP.Solver(mnlp; option_dict=madnlp_options, kkt=kkt)
     # Auglag solver
     solver = ExaOpt.AuglagSolver(ipp; max_iter=max_iter, verbose=1, rate=rate, ε_dual=1e-2, ε_primal=1e-5)
