@@ -37,7 +37,7 @@ function test_auglag_evaluator(nlp, device, MT)
             return ExaOpt.objective(bgd, u_)
         end
         grad_fd = FiniteDiff.finite_difference_gradient(reduced_cost, u |> Array)
-        @test myisapprox(grad_fd, g, rtol=1e-5)
+        @test myisapprox(grad_fd, g, rtol=1e-4)
 
         # Test Hessian only on ReducedSpaceEvaluator and SlackEvaluator
         if (

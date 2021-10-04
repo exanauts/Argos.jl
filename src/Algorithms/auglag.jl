@@ -50,8 +50,10 @@ function solve_subproblem!(
     if algo.optimizer.status != MadNLP.INITIAL
         if niter < 6
             algo.optimizer.opt.mu_init = 1e-4
-        else
+        elseif niter < 10
             algo.optimizer.opt.mu_init = 1e-6
+        else
+            algo.optimizer.opt.mu_init = 1e-8
         end
     end
     # Optimize with IPM
@@ -171,13 +173,9 @@ function optimize!(
             update_multipliers!(aug)
             mul = hcat(mul, aug.λ)
             ηk = ηk / (aug.ρ^0.9)
-            # ωtol /= aug.ρ
-            # ωtol = max(ωtol, opt.ωtol_min)
         else
             update_penalty!(aug; η=opt.rate)
             ηk = 1.0 / (aug.ρ^0.1)
-            # ωtol = 1.0 / aug.ρ
-            # ωtol = max(ωtol, opt.ωtol_min)
         end
 
         # Log

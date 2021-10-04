@@ -39,7 +39,9 @@ function update!(ev::QuadraticModel, x)
 end
 
 function objective(ev::QuadraticModel, x)
-    return 0.5 * dot(ev.dₖ, ev.H, ev.dₖ) + dot(ev.gₖ, ev.dₖ)
+    Hd = similar(x)
+    mul!(Hd, ev.H, ev.dₖ)
+    return 0.5 * dot(ev.dₖ, Hd) + dot(ev.gₖ, ev.dₖ)
 end
 
 function constraint!(ag::QuadraticModel, cons, u)
@@ -207,11 +209,16 @@ function inner_jacobian!(ev::AuglagQuadraticModel, J, x)
 end
 
 function refresh!(ev::AuglagQuadraticModel, x)
+    m, n = size(ev.J)
     copyto!(ev.xₖ, x)
     update!(ev.inner, x)
     gradient!(ev.inner, ev.gₖ, x)
-    inner_jacobian!(ev.inner, ev.J, x)
-    inner_hessian!(ev.inner, ev.H, x)
+    u = @view x[1:n]
+    inner_jacobian!(ev.inner, ev.J, u)
+
+    ρ = similar(u, m) ; fill!(ρ, 0.0)
+    λ = ev.inner.λc .* ev.inner.scaler.scale_cons
+    inner_hessian!(ev.inner, ev.H, u, λ, ρ)
     return
 end
 

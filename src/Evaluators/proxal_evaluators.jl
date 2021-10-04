@@ -92,9 +92,11 @@ end
 n_variables(nlp::ProxALEvaluator) = nlp.nu + nlp.ng
 n_constraints(nlp::ProxALEvaluator) = n_constraints(nlp.inner)
 
+
 constraints_type(::ProxALEvaluator) = :inequality
 has_hessian(::ProxALEvaluator) = true
 backend(nlp::ProxALEvaluator) = backend(nlp.inner)
+inner_evaluator(nlp::ProxALEvaluator) = inner_evaluator(nlp.inner)
 
 # Getters
 Base.get(nlp::ProxALEvaluator, attr::AbstractNLPAttribute) = Base.get(nlp.inner, attr)

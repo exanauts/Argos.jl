@@ -23,4 +23,7 @@ include("Wrappers/MadNLP_wrapper.jl")
 # Algorithms
 include("Algorithms/Algorithms.jl")
 
+# Exposed function
+include("api.jl")
+
 end # module

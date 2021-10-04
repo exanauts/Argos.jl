@@ -22,6 +22,8 @@ function build_opf_model(polar, buffer, solver; line_constraints=true)
 
     flow_min, flow_max = PS.bounds(pf, PS.Lines(), PS.ActivePower())
 
+    flow_max = min.(1e5, flow_max)
+
     vm0 = buffer.vmag
     va0 = buffer.vang
     pg0 = buffer.pgen

@@ -8,8 +8,11 @@ include(joinpath(@__DIR__, "..", "jump", "jump_model.jl"))
 
 #= PATHS =#
 OPF_DATA_DIR = "/home/frapac/dev/anl/proxALM/data/"
+OPF_DATA_DIR = "/home/fpacaud/exa/proxALM/data/"
 CASE = "case118"
 TS = "onehour_60"
+
+kpi(a, b) = norm(abs.(a .- b) / max.(1.0, b), Inf)
 
 function _load_jump_problem(case)
     datafile = joinpath(OPF_DATA_DIR, "$case.m")
@@ -21,9 +24,14 @@ function _load_jump_problem(case)
     return build_opf_model(polar, buffer, Ipopt.Optimizer; line_constraints=false)
 end
 
-function _load_ts_data(case)
+function _load_ts_data(case; perturb=true)
     ploads = readdlm(joinpath(OPF_DATA_DIR, "mp_demand", "$(case)_$TS.Pd"))
     qloads = readdlm(joinpath(OPF_DATA_DIR, "mp_demand", "$(case)_$TS.Qd"))
+
+    if perturb
+        ploads[:, 3:end] .*= 0.8
+        qloads[:, 3:end] .*= 0.8
+    end
     return (ploads, qloads)
 end
 
@@ -54,15 +62,15 @@ end
 
 function solve!(opf::JuMPRealTimeOPF)
     model = opf.opfmodel
-    nbus = length(model[:Vm])
+    npg = length(model[:Pg])
     obj_vals = zeros(opf.T)
-    vmag_vals = zeros(nbus, opf.T)
+    pg_vals = zeros(npg, opf.T)
     for t in 1:opf.T
         solve!(opf, t)
-        vmag_vals[:, t] .= JuMP.value.(model[:Vm])
+        pg_vals[:, t] .= JuMP.value.(model[:Pg])
         obj_vals[t] = JuMP.objective_value(model)
     end
-    return (obj_vals, vmag_vals)
+    return (obj_vals, pg_vals)
 end
 
 struct ExaRealTimeOPF
@@ -76,6 +84,10 @@ end
 function ExaRealTimeOPF(case::String; line_constraints=false)
     datafile = joinpath(OPF_DATA_DIR, "$case.m")
     aug = build_problem(datafile)
+    return ExaRealTimeOPF(aug, case; line_constraints=line_constraints)
+end
+
+function ExaRealTimeOPF(aug, case::String; line_constraints=false)
     ploads, qloads = _load_ts_data(case)
 
     polar = ExaOpt.backend(aug)
@@ -93,14 +105,6 @@ function warmstart!(opf::ExaRealTimeOPF)
     JuMP.optimize!(m)
     # Primal solution
     store_solution!(buffer, m)
-    # Dual solution (vmag, pg, qg)
-    # pv = polar.indexing.index_pv
-    # pq = polar.indexing.index_pq
-    # sl = polar.indexing.index_ref
-    # λv = dual_variable(m, :Vm)[pq]
-    # λp = dual_variable(m, :Pg)[polar.indexing.index_ref_to_gen]
-    # λq = dual_variable(m, :Qg)
-    # opf.aug.λ .= [λv; λp; λq]
 
     return
 end
@@ -142,7 +146,7 @@ function _solve_qp!(
 )
     mnlp = MadNLP.NonlinearProgram(qp)
     options = Dict{Symbol, Any}(
-        :tol=>1e-4, :max_iter=>max_iter,
+        :tol=>1e-6, :max_iter=>max_iter,
         :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
         :print_level=>MadNLP.ERROR,
         :linear_solver=>linear_solver,
@@ -154,16 +158,48 @@ function _solve_qp!(
     return ipp.x
 end
 
-function tracking_algorithm!(opf::ExaRealTimeOPF)
+function _solve_qp!(
+    qp::ExaOpt.AuglagQuadraticModel;
+    max_iter=100, linear_solver=MadNLPLapackGPU,
+)
+    mnlp = MadNLP.NonlinearProgram(qp)
+    kkt = ExaOpt.MixedAuglagKKTSystem{Float64, CuVector{Float64}, CuMatrix{Float64}}(qp, Int[])
+    options = Dict{Symbol, Any}(
+        :tol=>1e-5, :max_iter=>max_iter,
+        :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
+        :print_level=>MadNLP.ERROR,
+        :linear_solver=>linear_solver,
+        :lapackgpu_algorithm=>MadNLPLapackGPU.CHOLESKY,
+    )
+    ipp = MadNLP.Solver(mnlp, kkt=kkt; option_dict=options)
+    MadNLP.optimize!(ipp)
+    return ipp.x |> CuArray
+end
+
+function tracking_algorithm!(opf::ExaRealTimeOPF, xₖ=ExaOpt.initial(opf.aug); schur=true, y=nothing, maxT=opf.T)
     aug = opf.aug
-    # Get initial point
-    xₖ = ExaOpt.initial(aug)
 
-    qp = ExaOpt.QuadraticModel(aug)
+    ExaOpt.reset!(aug)
+    ExaOpt.update!(aug, xₖ)
 
+    if !isnothing(y)
+        copyto!(aug.λ, y)
+    end
+
+    if schur
+        qp = ExaOpt.AuglagQuadraticModel(aug, xₖ)
+    else
+        qp = ExaOpt.QuadraticModel(aug)
+    end
+
+    ngen = get(aug, PS.NumberOfGenerators())
+    buffer = get(aug, ExaPF.PhysicalState())
     T = opf.T
     obj_vals = zeros(T)
-    for t in 1:T
+    prfeas_vals = zeros(T)
+    pg_vals = zeros(ngen, T)
+    for t in 1:maxT
+        println(t)
         # Update loads to time t
         set_loads!(opf, t)
 
@@ -171,19 +207,51 @@ function tracking_algorithm!(opf::ExaRealTimeOPF)
         ExaOpt.refresh!(qp, xₖ)
 
         # Update primal
-        xₖ .= _solve_qp!(qp)
+        x₊ = _solve_qp!(qp)
         # Update dual
-        ExaOpt.update!(aug, xₖ)
+        conv = ExaOpt.update!(aug, x₊)
+        # if !conv.has_converged
+        #     ExaOpt.reset!(aug.inner)
+        #     conv = ExaOpt.update!(aug, x₊)
+        #     println("Iteration $t")
+        #     break
+        # end
+        if !conv.has_converged
+            ExaOpt.reset!(aug.inner)
+            dₖ = (x₊ .- xₖ)
+            k = 0
+            α = 0.999
+            while (k < 20) && !conv.has_converged
+                x₊ = xₖ + α * dₖ
+                ExaOpt.reset!(aug.inner)
+                conv = ExaOpt.update!(aug, x₊)
+                α *= 0.8
+                k += 1
+            end
+
+            if !conv.has_converged
+                ExaOpt.update!(aug, xₖ)
+                x₊ .= xₖ
+                println("Unable to converge")
+                break
+            end
+        end
+
+        pg_vals[:, t] .= buffer.pgen |> Array
+        xₖ .= x₊
         ExaOpt.update_multipliers!(aug)
 
         # Update solution
-        obj_vals[t] = ExaOpt.objective(aug, xₖ)
+        obj_vals[t] = ExaOpt.inner_objective(aug, xₖ)
+        prfeas_vals[t] = norm(aug.cons, Inf)
+        if !isnothing(aug.tracker)
+            ExaOpt.store!(aug, aug.tracker, xₖ)
+        end
     end
 
-    return obj_vals
+    return obj_vals, prfeas_vals, pg_vals
 end
 
-kpi(a, b) = norm(abs.(a .- b) / max.(1.0, b), Inf)
 
 #=
     Unit-tests
@@ -213,16 +281,41 @@ function test_qp(
     return (qp, ipp)
 end
 
-function rto(datafile)
+function rto_ref(datafile)
     opf_jump = JuMPRealTimeOPF(datafile)
     # Compute reference with Ipopt
-    obj_ref, v_ref = solve!(opf_jump)
+    return solve!(opf_jump)
+end
 
+function rto_exa(datafile; penalty=0.1, y=nothing)
+    aug_g =
     opf_exa = ExaRealTimeOPF(datafile)
-    opf_exa.aug.ρ = 0.1 # small penalty is better
+    opf_exa.aug.ρ = penalty # small penalty is better
+    if !isnothing(y)
+        copyto!(opf_exa.aug.λ, y)
+    end
     warmstart!(opf_exa)
     obj_res = tracking_algorithm!(opf_exa)
+    return obj_res
+end
 
-    return obj_ref, obj_res
+function test_qp_schur(aug, u; max_iter=100, tol=1e-3, inertia=true, verbose=false)
+    qpaug = ExaOpt.AuglagQuadraticModel(aug, u)
+    @time ExaOpt.refresh!(qpaug, u)
+    mnlp = MadNLP.NonlinearProgram(qpaug)
+    kkt = ExaOpt.MixedAuglagKKTSystem{Float64, CuVector{Float64}, CuMatrix{Float64}}(qpaug, Int[])
+    inertia_alg = inertia ? MadNLP.INERTIA_BASED : MadNLP.INERTIA_FREE
+    options = Dict{Symbol, Any}(:tol=>tol, :max_iter=>max_iter,
+                                :print_level=>verbose ? MadNLP.DEBUG : MadNLP.ERROR,
+                                :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
+                                :linear_solver=>MadNLPLapackGPU,
+                                :inertia_correction_method=>inertia_alg,
+                                :lapackgpu_algorithm=>MadNLPLapackGPU.CHOLESKY,
+        # :hessian_constant=>true,
+        # :jacobian_constant=>true,
+    )
+    ipp = MadNLP.Solver(mnlp; kkt=kkt, option_dict=options)
+    @time MadNLP.optimize!(ipp)
+    return ipp
 end
 

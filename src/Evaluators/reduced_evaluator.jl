@@ -252,7 +252,7 @@ function update!(nlp::ReducedSpaceEvaluator, u)
     )
 
     if !conv.has_converged
-        error("Newton-Raphson algorithm failed to converge ($(conv.norm_residuals))")
+        println("Newton-Raphson algorithm failed to converge ($(conv.norm_residuals))")
         return conv
     end
 
