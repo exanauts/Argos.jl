@@ -10,6 +10,9 @@ using CUDAKernels
 
 using ExaPF, ExaOpt
 
+# Load GPU extension
+include(joinpath(dirname(pathof(ExaOpt)), "..", "test", "cusolver.jl"))
+
 OUTPUTDIR = joinpath(dirname(@__FILE__), "results")
 SOURCE_DATA = joinpath(dirname(pathof(ExaPF)), "..", "data")
 
@@ -39,7 +42,6 @@ function benchmark_batched_hessian_objective(
     ntrials=50, line_constraints=false, pf_tol=1e-10,
 )
     batches = [4, 8, 16, 32, 64, 128, 256, 512]
-    batches = []
 
     timings = zeros(ntrials)
     results = zeros(length(batches) + 1, 5)
@@ -91,7 +93,7 @@ function benchmark_batched_hessian_objective(
     return results
 end
 
-function launch_benchmark(bench; outputdir=OUTPUTDIR)
+function launch_benchmark(; outputdir=OUTPUTDIR)
     results = Dict()
 
     for case in [
