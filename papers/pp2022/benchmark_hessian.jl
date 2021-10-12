@@ -10,8 +10,11 @@ using CUDAKernels
 
 using ExaPF, ExaOpt
 
+# Load GPU extension
+include(joinpath(dirname(pathof(ExaOpt)), "..", "test", "cusolver.jl"))
+
 OUTPUTDIR = joinpath(dirname(@__FILE__), "results")
-SOURCE_DATA = joinpath(dirname(pathof(ExaPF)), "..", "data")
+SOURCE_DATA = joinpath(dirname(pathof(ExaOpt)), "..", "data")
 
 function _instantiate_nlp(datafile, device, nbatches, line_constraints, pf_tol)
     # Instantiate problem
@@ -39,7 +42,6 @@ function benchmark_batched_hessian_objective(
     ntrials=50, line_constraints=false, pf_tol=1e-10,
 )
     batches = [4, 8, 16, 32, 64, 128, 256, 512]
-    batches = []
 
     timings = zeros(ntrials)
     results = zeros(length(batches) + 1, 5)
@@ -91,14 +93,14 @@ function benchmark_batched_hessian_objective(
     return results
 end
 
-function launch_benchmark(bench; outputdir=OUTPUTDIR)
+function launch_benchmark(; outputdir=OUTPUTDIR)
     results = Dict()
 
     for case in [
         "case118",
         "case300",
-        "case1354",
-        "case2869",
+        "case1354pegase",
+        "case2869pegase",
         "case9241pegase",
     ]
         @info 0 "Benchmark: " case
