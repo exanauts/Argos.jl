@@ -14,7 +14,7 @@ using ExaPF, ExaOpt
 include(joinpath(dirname(pathof(ExaOpt)), "..", "test", "cusolver.jl"))
 
 OUTPUTDIR = joinpath(dirname(@__FILE__), "results")
-SOURCE_DATA = joinpath(dirname(pathof(ExaPF)), "..", "data")
+SOURCE_DATA = joinpath(dirname(pathof(ExaOpt)), "..", "data")
 
 function _instantiate_nlp(datafile, device, nbatches, line_constraints, pf_tol)
     # Instantiate problem
@@ -99,8 +99,8 @@ function launch_benchmark(; outputdir=OUTPUTDIR)
     for case in [
         "case118",
         "case300",
-        "case1354",
-        "case2869",
+        "case1354pegase",
+        "case2869pegase",
         "case9241pegase",
     ]
         @info 0 "Benchmark: " case
