@@ -12,6 +12,7 @@ const PS = PowerSystem
 import MathOptInterface
 const MOI = MathOptInterface
 
+using NLPModels
 using MadNLP
 
 include("Evaluators/Evaluators.jl")
