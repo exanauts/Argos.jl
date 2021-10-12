@@ -362,9 +362,20 @@ version = "0.5.8"
 
 [[MadNLP]]
 deps = ["Libdl", "LinearAlgebra", "Logging", "MathOptInterface", "NLPModels", "Pkg", "Printf", "SolverCore", "SparseArrays", "SuiteSparse"]
-path = "/home/frapac/.julia/dev/MadNLP"
+git-tree-sha1 = "b400ae052a4e042a2b587c8acae9c8a61659e083"
+repo-rev = "master"
+repo-url = "https://github.com/MadNLP/MadNLP.jl.git"
 uuid = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
 version = "0.2.0"
+
+[[MadNLPGPU]]
+deps = ["CUDA", "CUDAKernels", "KernelAbstractions", "LinearAlgebra", "MadNLP"]
+git-tree-sha1 = "4f2f050643d88b70c12621f1dc9eb940861ed617"
+repo-rev = "master"
+repo-subdir = "lib/MadNLPGPU"
+repo-url = "https://github.com/MadNLP/MadNLP.jl.git"
+uuid = "d72a61cc-809d-412f-99be-fd81f4b8a598"
+version = "0.1.0"
 
 [[Markdown]]
 deps = ["Base64"]
@@ -412,9 +423,9 @@ uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
 
 [[MutableArithmetics]]
 deps = ["LinearAlgebra", "SparseArrays", "Test"]
-git-tree-sha1 = "372e3a76d969e651ca70eb647bf0e303bc95d615"
+git-tree-sha1 = "3927848ccebcc165952dc0d9ac9aa274a87bfe01"
 uuid = "d8a4904e-b15c-11e9-3269-09a3773c0cb0"
-version = "0.2.21"
+version = "0.2.20"
 
 [[NLPModels]]
 deps = ["FastClosures", "LinearAlgebra", "LinearOperators", "Printf", "SparseArrays"]
