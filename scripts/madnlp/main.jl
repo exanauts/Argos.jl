@@ -13,6 +13,7 @@ const MOI = MathOptInterface
 SuiteSparse.UMFPACK.umf_ctrl[8] = 0.0
 
 if CUDA.has_cuda_gpu()
+    using MadNLPGPU
     include(joinpath(dirname(pathof(ExaOpt)), "..", "test", "cusolver.jl"))
 end
 
@@ -153,13 +154,14 @@ end
 
 function subproblem_dense_kkt_gpu(aug; max_iter=100)
     @assert CUDA.has_cuda_gpu()
+    linear_solver = MadNLPLapackGPU
     ExaOpt.reset!(aug)
     mnlp = ExaOpt.ExaNLPModel(aug)
     n = ExaOpt.n_variables(aug)
     options = Dict{Symbol, Any}(:tol=>1e-5, :max_iter=>max_iter,
                                 :print_level=>MadNLP.DEBUG,
                                 :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
-                                :linear_solver=>MadNLPLapackGPU)
+                                :linear_solver=>linear_solver)
     madopt = MadNLP.Options(linear_solver=linear_solver)
     MadNLP.set_options!(madopt,options,Dict())
     # Custom KKT type
@@ -170,18 +172,20 @@ function subproblem_dense_kkt_gpu(aug; max_iter=100)
 end
 
 function subproblem_schur_kkt_gpu(aug; max_iter=100)
+    @assert CUDA.has_cuda_gpu()
+    linear_solver = MadNLPLapackGPU
     ExaOpt.reset!(aug)
     mnlp = ExaOpt.ExaNLPModel(aug)
     n = ExaOpt.n_variables(aug)
     options = Dict{Symbol, Any}(:tol=>1e-5, :max_iter=>max_iter,
                                 :print_level=>MadNLP.DEBUG,
                                 :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
-                                :linear_solver=>MadNLPLapackGPU)
+                                :linear_solver=>linear_solver)
     madopt = MadNLP.Options(linear_solver=linear_solver)
     MadNLP.set_options!(madopt,options,Dict())
     # Custom KKT type
     KKT = ExaOpt.MixedAuglagKKTSystem{Float64, CuVector{Float64}, CuMatrix{Float64}}
-    ipp = MadNLP.Solver(mnlp, madopt; option_linear_solver=options)
+    ipp = MadNLP.InteriorPointSolver{KKT}(mnlp, madopt; option_linear_solver=options)
     @time MadNLP.optimize!(ipp)
     return ipp
 end

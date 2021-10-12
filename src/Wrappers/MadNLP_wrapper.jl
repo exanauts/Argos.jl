@@ -61,7 +61,9 @@ end
 function _update!(m::ExaNLPModel, x::AbstractVector)
     hx = hash(x)
     if hx != m.hash_x[1]
-        copyto!(m.d_x, x)
+        xp = parent(x)
+        n = length(m.d_x)
+        copyto!(m.d_x, 1, xp, 1, n)
         update!(m.nlp, m.d_x)
         m.hash_x[1] = hx
     end
@@ -75,14 +77,18 @@ end
 function NLPModels.grad!(m::ExaNLPModel,x,g)
     _update!(m, x)
     gradient!(m.nlp, m.d_g, m.d_x)
-    copyto!(g, m.d_g)
+    gp = parent(g)
+    n = NLPModels.get_nvar(m)
+    copyto!(gp, 1, m.d_g, 1, n)
     return
 end
 # Constraints
 function NLPModels.cons!(m::ExaNLPModel,x,c)
     _update!(m, x)
     constraint!(m.nlp, m.d_c, m.d_x)
-    copyto!(c, m.d_c)
+    cp = parent(c)
+    _m = NLPModels.get_ncon(m)
+    copyto!(cp, 1, m.d_c, 1, _m)
     return
 end
 # Jacobian: sparse callback
@@ -219,6 +225,11 @@ end
 MadNLP.compress_jacobian!(kkt::MixedAuglagKKTSystem) = nothing
 MadNLP.jtprod!(y::AbstractVector, kkt::MixedAuglagKKTSystem, x::AbstractVector) = nothing
 MadNLP.set_jacobian_scaling!(kkt::MixedAuglagKKTSystem, constraint_scaling::AbstractVector) = nothing
+
+function MadNLP.set_aug_diagonal!(kkt::MixedAuglagKKTSystem, ips::MadNLP.InteriorPointSolver)
+    copyto!(kkt.pr_diag, ips.zl./(ips.x.-ips.xl) .+ ips.zu./(ips.xu.-ips.x))
+    fill!(kkt.du_diag, 0.0)
+end
 
 function MadNLP.mul!(y::AbstractVector, kkt::MixedAuglagKKTSystem, x::AbstractVector)
     # Load problem

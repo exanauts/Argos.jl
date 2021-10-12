@@ -6,7 +6,7 @@ using MadNLPGPU
 include(joinpath(@__DIR__, "..", "madnlp", "main.jl"))
 include(joinpath(@__DIR__, "..", "..", "test", "cusolver.jl"))
 # Instance
-datafile = joinpath(pathof(ExaOpt), "..", "data", "case1354pegase.m")
+datafile = joinpath(dirname(pathof(ExaOpt)), "..", "data", "case1354pegase.m")
 
 INSTANTIATE = true
 MAX_BATCHES = 250
@@ -28,10 +28,10 @@ if INSTANTIATE
     # GPU evaluators
     # Wrap GPU callbacks to pass Hessian matrix on the host
     @info "Instantiate problem on GPU (wrapped)"
-    aug_wrapped = @time ExaOpt.instantiate_auglag_model(datafile; nbatches=nbatches, scale=SCALE, wrap=true)
+    aug_wrapped = @time ExaOpt.instantiate_auglag_model(datafile; nbatches=nbatches, scale=SCALE, wrap=true, device=CUDADevice())
     # Wrap GPU callbacks to pass Hessian matrix on the host
     @info "Instantiate problem on GPU (unwrapped)"
-    aug_unwrapped = @time ExaOpt.instantiate_auglag_model(datafile; nbatches=nbatches, scale=SCALE, wrap=false)
+    aug_unwrapped = @time ExaOpt.instantiate_auglag_model(datafile; nbatches=nbatches, scale=SCALE, wrap=false, device=CUDADevice())
 end
 
 if CPU_SOLVE
