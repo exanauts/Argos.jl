@@ -75,7 +75,9 @@ function initial(nlp::BridgeDeviceEvaluator{Ev, VT, MT, DVT, DMT}) where {Ev, VT
 end
 
 function update!(nlp::BridgeDeviceEvaluator, u)
-    copyto!(nlp.bridge.u, u)
+    up = parent(u)
+    n = length(nlp.bridge.u)
+    copyto!(nlp.bridge.u, 1, up, 1, n)
     return update!(nlp.inner, nlp.bridge.u)
 end
 
@@ -89,14 +91,18 @@ end
 
 function gradient!(nlp::BridgeDeviceEvaluator, grad, u)
     gradient!(nlp.inner, nlp.bridge.g, nlp.bridge.u)
-    copyto!(grad, nlp.bridge.g)
+    gradp = parent(grad)
+    n = length(nlp.bridge.g)
+    copyto!(gradp, 1, nlp.bridge.g, 1, n)
     return
 end
 
 function jtprod!(nlp::BridgeDeviceEvaluator, jv, u, v)
     copyto!(nlp.bridge.v, v)
     jtprod!(nlp.inner, nlp.bridge.jv, nlp.bridge.u, nlp.bridge.v)
-    copyto!(jv, nlp.bridge.jv)
+    jvp = parent(jv)
+    n = length(nlp.bridge.jv)
+    copyto!(jvp, 1, nlp.bridge.jv, 1, n)
     return
 end
 
@@ -109,7 +115,9 @@ end
 function ojtprod!(nlp::BridgeDeviceEvaluator, jv, u, σ, v)
     copyto!(nlp.bridge.v, v)
     ojtprod!(nlp.inner, nlp.bridge.jv, nlp.bridge.u, σ, nlp.bridge.v)
-    copyto!(jv, nlp.bridge.jv)
+    jvp = parent(jv)
+    n = length(nlp.bridge.jv)
+    copyto!(jvp, 1, nlp.bridge.jv, 1, n)
     return
 end
 

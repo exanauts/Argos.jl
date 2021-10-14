@@ -1,85 +1,117 @@
-function MadNLP.NonlinearProgram(nlp::ExaOpt.AbstractNLPEvaluator)
+struct ExaNLPModel{VT} <: NLPModels.AbstractNLPModel{Float64,Vector{Float64}}
+    meta::NLPModels.NLPModelMeta{Float64, Vector{Float64}}
+    counters::NLPModels.Counters
+    nlp::AbstractNLPEvaluator
+    hash_x::Vector{UInt64}
+    # Sparsity pattern
+    hrows::Vector{Int}
+    hcols::Vector{Int}
+    jrows::Vector{Int}
+    jcols::Vector{Int}
+    # CPU/GPU buffers
+    d_x::VT
+    d_g::VT
+    d_c::VT
+end
+function ExaNLPModel(nlp::AbstractNLPEvaluator)
+    n = n_variables(nlp)
+    m = n_constraints(nlp)
 
-    n = ExaOpt.n_variables(nlp)
-    m = ExaOpt.n_constraints(nlp)
-
-    # hrows, hcols = ExaOpt.hessian_structure(nlp)
-    # jrows, jcols = ExaOpt.jacobian_structure(nlp)
-    nnz_hess = 0 # length(hrows)
-    nnz_jac = 0 # length(jrows)
-
+    # Initial variable
     d_x0  = ExaOpt.initial(nlp)
+    VT = typeof(d_x0)
     x0 = d_x0 |> Array
-    g  = Vector{Float64}(undef,m)
+    y0 = zeros(m)
+    # Bounds
     xl, xu = ExaOpt.bounds(nlp, ExaOpt.Variables()) .|> Array
-    zl = Vector{Float64}(undef,n)
-    zu = Vector{Float64}(undef,n)
-
-    l = Vector{Float64}(undef,m)
     gl, gu = ExaOpt.bounds(nlp, ExaOpt.Constraints()) .|> Array
-
+    # Buffers
     d_x = similar(d_x0, n)
     d_g = similar(d_x0, n)
     d_c = similar(d_x0, m)
+    # Sparsity
+    hrows = Int[]
+    hcols = Int[]
+    nnzh = div(n * (n + 1), 2)
+    jrows = Int[]
+    jcols = Int[]
+    nnzj = n * m
 
-    hash_x = UInt64(0)
-
-    function _update!(x::AbstractVector)
-        hx = hash(x)
-        if hx != hash_x
-            hash_x = hx
-            copyto!(d_x, x)
-            ExaOpt.update!(nlp, d_x)
-        end
-    end
-    function obj(x::AbstractArray{Float64,1})
-        _update!(x)
-        return ExaOpt.objective(nlp, d_x)
-    end
-    function obj_grad!(g::AbstractArray{Float64,1},x::AbstractArray{Float64,1})
-        _update!(x)
-        ExaOpt.gradient!(nlp, d_g, d_x)
-        copyto!(g, d_g)
-    end
-    function con!(c::Array{Float64,1},x::AbstractArray{Float64,1})
-        _update!(x)
-        ExaOpt.constraint!(nlp, d_c, d_x)
-        copyto!(c, d_c)
-    end
-    function con_jac!(jac::AbstractArray{Float64,1}, x::AbstractArray{Float64,1})
-        # _update!(x)
-        # J = reshape(jac, m, n)
-        # ExaOpt.jacobian!(nlp, J, x)
-    end
-    function con_jac!(jac::AbstractArray{Float64,2}, x::AbstractArray{Float64,1})
-        # _update!(x)
-        # ExaOpt.jacobian!(nlp, jac, d_x)
-    end
-    function lag_hess!(hess::AbstractArray{Float64,2},x::AbstractArray{Float64,1},l::AbstractArray{Float64,1}, sig::Float64)
-        _update!(x)
-        # Evaluate full reduced Hessian in the preallocated buffer.
-        ExaOpt.hessian!(nlp, hess, d_x)
-        hess .*= sig
-        return
-    end
-    function hess_sparsity!(I,J)
-        copy!(I, hrows)
-        copy!(J, hcols)
-        return
-    end
-    function jac_sparsity!(I,J)
-        copy!(I, jrows)
-        copy!(J, jcols)
-        return
-    end
-
-    # Build MadNLP model
-    return MadNLP.NonlinearProgram(
-        n, m, nnz_hess, nnz_jac, 0., x0, g, l, zl, zu, xl, xu, gl, gu,
-        obj, obj_grad!, con!, con_jac!, lag_hess!, hess_sparsity!, jac_sparsity!,
-        MadNLP.INITIAL,
-        Dict{Symbol, Any}()
+    return ExaNLPModel{VT}(
+        NLPModels.NLPModelMeta(
+            n,
+            ncon = m,
+            nnzj = nnzj,
+            nnzh = nnzh,
+            x0 = x0,
+            y0 = y0,
+            lvar = xl,
+            uvar = xu,
+            lcon = gl,
+            ucon = gu,
+            minimize = true
+        ),
+        NLPModels.Counters(),
+        nlp, UInt64[0],
+        hrows, hcols, jrows, jcols,
+        d_x, d_g, d_c,
     )
+end
+
+function _update!(m::ExaNLPModel, x::AbstractVector)
+    hx = hash(x)
+    if hx != m.hash_x[1]
+        xp = parent(x)
+        n = length(m.d_x)
+        copyto!(m.d_x, 1, xp, 1, n)
+        update!(m.nlp, m.d_x)
+        m.hash_x[1] = hx
+    end
+end
+# Objective
+function NLPModels.obj(m::ExaNLPModel,x)
+    _update!(m, x)
+    return objective(m.nlp, m.d_x)
+end
+# Gradient
+function NLPModels.grad!(m::ExaNLPModel,x,g)
+    _update!(m, x)
+    gradient!(m.nlp, m.d_g, m.d_x)
+    gp = parent(g)
+    n = NLPModels.get_nvar(m)
+    copyto!(gp, 1, m.d_g, 1, n)
+    return
+end
+# Constraints
+function NLPModels.cons!(m::ExaNLPModel,x,c)
+    _update!(m, x)
+    constraint!(m.nlp, m.d_c, m.d_x)
+    cp = parent(c)
+    _m = NLPModels.get_ncon(m)
+    copyto!(cp, 1, m.d_c, 1, _m)
+    return
+end
+# Jacobian: sparse callback
+function NLPModels.jac_coord!(m::ExaNLPModel, x, J::AbstractArray)
+    # not supported
+end
+# Jacobian: dense callback
+function MadNLP.jac_dense!(m::ExaNLPModel, x, J::AbstractMatrix)
+    _update!(m, x)
+    jacobian!(m.nlp, J, m.d_x)
+end
+# Hessian: sparse callback
+function NLPModels.hess_coord!(m::ExaNLPModel,x, l, hess::AbstractVector; obj_weight=1.0)
+    # Not implemented
+    return
+end
+# Hessian: dense callback
+function MadNLP.hess_dense!(m::ExaNLPModel, x, l, hess::AbstractMatrix; obj_weight=1.0)
+    _update!(m, x)
+    # Evaluate full reduced Hessian in the preallocated buffer.
+    hessian!(m.nlp, hess, m.d_x)
+    hess .*= obj_weight
+    return
 end
 
 # Special wrapper for Auglag
@@ -114,7 +146,9 @@ struct MixedAuglagKKTSystem{T, VT, MT} <: MadNLP.AbstractKKTSystem{T, MT}
     ind_fixed::Vector{Int}
 end
 
-function MixedAuglagKKTSystem{T, VT, MT}(aug::AbstractNLPEvaluator, ind_fixed) where {T, VT, MT}
+function MixedAuglagKKTSystem{T, VT, MT}(m::ExaNLPModel, ind_cons) where {T, VT, MT}
+
+    aug = m.nlp
     inner = inner_evaluator(aug)
     n = n_variables(inner)
     m = n_constraints(inner)
@@ -140,12 +174,13 @@ function MixedAuglagKKTSystem{T, VT, MT}(aug::AbstractNLPEvaluator, ind_fixed) w
     fill!(jac,       zero(T))
     fill!(pr_diag,   zero(T))
     fill!(sl_diag,   zero(T))
+    fill!(rhs    ,   zero(T))
     fill!(weights,   zero(T))
 
     return MixedAuglagKKTSystem{T, VT, MT}(
         aug, n, m, aug_com, hess, jac, jac_scaled,
         pr_diag, du_diag, sl_diag, diag_hess,
-        _wc, _wx, _wy, rhs, weights, ipp_scale, ind_fixed,
+        _wc, _wx, _wy, rhs, weights, ipp_scale, ind_cons.ind_fixed,
     )
 end
 
@@ -155,6 +190,7 @@ MadNLP.nnz_jacobian(kkt::MixedAuglagKKTSystem) = 0
 MadNLP.nnz_kkt(kkt::MixedAuglagKKTSystem) = length(kkt.hess)
 # We factorize only the Hessian part!
 MadNLP.get_kkt(kkt::MixedAuglagKKTSystem) = kkt.aug_com
+MadNLP.get_jacobian(kkt::MixedAuglagKKTSystem) = Float64[]
 
 function MadNLP.build_kkt!(kkt::MixedAuglagKKTSystem{T, VT, MT}) where {T, VT, MT}
     ρ = kkt.aug.ρ  # current penalty
@@ -178,6 +214,7 @@ function MadNLP.build_kkt!(kkt::MixedAuglagKKTSystem{T, VT, MT}) where {T, VT, M
     # Huu + Σᵤ + Aᵤ' * ρₛ * Aᵤ
     mul!(kkt.jac_scaled, Diagonal(ρₛ), kkt.jac)
     mul!(kkt.aug_com, kkt.jac', kkt.jac_scaled, 1.0, 1.0)
+
     return
 end
 
@@ -188,6 +225,11 @@ end
 MadNLP.compress_jacobian!(kkt::MixedAuglagKKTSystem) = nothing
 MadNLP.jtprod!(y::AbstractVector, kkt::MixedAuglagKKTSystem, x::AbstractVector) = nothing
 MadNLP.set_jacobian_scaling!(kkt::MixedAuglagKKTSystem, constraint_scaling::AbstractVector) = nothing
+
+function MadNLP.set_aug_diagonal!(kkt::MixedAuglagKKTSystem, ips::MadNLP.InteriorPointSolver)
+    copyto!(kkt.pr_diag, ips.zl./(ips.x.-ips.xl) .+ ips.zu./(ips.xu.-ips.x))
+    fill!(kkt.du_diag, 0.0)
+end
 
 function MadNLP.mul!(y::AbstractVector, kkt::MixedAuglagKKTSystem, x::AbstractVector)
     # Load problem
@@ -238,7 +280,7 @@ function MadNLP.mul!(y::AbstractVector, kkt::MixedAuglagKKTSystem, x::AbstractVe
 end
 
 # Overload Hessian evaluation
-function MadNLP.eval_lag_hess_wrapper!(ipp::MadNLP.Solver, kkt::MixedAuglagKKTSystem, x::Vector{Float64},l::Vector{Float64};is_resto=false)
+function MadNLP.eval_lag_hess_wrapper!(ipp::MadNLP.InteriorPointSolver, kkt::MixedAuglagKKTSystem, x::Vector{Float64},l::Vector{Float64};is_resto=false)
     nlp = ipp.nlp
     cnt = ipp.cnt
     # Scaling
@@ -274,7 +316,7 @@ function MadNLP.eval_lag_hess_wrapper!(ipp::MadNLP.Solver, kkt::MixedAuglagKKTSy
 end
 
 # Overload linear solve by Schur complement approach
-function MadNLP.solve_refine_wrapper!(ipp::MadNLP.Solver{<:MixedAuglagKKTSystem}, x, b)
+function MadNLP.solve_refine_wrapper!(ipp::MadNLP.InteriorPointSolver{<:MixedAuglagKKTSystem}, x, b)
     kkt = ipp.kkt
     cnt = ipp.cnt
     ρ = kkt.aug.ρ # current penalty
