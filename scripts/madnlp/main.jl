@@ -61,7 +61,7 @@ function solve_auglag_madnlp(aug; linear_solver=MadNLPLapackCPU, max_iter=10, pe
         :linear_solver=>linear_solver,
         :print_level=>MadNLP.ERROR,
     )
-    ipp = MadNLP.Solver(mnlp; option_dict=madnlp_options)
+    ipp = MadNLP.InteriorPointSolver(mnlp; option_dict=madnlp_options)
     solver = ExaOpt.AuglagSolver(ipp, options)
 
     x0 = ExaOpt.initial(aug)
@@ -157,7 +157,6 @@ function subproblem_dense_kkt_gpu(aug; max_iter=100)
     linear_solver = MadNLPLapackGPU
     ExaOpt.reset!(aug)
     mnlp = ExaOpt.ExaNLPModel(aug)
-    n = ExaOpt.n_variables(aug)
     options = Dict{Symbol, Any}(:tol=>1e-5, :max_iter=>max_iter,
                                 :print_level=>MadNLP.DEBUG,
                                 :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
@@ -176,7 +175,6 @@ function subproblem_schur_kkt_gpu(aug; max_iter=100)
     linear_solver = MadNLPLapackGPU
     ExaOpt.reset!(aug)
     mnlp = ExaOpt.ExaNLPModel(aug)
-    n = ExaOpt.n_variables(aug)
     options = Dict{Symbol, Any}(:tol=>1e-5, :max_iter=>max_iter,
                                 :print_level=>MadNLP.DEBUG,
                                 :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
