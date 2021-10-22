@@ -41,6 +41,8 @@ end
 
 function hessian_lagrangian!(ag::AbstractPenaltyEvaluator, H, x, y, σ)
     hessian!(ag, H, x)
+    H .*= σ  # scale objective
+    return
 end
 
 jacobian_structure(ag::AbstractPenaltyEvaluator) = (Int[], Int[])

@@ -538,7 +538,6 @@ function hessian_lagrangian_prod!(
     nbatch = size(w, 2)
     nx = ExaPF.get(nlp.model, ExaPF.NumberOfState())
     nu = ExaPF.get(nlp.model, ExaPF.NumberOfControl())
-    # TODO: remove
     nbus = ExaPF.get(nlp.model, ExaPF.PowerSystem.NumberOfBuses())
     buffer = nlp.buffer
     H = nlp.hesslag

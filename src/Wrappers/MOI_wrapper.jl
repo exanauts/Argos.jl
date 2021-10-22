@@ -88,7 +88,7 @@ function MOI.eval_hessian_lagrangian(ev::MOIEvaluator, hess, x, σ, μ)
         # Hessian is symmetric, and MOI considers only the lower
         # triangular part. We average the values from the lower
         # and upper triangles for stability.
-        hess[index] = 0.5 * σ * (H[i, j] + H[j, i])
+        hess[index] = 0.5 * (H[i, j] + H[j, i])
         index += 1
     end
 end

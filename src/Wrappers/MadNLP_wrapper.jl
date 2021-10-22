@@ -12,6 +12,8 @@ struct ExaNLPModel{VT} <: NLPModels.AbstractNLPModel{Float64,Vector{Float64}}
     d_x::VT
     d_g::VT
     d_c::VT
+    # other buffers
+    etc::Dict{Symbol, Any}
 end
 function ExaNLPModel(nlp::AbstractNLPEvaluator)
     n = n_variables(nlp)
@@ -37,6 +39,8 @@ function ExaNLPModel(nlp::AbstractNLPEvaluator)
     jcols = Int[]
     nnzj = n * m
 
+    etc = Dict{Symbol, Any}()
+
     return ExaNLPModel{VT}(
         NLPModels.NLPModelMeta(
             n,
@@ -54,7 +58,7 @@ function ExaNLPModel(nlp::AbstractNLPEvaluator)
         NLPModels.Counters(),
         nlp, UInt64[0],
         hrows, hcols, jrows, jcols,
-        d_x, d_g, d_c,
+        d_x, d_g, d_c, etc,
     )
 end
 
@@ -68,11 +72,13 @@ function _update!(m::ExaNLPModel, x::AbstractVector)
         m.hash_x[1] = hx
     end
 end
+
 # Objective
 function NLPModels.obj(m::ExaNLPModel,x)
     _update!(m, x)
     return objective(m.nlp, m.d_x)
 end
+
 # Gradient
 function NLPModels.grad!(m::ExaNLPModel,x,g)
     _update!(m, x)
@@ -82,6 +88,7 @@ function NLPModels.grad!(m::ExaNLPModel,x,g)
     copyto!(gp, 1, m.d_g, 1, n)
     return
 end
+
 # Constraints
 function NLPModels.cons!(m::ExaNLPModel,x,c)
     _update!(m, x)
@@ -91,27 +98,48 @@ function NLPModels.cons!(m::ExaNLPModel,x,c)
     copyto!(cp, 1, m.d_c, 1, _m)
     return
 end
+
 # Jacobian: sparse callback
-function NLPModels.jac_coord!(m::ExaNLPModel, x, J::AbstractArray)
-    # not supported
+function NLPModels.jac_coord!(m::ExaNLPModel, x, jac::AbstractArray)
+    _update!(m, x)
+    n, m = n_variables(m.nlp), n_constraints(m.nlp)
+    fill!(jac, 0)
+    jac_v = view(jac, 1:(n*m))
+    J = reshape(jac_v, m, n)
+    jacobian!(m.nlp, J, x)
 end
+
 # Jacobian: dense callback
 function MadNLP.jac_dense!(m::ExaNLPModel, x, J::AbstractMatrix)
     _update!(m, x)
     jacobian!(m.nlp, J, m.d_x)
 end
-# Hessian: sparse callback
+
+# Hessian: sparse callback (work only on CPU)
 function NLPModels.hess_coord!(m::ExaNLPModel,x, l, hess::AbstractVector; obj_weight=1.0)
-    # Not implemented
-    return
+    @assert isa(m.d_x, Array)
+    n = n_variables(m.nlp)
+    if !haskey(m.etc,:hess)
+        m.etc[:hess] = zeros(n, n)
+    end
+    _update!(m, x)
+    # Evaluate full reduced Hessian in the preallocated buffer.
+    H = m.etc[:hess]
+    hessian_lagrangian!(m.nlp, H, x, μ, σ)
+    # Only dense Hessian supported now
+    index = 1
+    @inbounds for i in 1:n, j in 1:i
+        # We average the values from the lower and upper triangles for stability.
+        hess[index] = 0.5 * (H[i, j] + H[j, i])
+        index += 1
+    end
 end
+
 # Hessian: dense callback
 function MadNLP.hess_dense!(m::ExaNLPModel, x, l, hess::AbstractMatrix; obj_weight=1.0)
     _update!(m, x)
     # Evaluate full reduced Hessian in the preallocated buffer.
-    hessian!(m.nlp, hess, m.d_x)
-    hess .*= obj_weight
-    return
+    hessian_lagrangian!(m.nlp, hess, m.d_x, l, obj_weight)
 end
 
 # Special wrapper for Auglag
