@@ -48,8 +48,9 @@ function solve_subproblem!(
 )
     n_iter = aug.counter.hessian
     # Init primal variable
-    copyto!(algo.optimizer.nlp.x, uₖ)
-    algo.optimizer.nlp.x[end] *= 1.001 # TODO quick fix
+    x0 = NLPModels.get_x0(algo.optimizer.nlp)
+    copyto!(x0, uₖ)
+    algo.optimizer.nlp.hash_x[] = UInt(0) # reset hash to do at least one iteration
     # Set initial mu if resolve
     if algo.optimizer.status != MadNLP.INITIAL
         if niter < 6
@@ -61,11 +62,11 @@ function solve_subproblem!(
         end
     end
     # Optimize with IPM
-    MadNLP.optimize!(algo.optimizer)
+    res = MadNLP.optimize!(algo.optimizer)
     return (
-        status=MadNLP.status_moi_dict[algo.optimizer.status],
+        status=MadNLP.status_moi_dict[res.status],
         iter=aug.counter.hessian - n_iter,
-        minimizer=algo.optimizer.nlp.x,
+        minimizer=res.solution,
     )
 end
 
