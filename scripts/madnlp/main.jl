@@ -54,7 +54,7 @@ function solve_auglag_madnlp(aug; linear_solver=MadNLPLapackCPU, max_iter=10, pe
     )
     ExaOpt.reset!(aug)
     aug.ρ = penalty # update penalty in Evaluator
-    mnlp = MadNLP.NonlinearProgram(aug)
+    mnlp = ExaOpt.ExaNLPModel(aug)
     madnlp_options = Dict{Symbol, Any}(
         :tol=>1e-5,
         :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
@@ -81,13 +81,15 @@ function solve_auglag_madnlp_schur(aug; linear_solver=MadNLPLapackCPU, max_iter=
         ε_primal=1e-5,
     )
     ExaOpt.reset!(aug)
-    mnlp = MadNLP.NonlinearProgram(aug)
+    mnlp = ExaOpt.ExaNLPModel(aug)
     madnlp_options = Dict{Symbol, Any}(:tol=>1e-5,
                                        :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
                                        :linear_solver=>linear_solver,
                                        :print_level=>MadNLP.ERROR)
-    kkt = ExaOpt.MixedAuglagKKTSystem{Float64, CuVector{Float64}, CuMatrix{Float64}}(aug, Int[])
-    ipp = MadNLP.Solver(mnlp; option_dict=madnlp_options, kkt=kkt)
+    madopt = MadNLP.Options(linear_solver=linear_solver)
+    MadNLP.set_options!(madopt, madnlp_options)
+    KKT = ExaOpt.MixedAuglagKKTSystem{Float64, CuVector{Float64}, CuMatrix{Float64}}
+    ipp = MadNLP.InteriorPointSolver{KKT}(mnlp, madopt; option_linear_solver=madnlp_options)
     solver = ExaOpt.AuglagSolver(ipp, options)
 
     x0 = ExaOpt.initial(aug)

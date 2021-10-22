@@ -61,7 +61,7 @@ version = "0.5.10"
 deps = ["CEnum", "CUDA", "ExaPF", "LinearAlgebra", "LinearOperators", "MatrixMarket", "Printf", "SparseArrays", "Test"]
 git-tree-sha1 = "064fc66687a48c7d377622ffdf3175cd5834415c"
 repo-rev = "master"
-repo-url = "https://github.com/exanauts/BlockPowerFlow.jl.git"
+repo-url = "https://github.com/exanauts/BlockPowerFlow.jl/"
 uuid = "0ca6dcf5-c23f-4097-a3ba-dae6c919a0c0"
 version = "0.1.0"
 
@@ -95,9 +95,9 @@ version = "0.3.9"
 
 [[ChainRulesCore]]
 deps = ["Compat", "LinearAlgebra", "SparseArrays"]
-git-tree-sha1 = "a325370b9dd0e6bf5656a6f1a7ae80755f8ccc46"
+git-tree-sha1 = "8d954297bc51cc64f15937c2093799c3617b73e4"
 uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-version = "1.7.2"
+version = "1.10.0"
 
 [[CodecBzip2]]
 deps = ["Bzip2_jll", "Libdl", "TranscodingStreams"]
@@ -192,10 +192,10 @@ uuid = "6a86dc24-6348-571c-b903-95158fe2bd41"
 version = "2.8.1"
 
 [[ForwardDiff]]
-deps = ["CommonSubexpressions", "DiffResults", "DiffRules", "LinearAlgebra", "NaNMath", "Printf", "Random", "SpecialFunctions", "StaticArrays"]
-git-tree-sha1 = "c4203b60d37059462af370c4f3108fb5d155ff13"
+deps = ["CommonSubexpressions", "DiffResults", "DiffRules", "LinearAlgebra", "NaNMath", "Preferences", "Printf", "Random", "SpecialFunctions", "StaticArrays"]
+git-tree-sha1 = "63777916efbcb0ab6173d09a658fb7f2783de485"
 uuid = "f6369f11-7733-5829-9624-2563aa707210"
-version = "0.10.20"
+version = "0.10.21"
 
 [[GPUArrays]]
 deps = ["Adapt", "LinearAlgebra", "Printf", "Random", "Serialization", "Statistics"]
@@ -248,9 +248,9 @@ uuid = "9cc047cb-c261-5740-88fc-0cf96f7bdcc7"
 version = "3.13.4+2"
 
 [[IrrationalConstants]]
-git-tree-sha1 = "f76424439413893a832026ca355fe273e93bce94"
+git-tree-sha1 = "7fd44fd4ff43fc60815f8e764c0f352b83c49151"
 uuid = "92d709cd-6900-40b7-9082-c6be49f344b6"
-version = "0.1.0"
+version = "0.1.1"
 
 [[JLLWrappers]]
 deps = ["Preferences"]
@@ -362,20 +362,20 @@ version = "0.5.8"
 
 [[MadNLP]]
 deps = ["Libdl", "LinearAlgebra", "Logging", "MathOptInterface", "NLPModels", "Pkg", "Printf", "SolverCore", "SparseArrays", "SuiteSparse"]
-git-tree-sha1 = "b400ae052a4e042a2b587c8acae9c8a61659e083"
+git-tree-sha1 = "08cc08be58f89efdbf73e3d1cab76ff085ab39c6"
 repo-rev = "master"
 repo-url = "https://github.com/MadNLP/MadNLP.jl.git"
 uuid = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
-version = "0.2.0"
+version = "0.3.0"
 
 [[MadNLPGPU]]
 deps = ["CUDA", "CUDAKernels", "KernelAbstractions", "LinearAlgebra", "MadNLP"]
-git-tree-sha1 = "4f2f050643d88b70c12621f1dc9eb940861ed617"
+git-tree-sha1 = "dd2c8660af6a7bacb4e5a103a058b3dc2901da5d"
 repo-rev = "master"
 repo-subdir = "lib/MadNLPGPU"
 repo-url = "https://github.com/MadNLP/MadNLP.jl.git"
 uuid = "d72a61cc-809d-412f-99be-fd81f4b8a598"
-version = "0.1.0"
+version = "0.3.0"
 
 [[Markdown]]
 deps = ["Base64"]
@@ -423,9 +423,9 @@ uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
 
 [[MutableArithmetics]]
 deps = ["LinearAlgebra", "SparseArrays", "Test"]
-git-tree-sha1 = "3927848ccebcc165952dc0d9ac9aa274a87bfe01"
+git-tree-sha1 = "8d9496b2339095901106961f44718920732616bb"
 uuid = "d8a4904e-b15c-11e9-3269-09a3773c0cb0"
-version = "0.2.20"
+version = "0.2.22"
 
 [[NLPModels]]
 deps = ["FastClosures", "LinearAlgebra", "LinearOperators", "Printf", "SparseArrays"]
@@ -464,9 +464,9 @@ version = "1.4.1"
 
 [[Parsers]]
 deps = ["Dates"]
-git-tree-sha1 = "a8709b968a1ea6abc2dc1967cb1db6ac9a00dfb6"
+git-tree-sha1 = "98f59ff3639b3d9485a03a72f3ab35bab9465720"
 uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
-version = "2.0.5"
+version = "2.0.6"
 
 [[Pkg]]
 deps = ["Artifacts", "Dates", "Downloads", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Serialization", "TOML", "Tar", "UUIDs", "p7zip_jll"]
@@ -554,9 +554,9 @@ version = "1.16.5"
 
 [[SpecialFunctions]]
 deps = ["ChainRulesCore", "IrrationalConstants", "LogExpFunctions", "OpenLibm_jll", "OpenSpecFun_jll"]
-git-tree-sha1 = "793793f1df98e3d7d554b65a107e9c9a6399a6ed"
+git-tree-sha1 = "2d57e14cd614083f132b6224874296287bfa3979"
 uuid = "276daf66-3868-5448-9aa4-cd146d93841b"
-version = "1.7.0"
+version = "1.8.0"
 
 [[Static]]
 deps = ["IfElse"]
