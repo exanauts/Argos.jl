@@ -204,9 +204,30 @@ The vector `hessprod` should have the same length as `u`.
 function hessprod! end
 
 @doc raw"""
-    hessian_lagrangian_penalty_prod!(nlp::AbstractNLPEvaluator, hessvec, u, y, σ, d, v)
+    hessian_lagrangian_prod!(nlp::AbstractNLPEvaluator, hessvec, u, y, σ, v)
 
 Evaluate the Hessian-vector product of the Lagrangian
+function ``L(u, y) = f(u) + \sum_i y_i c_i(u)`` with a vector `v`:
+```math
+∇²L(u, y) ⋅ v  = σ ∇²f(u) ⋅ v + \sum_i y_i ∇²c_i(u) ⋅ v
+```
+
+Store the result inplace, in the vector `hessvec`.
+
+### Arguments
+
+* `hessvec` is a `AbstractVector` with dimension `n`, which is modified inplace.
+* `u` is a `AbstractVector` with dimension `n`, storing the current variable.
+* `y` is a `AbstractVector` with dimension `n`, storing the current constraints' multipliers
+* `σ` is a scalar, encoding the objective's scaling
+* `v` is a vector with dimension `n`.
+"""
+function hessian_lagrangian_prod! end
+
+@doc raw"""
+    hessian_lagrangian_penalty_prod!(nlp::AbstractNLPEvaluator, hessvec, u, y, σ, d, v)
+
+Evaluate the Hessian-vector product of the Augmented Lagrangian
 function ``L(u, y) = f(u) + \sum_i y_i c_i(u) + \frac{1}{2} d_i c_i(u)^2`` with a vector `v`:
 ```math
 ∇²L(u, y) ⋅ v  = σ ∇²f(u) ⋅ v + \sum_i (y_i + d_i) ∇²c_i(u) ⋅ v + \sum_i d_i ∇c_i(u)^T ∇c_i(u)
