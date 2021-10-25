@@ -96,7 +96,6 @@ end
 function MOI.eval_hessian_lagrangian_product(ev::MOIEvaluator, hv, x, v, σ, μ)
     _update!(ev, x)
     hessian_lagrangian_prod!(ev.nlp, hv, x, μ, σ, v)
-    hv .*= σ
 end
 
 function MOI.NLPBlockData(nlp::AbstractNLPEvaluator)

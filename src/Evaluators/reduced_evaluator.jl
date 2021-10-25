@@ -779,6 +779,7 @@ end
 function reset!(nlp::ReducedSpaceEvaluator)
     # Reset adjoint
     fill!(nlp.λ, 0)
+    fill!(nlp.μ, 0)
     # Reset buffer
     ExaPF.init_buffer!(nlp.model, nlp.buffer)
     return
