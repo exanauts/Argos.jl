@@ -178,7 +178,8 @@ function _gradient_control!(nlp::ProxALEvaluator, grad, w)
         nlp.inner.model, ∂obj, buffer, s, Int(nlp.time),
         nlp.scale_objective, nlp.τ, nlp.λf, nlp.λt, nlp.ρf, nlp.ρt, nlp.pg_f, nlp.pg_ref, nlp.pg_t
     )
-    reduced_gradient!(nlp.inner, gu, jx, ju, w)
+    _adjoint_solve!(nlp.inner, gu, jx, ju, nlp.inner.λ, w)
+    nlp.inner.is_adjoint_objective_updated = true
 end
 
 function _gradient_slack!(nlp::ProxALEvaluator, grad, w)
@@ -270,7 +271,8 @@ function ojtprod!(nlp::ProxALEvaluator, jv, w, σ, v)
     # compute transpose Jacobian vector product of constraints
     full_jtprod!(nlp.inner, jvx, jvu, u, v)
     # Evaluate gradient in reduced space
-    reduced_gradient!(nlp.inner, gu, jvx, jvu, w)
+    _adjoint_solve!(nlp.inner, gu, jvx, jvu, nlp.inner.μ, w)
+    nlp.inner.is_adjoint_lagrangian_updated = true
 
     # w.r.t. s
     _gradient_slack!(nlp, jv, w)

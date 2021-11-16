@@ -39,6 +39,12 @@ function jacobian!(ag::AbstractPenaltyEvaluator, jac, u)
     return
 end
 
+function hessian_lagrangian!(ag::AbstractPenaltyEvaluator, H, x, y, σ)
+    hessian!(ag, H, x)
+    H .*= σ  # scale objective
+    return
+end
+
 jacobian_structure(ag::AbstractPenaltyEvaluator) = (Int[], Int[])
 function jacobian_structure!(ag::AbstractPenaltyEvaluator, rows, cols)
     @assert length(rows) == length(cols) == 0

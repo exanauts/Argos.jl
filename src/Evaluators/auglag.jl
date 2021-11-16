@@ -86,6 +86,8 @@ function AugLagEvaluator(
     λ = similar(g_min) ; fill!(λ, 0)
 
     scaler = scale ?  MaxScaler(nlp, u0) : MaxScaler(g_min, g_max)
+    # TODO: add a modular way to define the scaling of the problem
+    # scaler = scale ?  NetworkScaler(nlp, g_min, g_max) : MaxScaler(g_min, g_max)
     return AugLagEvaluator(nlp, cons_type, cx, c₀, λ, λc, scaler, NLPCounter(), nothing)
 end
 function AugLagEvaluator(

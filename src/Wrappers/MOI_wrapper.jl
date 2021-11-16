@@ -68,10 +68,11 @@ end
 
 function MOI.eval_constraint_jacobian(ev::MOIEvaluator, jac, x)
     _update!(ev, x)
-    n = length(x)
+    n = n_variables(ev.nlp)
     m = n_constraints(ev.nlp)
     fill!(jac, 0)
-    J = reshape(jac, m, n)
+    jac_v = view(jac, 1:(n*m))
+    J = reshape(jac_v, m, n)
     jacobian!(ev.nlp, J, x)
 end
 
@@ -80,22 +81,21 @@ function MOI.eval_hessian_lagrangian(ev::MOIEvaluator, hess, x, σ, μ)
     n = n_variables(ev.nlp)
     # Evaluate full reduced Hessian in the preallocated buffer.
     H = ev.hess_buffer
-    hessian!(ev.nlp, H, x)
+    hessian_lagrangian!(ev.nlp, H, x, μ, σ)
     # Only dense Hessian supported now
     index = 1
     @inbounds for i in 1:n, j in 1:i
         # Hessian is symmetric, and MOI considers only the lower
         # triangular part. We average the values from the lower
         # and upper triangles for stability.
-        hess[index] = 0.5 * σ * (H[i, j] + H[j, i])
+        hess[index] = 0.5 * (H[i, j] + H[j, i])
         index += 1
     end
 end
 
 function MOI.eval_hessian_lagrangian_product(ev::MOIEvaluator, hv, x, v, σ, μ)
     _update!(ev, x)
-    hessprod!(ev.nlp, hv, x, v)
-    hv .*= σ
+    hessian_lagrangian_prod!(ev.nlp, hv, x, μ, σ, v)
 end
 
 function MOI.NLPBlockData(nlp::AbstractNLPEvaluator)
