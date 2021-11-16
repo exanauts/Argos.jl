@@ -4,7 +4,7 @@ using SuiteSparse
 using ExaPF
 using MadNLP
 using MathOptInterface
-using ExaOpt
+using Argos
 using CUDA
 
 const MOI = MathOptInterface
@@ -14,13 +14,13 @@ SuiteSparse.UMFPACK.umf_ctrl[8] = 0.0
 
 if CUDA.has_cuda_gpu()
     using MadNLPGPU
-    include(joinpath(dirname(pathof(ExaOpt)), "..", "test", "cusolver.jl"))
+    include(joinpath(dirname(pathof(Argos)), "..", "test", "cusolver.jl"))
 end
 
 function solve_auglag_moi(aug; linear_solver=MadNLPLapackCPU, max_iter=20, penalty=0.1, rate=10.0)
-    ExaOpt.reset!(aug)
-    aug.tracker = ExaOpt.NLPTracker(aug)
-    options = ExaOpt.AugLagOptions(;
+    Argos.reset!(aug)
+    aug.tracker = Argos.NLPTracker(aug)
+    options = Argos.AugLagOptions(;
         max_iter=max_iter,
         max_inner_iter=1000,
         α0=1.0,
@@ -33,16 +33,16 @@ function solve_auglag_moi(aug; linear_solver=MadNLPLapackCPU, max_iter=20, penal
     optimizer = MadNLP.Optimizer(
         linear_solver=linear_solver, print_level=MadNLP.ERROR, max_iter=500,
     )
-    solver = ExaOpt.AuglagSolver(optimizer, options)
+    solver = Argos.AuglagSolver(optimizer, options)
 
-    x0 = ExaOpt.initial(aug)
+    x0 = Argos.initial(aug)
     aug.ρ = penalty # update penalty in Evaluator
 
-    return ExaOpt.optimize!(solver, aug, x0)
+    return Argos.optimize!(solver, aug, x0)
 end
 
 function solve_auglag_madnlp(aug; linear_solver=MadNLPLapackCPU, max_iter=10, penalty=10.0, rate=10.0)
-    options = ExaOpt.AugLagOptions(;
+    options = Argos.AugLagOptions(;
         max_iter=max_iter,
         max_inner_iter=100,
         α0=1.0,
@@ -52,9 +52,9 @@ function solve_auglag_madnlp(aug; linear_solver=MadNLPLapackCPU, max_iter=10, pe
         ε_dual=1e-2,
         ε_primal=1e-5,
     )
-    ExaOpt.reset!(aug)
+    Argos.reset!(aug)
     aug.ρ = penalty # update penalty in Evaluator
-    mnlp = ExaOpt.ExaNLPModel(aug)
+    mnlp = Argos.ExaNLPModel(aug)
     madnlp_options = Dict{Symbol, Any}(
         :tol=>1e-5,
         :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
@@ -62,15 +62,15 @@ function solve_auglag_madnlp(aug; linear_solver=MadNLPLapackCPU, max_iter=10, pe
         :print_level=>MadNLP.ERROR,
     )
     ipp = MadNLP.InteriorPointSolver(mnlp; option_dict=madnlp_options)
-    solver = ExaOpt.AuglagSolver(ipp, options)
+    solver = Argos.AuglagSolver(ipp, options)
 
-    x0 = ExaOpt.initial(aug)
+    x0 = Argos.initial(aug)
 
-    return ExaOpt.optimize!(solver, aug, x0)
+    return Argos.optimize!(solver, aug, x0)
 end
 
 function solve_auglag_madnlp_schur(aug; linear_solver=MadNLPLapackCPU, max_iter=10, penalty=10.0, rate=10.0)
-    options = ExaOpt.AugLagOptions(;
+    options = Argos.AugLagOptions(;
         max_iter=max_iter,
         max_inner_iter=100,
         α0=1.0,
@@ -80,31 +80,31 @@ function solve_auglag_madnlp_schur(aug; linear_solver=MadNLPLapackCPU, max_iter=
         ε_dual=1e-2,
         ε_primal=1e-5,
     )
-    ExaOpt.reset!(aug)
-    mnlp = ExaOpt.ExaNLPModel(aug)
+    Argos.reset!(aug)
+    mnlp = Argos.ExaNLPModel(aug)
     madnlp_options = Dict{Symbol, Any}(:tol=>1e-5,
                                        :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
                                        :linear_solver=>linear_solver,
                                        :print_level=>MadNLP.ERROR)
     madopt = MadNLP.Options(linear_solver=linear_solver)
     MadNLP.set_options!(madopt, madnlp_options)
-    KKT = ExaOpt.MixedAuglagKKTSystem{Float64, CuVector{Float64}, CuMatrix{Float64}}
+    KKT = Argos.MixedAuglagKKTSystem{Float64, CuVector{Float64}, CuMatrix{Float64}}
     ipp = MadNLP.InteriorPointSolver{KKT}(mnlp, madopt; option_linear_solver=madnlp_options)
-    solver = ExaOpt.AuglagSolver(ipp, options)
+    solver = Argos.AuglagSolver(ipp, options)
 
-    x0 = ExaOpt.initial(aug)
+    x0 = Argos.initial(aug)
     aug.ρ = penalty # update penalty in Evaluator
 
-    return ExaOpt.optimize!(solver, aug, x0)
+    return Argos.optimize!(solver, aug, x0)
 end
 
 function subproblem_moi(aug; linear_solver=MadNLPLapackCPU, max_iter=100)
-    ExaOpt.reset!(aug)
+    Argos.reset!(aug)
     optimizer = MadNLP.Optimizer(linear_solver=linear_solver)
     MOI.set(optimizer, MOI.RawParameter("tol"), 1e-5)
     MOI.set(optimizer, MOI.RawParameter("print_level"), MadNLP.DEBUG)
     MOI.set(optimizer, MOI.RawParameter("max_iter"), max_iter)
-    solution = @time ExaOpt.optimize!(optimizer, aug)
+    solution = @time Argos.optimize!(optimizer, aug)
 
     return optimizer.ips
 end
@@ -114,8 +114,8 @@ function subproblem_dense_kkt(
     linear_solver=MadNLPLapackCPU,
     inertia=MadNLP.INERTIA_AUTO,
 )
-    ExaOpt.reset!(aug)
-    mnlp = ExaOpt.ExaNLPModel(aug)
+    Argos.reset!(aug)
+    mnlp = Argos.ExaNLPModel(aug)
     options = Dict{Symbol, Any}(
         :tol=>1e-5, :max_iter=>max_iter,
         :nlp_scaling=>scaling,
@@ -134,8 +134,8 @@ function subproblem_schur_kkt(
     linear_solver=MadNLPLapackCPU,
     inertia=MadNLP.INERTIA_AUTO,
 )
-    ExaOpt.reset!(aug)
-    mnlp = ExaOpt.ExaNLPModel(aug)
+    Argos.reset!(aug)
+    mnlp = Argos.ExaNLPModel(aug)
 
     options = Dict{Symbol, Any}(
         :tol=>1e-5, :max_iter=>max_iter,
@@ -148,7 +148,7 @@ function subproblem_schur_kkt(
     madopt = MadNLP.Options(linear_solver=linear_solver)
     MadNLP.set_options!(madopt,options,Dict())
     # Custom KKT system
-    KKT = ExaOpt.MixedAuglagKKTSystem{Float64, Vector{Float64}, Matrix{Float64}}
+    KKT = Argos.MixedAuglagKKTSystem{Float64, Vector{Float64}, Matrix{Float64}}
     ipp = MadNLP.InteriorPointSolver{KKT}(mnlp, madopt; option_linear_solver=options)
     @time MadNLP.optimize!(ipp)
     return ipp
@@ -157,8 +157,8 @@ end
 function subproblem_dense_kkt_gpu(aug; max_iter=100)
     @assert CUDA.has_cuda_gpu()
     linear_solver = MadNLPLapackGPU
-    ExaOpt.reset!(aug)
-    mnlp = ExaOpt.ExaNLPModel(aug)
+    Argos.reset!(aug)
+    mnlp = Argos.ExaNLPModel(aug)
     options = Dict{Symbol, Any}(:tol=>1e-5, :max_iter=>max_iter,
                                 :print_level=>MadNLP.DEBUG,
                                 :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
@@ -175,8 +175,8 @@ end
 function subproblem_schur_kkt_gpu(aug; max_iter=100)
     @assert CUDA.has_cuda_gpu()
     linear_solver = MadNLPLapackGPU
-    ExaOpt.reset!(aug)
-    mnlp = ExaOpt.ExaNLPModel(aug)
+    Argos.reset!(aug)
+    mnlp = Argos.ExaNLPModel(aug)
     options = Dict{Symbol, Any}(:tol=>1e-5, :max_iter=>max_iter,
                                 :print_level=>MadNLP.DEBUG,
                                 :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
@@ -184,7 +184,7 @@ function subproblem_schur_kkt_gpu(aug; max_iter=100)
     madopt = MadNLP.Options(linear_solver=linear_solver)
     MadNLP.set_options!(madopt,options,Dict())
     # Custom KKT type
-    KKT = ExaOpt.MixedAuglagKKTSystem{Float64, CuVector{Float64}, CuMatrix{Float64}}
+    KKT = Argos.MixedAuglagKKTSystem{Float64, CuVector{Float64}, CuMatrix{Float64}}
     ipp = MadNLP.InteriorPointSolver{KKT}(mnlp, madopt; option_linear_solver=options)
     @time MadNLP.optimize!(ipp)
     return ipp

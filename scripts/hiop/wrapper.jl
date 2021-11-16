@@ -13,9 +13,9 @@ function triu_transfer!(hvec, H)
 end
 
 function build!(nlp)
-    @assert ExaOpt.n_constraints(nlp) == 0
+    @assert Argos.n_constraints(nlp) == 0
 
-    n = ExaOpt.n_variables(nlp)
+    n = Argos.n_variables(nlp)
 
     hash_x = UInt64(0)
 
@@ -25,14 +25,14 @@ function build!(nlp)
     function _update!(x)
         hx = hash(x)
         if hx != hash_x
-            ExaOpt.update!(nlp, x)
+            Argos.update!(nlp, x)
             hash_x = hx
         end
     end
 
     function eval_f(x::Vector{Float64}, prob::HiopProblem)
         _update!(x)
-        return ExaOpt.objective(nlp, x)
+        return Argos.objective(nlp, x)
     end
 
     function eval_g(x::Vector{Float64}, g::Vector{Float64}, prob::HiopProblem)
@@ -42,7 +42,7 @@ function build!(nlp)
 
     function eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}, prob::HiopProblem)
         _update!(x)
-        ExaOpt.gradient!(nlp, grad_f, x)
+        Argos.gradient!(nlp, grad_f, x)
         return Int32(1)
     end
 
@@ -63,7 +63,7 @@ function build!(nlp)
         if :Dense in mode
             _update!(x)
             # Evaluate Hessian
-            ExaOpt.hessian!(nlp, H, x)
+            Argos.hessian!(nlp, H, x)
             HDD .= obj_factor .* H[:]
         end
         return Int32(1)
@@ -72,7 +72,7 @@ function build!(nlp)
     # Variables
     ns = 0
     nd = n
-    x_L, x_U = ExaOpt.bounds(nlp, ExaOpt.Variables())
+    x_L, x_U = Argos.bounds(nlp, Argos.Variables())
     # Constraints
     num_constraints = 0
     g_L = Float64[]
@@ -89,7 +89,7 @@ function build!(nlp)
     return prob
 end
 
-function ExaOpt.optimize!(prob::Hiop.HiopProblem, nlp, x)
+function Argos.optimize!(prob::Hiop.HiopProblem, nlp, x)
     prob.x0 .= x
     Hiop.solveProblem(prob)
 

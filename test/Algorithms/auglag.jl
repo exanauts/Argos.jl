@@ -1,9 +1,9 @@
 @testset "Augmented Lagrangian solver" begin
     datafile = joinpath(dirname(pathof(ExaPF)), "..", "data", "case57.m")
-    nlp = ExaOpt.ReducedSpaceEvaluator(datafile)
+    nlp = Argos.ReducedSpaceEvaluator(datafile)
 
     @testset "NGPA backend" begin
-        algo = ExaOpt.AugLagSolver(;
+        algo = Argos.AugLagSolver(;
             max_iter=20,
             verbose=0,
             ωtol=1e-5,
@@ -11,7 +11,7 @@
             inner_algo=:ngpa,
             ε_dual=1e-2,
         )
-        solution = ExaOpt.optimize!(algo, nlp, ExaOpt.initial(nlp))
+        solution = Argos.optimize!(algo, nlp, Argos.initial(nlp))
         @test solution.status == MOI.ITERATION_LIMIT
         # NGPA slow to converges (no second order information)
         # Solution is larger than expected.

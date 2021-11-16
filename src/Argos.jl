@@ -1,4 +1,4 @@
-module ExaOpt
+module Argos
 
 using LinearAlgebra
 using Printf

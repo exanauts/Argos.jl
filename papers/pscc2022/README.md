@@ -3,7 +3,7 @@
 Code to reproduce the numerical results presented in *A Feasible Reduced Space Method for Real-Time Optimal Power Flow*.
 
 * The power flow solver is implemented in [ExaPF](https://github.com/exanauts/ExaPF.jl/), as well as the custom automatic differentation backend
-* The augmented Lagrangian is implemented in [ExaOpt](https://github.com/exanauts/ExaPF-Opt)
+* The augmented Lagrangian is implemented in [Argos](https://github.com/exanauts/ExaPF-Opt)
 
 As discussed in the paper, the reduced space algorithm solves OPF problems, both in static and real-time settings.
 The algorithm runs on the CPU, but is much faster on GPU.

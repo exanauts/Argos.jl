@@ -20,13 +20,13 @@ function ExaNLPModel(nlp::AbstractNLPEvaluator)
     m = n_constraints(nlp)
 
     # Initial variable
-    d_x0  = ExaOpt.initial(nlp)
+    d_x0  = initial(nlp)
     VT = typeof(d_x0)
     x0 = d_x0 |> Array
     y0 = zeros(m)
     # Bounds
-    xl, xu = ExaOpt.bounds(nlp, ExaOpt.Variables()) .|> Array
-    gl, gu = ExaOpt.bounds(nlp, ExaOpt.Constraints()) .|> Array
+    xl, xu = bounds(nlp, Variables()) .|> Array
+    gl, gu = bounds(nlp, Constraints()) .|> Array
     # Buffers
     d_x = similar(d_x0, n)
     d_g = similar(d_x0, n)

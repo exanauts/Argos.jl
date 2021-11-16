@@ -1,15 +1,15 @@
 using Pkg
 
-using Documenter, ExaOpt
+using Documenter, Argos
 
 makedocs(
-    sitename = "ExaOpt.jl",
+    sitename = "Argos.jl",
     format = Documenter.HTML(
         prettyurls = Base.get(ENV, "CI", nothing) == "true",
         mathengine = Documenter.KaTeX()
     ),
-    modules = [ExaOpt],
-    repo = "https://github.com/exanauts/ExaOpt.jl/blob/{commit}{path}#{line}",
+    modules = [Argos],
+    repo = "https://github.com/exanauts/Argos.jl/blob/{commit}{path}#{line}",
     strict = true,
     checkdocs = :exports,
     pages = [

@@ -3,7 +3,7 @@
 using Printf
 using Revise
 using ExaPF
-using ExaOpt
+using Argos
 using Ipopt
 using SuiteSparse
 using DelimitedFiles
@@ -34,7 +34,7 @@ end
 function ipopt_subproblem(aug)
     optimizer = ipopt_optimizer()
     MOI.set(solver, MOI.RawParameter("print_level"), 5)
-    solution = @time ExaOpt.optimize!(optimizer, aug)
+    solution = @time Argos.optimize!(optimizer, aug)
     MOI.empty!(optimizer)
 end
 
@@ -49,16 +49,16 @@ end
 
 function attach_callback!(solver::Ipopt.Optimizer, aug, results)
     inner = aug.inner
-    model = ExaOpt.backend(aug)
+    model = Argos.backend(aug)
     buffer = get(aug, ExaPF.PhysicalState())
 
-    m = ExaOpt.n_constraints(inner)
+    m = Argos.n_constraints(inner)
     nv = ExaPF.size_constraint(model, ExaPF.voltage_magnitude_constraints)
     np = ExaPF.size_constraint(model, ExaPF.active_power_constraints)
     nq = ExaPF.size_constraint(model, ExaPF.reactive_power_constraints)
     nl = ExaPF.size_constraint(model, ExaPF.flow_constraints)
 
-    g_L, g_U = ExaOpt.bounds(inner, ExaOpt.Constraints())
+    g_L, g_U = Argos.bounds(inner, Argos.Constraints())
     v_lb, v_ub = ExaPF.bounds(model, ExaPF.voltage_magnitude_constraints)
     p_lb, p_ub = ExaPF.bounds(model, ExaPF.active_power_constraints)
     q_lb, q_ub = ExaPF.bounds(model, ExaPF.reactive_power_constraints)
@@ -93,7 +93,7 @@ function attach_callback!(solver::Ipopt.Optimizer, aug, results)
         alpha_pr::Float64,
         ls_trials::Cint,
     )
-        ExaOpt.constraint!(inner, c, prob.x)
+        Argos.constraint!(inner, c, prob.x)
         ExaPF.voltage_magnitude_constraints(model, cv, buffer)
         ExaPF.active_power_constraints(model, cp, buffer)
         ExaPF.reactive_power_constraints(model, cq, buffer)
@@ -114,7 +114,7 @@ end
 # Augmented Lagrangian method
 function solve_auglag(aug; max_iter=20, penalty=0.1, rate=10.0)
     # Init a penalty evaluator with initial penalty c₀
-    algo = ExaOpt.AugLagSolver(;
+    algo = Argos.AugLagSolver(;
         max_iter=max_iter,
         max_inner_iter=100,
         α0=1.0,
@@ -127,9 +127,9 @@ function solve_auglag(aug; max_iter=20, penalty=0.1, rate=10.0)
         ε_primal=1e-5,
     )
     aug.ρ = penalty
-    x0 = ExaOpt.initial(aug)
+    x0 = Argos.initial(aug)
 
-    solution = @time ExaOpt.optimize!(algo, aug, x0; moi_optimizer=ipopt_optimizer)
+    solution = @time Argos.optimize!(algo, aug, x0; moi_optimizer=ipopt_optimizer)
     return aug, solution
 end
 

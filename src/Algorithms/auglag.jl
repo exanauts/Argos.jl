@@ -43,7 +43,7 @@ end
 
 # Solve subproblem with MadNLP
 function solve_subproblem!(
-    algo::ExaOpt.AuglagSolver{<:MadNLP.InteriorPointSolver}, aug::ExaOpt.AugLagEvaluator, uₖ;
+    algo::AuglagSolver{<:MadNLP.InteriorPointSolver}, aug::AugLagEvaluator, uₖ;
     tol=-1, niter=1
 )
     n_iter = aug.counter.hessian

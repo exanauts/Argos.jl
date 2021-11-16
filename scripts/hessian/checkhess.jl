@@ -5,18 +5,18 @@ using FiniteDiff
 function check_hessian_fd_hessian(aug, u, n_)
     n = length(u)
 
-    ExaOpt.update!(aug, u)
+    Argos.update!(aug, u)
     g = similar(u)
-    ExaOpt.gradient!(aug, g, u)
+    Argos.gradient!(aug, g, u)
 
     H = similar(u, n, n) ; fill!(H, 0)
-    @time ExaOpt.hessian!(aug, H, u)
+    @time Argos.hessian!(aug, H, u)
 
     uu = copy(u)
     function reduced_cost(u_)
         uu[1:n_] .= u_
-        ExaOpt.update!(aug, uu)
-        return ExaOpt.objective(aug, uu)
+        Argos.update!(aug, uu)
+        return Argos.objective(aug, uu)
     end
 
     hess_fd = FiniteDiff.finite_difference_hessian(reduced_cost, u[1:n_])
@@ -26,18 +26,18 @@ end
 function check_hessian_fd_jacobian(aug, u, n_)
     n = length(u)
 
-    ExaOpt.update!(aug, u)
+    Argos.update!(aug, u)
     g = similar(u)
-    ExaOpt.gradient!(aug, g, u)
+    Argos.gradient!(aug, g, u)
     H = similar(u, n, n) ; fill!(H, 0)
-    @time ExaOpt.hessian!(aug, H, u)
+    @time Argos.hessian!(aug, H, u)
 
     uu = copy(u)
     gg = similar(u) ; fill!(gg, 0)
     function reduced_gradient(u_)
         uu[1:n_] .= u_
-        ExaOpt.update!(aug, uu)
-        ExaOpt.gradient!(aug, gg, uu)
+        Argos.update!(aug, uu)
+        Argos.gradient!(aug, gg, uu)
         return gg[1:n_]
     end
 
@@ -46,7 +46,7 @@ function check_hessian_fd_jacobian(aug, u, n_)
 end
 
 function test_hessian(aug; nfd=-1)
-    n = ExaOpt.n_variables(aug)
+    n = Argos.n_variables(aug)
     n_ = (nfd == -1) ? n : nfd
     H, hess_fd = check_hessian(aug, n_)
     Base.@info(1, "h", H)

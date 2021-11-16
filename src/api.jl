@@ -16,6 +16,6 @@ function instantiate_auglag_model(
         SlackEvaluator(nlp)
     end
     x0 = initial(slk)
-    return ExaOpt.AugLagEvaluator(slk, x0; c₀=ρ, scale=scale)
+    return AugLagEvaluator(slk, x0; c₀=ρ, scale=scale)
 end
 

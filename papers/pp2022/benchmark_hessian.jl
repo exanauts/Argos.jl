@@ -8,26 +8,26 @@ using SuiteSparse
 using KernelAbstractions
 using CUDAKernels
 
-using ExaPF, ExaOpt
+using ExaPF, Argos
 
 # Load GPU extension
-include(joinpath(dirname(pathof(ExaOpt)), "..", "test", "cusolver.jl"))
+include(joinpath(dirname(pathof(Argos)), "..", "test", "cusolver.jl"))
 
 OUTPUTDIR = joinpath(dirname(@__FILE__), "results")
-SOURCE_DATA = joinpath(dirname(pathof(ExaOpt)), "..", "data")
+SOURCE_DATA = joinpath(dirname(pathof(Argos)), "..", "data")
 
 function _instantiate_nlp(datafile, device, nbatches, line_constraints, pf_tol)
     # Instantiate problem
     pf = NewtonRaphson(tol=pf_tol)
-    nlp = ExaOpt.ReducedSpaceEvaluator(
+    nlp = Argos.ReducedSpaceEvaluator(
         datafile;
         device=device, nbatch_hessian=nbatches, line_constraints=line_constraints,
         powerflow_solver=pf,
     )
-    u = ExaOpt.initial(nlp)
+    u = Argos.initial(nlp)
     g = similar(u)
-    ExaOpt.update!(nlp, u)
-    ExaOpt.gradient!(nlp, g, u)
+    Argos.update!(nlp, u)
+    Argos.gradient!(nlp, g, u)
     return (nlp, u)
 end
 
@@ -48,13 +48,13 @@ function benchmark_batched_hessian_objective(
 
     # Reference is CPU (with batch=1 to fallback to default Hessian)
     nlp_ref, h_u = _instantiate_nlp(datafile, CPU(), 1, line_constraints, pf_tol)
-    nu = ExaOpt.n_variables(nlp_ref)
-    m = ExaOpt.n_constraints(nlp_ref)
+    nu = Argos.n_variables(nlp_ref)
+    m = Argos.n_constraints(nlp_ref)
 
     # Compute reference
     hess = zeros(nu, nu)
     for i in 1:ntrials
-        t1 = @timed ExaOpt.hessian!(nlp_ref, hess, h_u)
+        t1 = @timed Argos.hessian!(nlp_ref, hess, h_u)
         timings[i] = t1.time
     end
     results[1, 1] = mean(timings)
@@ -65,7 +65,7 @@ function benchmark_batched_hessian_objective(
 
     # Instantiate nlp on target device
     nlp, u = _instantiate_nlp(datafile, device, 2, line_constraints, pf_tol)
-    model = ExaOpt.backend(nlp)
+    model = Argos.backend(nlp)
     # Instantiate Hessian
     hess = similar(u, nu, nu)
 
@@ -75,10 +75,10 @@ function benchmark_batched_hessian_objective(
 
     for (id, nbatch) in enumerate(batches)
         (nbatch > nu) && break
-        batch_ad = ExaOpt.BatchHessianLagrangian(model, func, J, nbatch, m)
+        batch_ad = Argos.BatchHessianLagrangian(model, func, J, nbatch, m)
         nlp.hesslag = batch_ad
         for i in 1:ntrials
-            t1 = @timed ExaOpt.hessian!(nlp, hess, u)
+            t1 = @timed Argos.hessian!(nlp, hess, u)
             timings[i] = t1.time
         end
         results[id+1, 1] = mean(timings)

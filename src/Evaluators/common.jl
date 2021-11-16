@@ -127,7 +127,7 @@ function NLPTracker(nlp::AbstractNLPEvaluator)
     model = backend(nlp)
     buffer = Base.get(nlp, ExaPF.PhysicalState())
 
-    u_L, u_U = bounds(nlp, ExaOpt.Variables())
+    u_L, u_U = bounds(nlp, Variables())
     g = similar(u_L)
     d = similar(u_L)
     v_lb, v_ub = ExaPF.bounds(model, ExaPF.voltage_magnitude_constraints)

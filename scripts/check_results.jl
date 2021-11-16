@@ -2,16 +2,16 @@ using DelimitedFiles
 
 function check_feasibility(aug)
     inner = aug.inner
-    model = ExaOpt.backend(aug)
+    model = Argos.backend(aug)
     buffer = get(aug, ExaPF.PhysicalState())
 
-    m = ExaOpt.n_constraints(inner)
+    m = Argos.n_constraints(inner)
     nv = ExaPF.size_constraint(model, ExaPF.voltage_magnitude_constraints)
     np = ExaPF.size_constraint(model, ExaPF.active_power_constraints)
     nq = ExaPF.size_constraint(model, ExaPF.reactive_power_constraints)
     nl = ExaPF.size_constraint(model, ExaPF.flow_constraints)
 
-    g_L, g_U  = ExaOpt.bounds(inner, ExaOpt.Constraints())
+    g_L, g_U  = Argos.bounds(inner, Argos.Constraints())
     v_lb, v_ub = ExaPF.bounds(model, ExaPF.voltage_magnitude_constraints)
     p_lb, p_ub = ExaPF.bounds(model, ExaPF.active_power_constraints)
     q_lb, q_ub = ExaPF.bounds(model, ExaPF.reactive_power_constraints)
@@ -28,15 +28,15 @@ function check_feasibility(aug)
     ExaPF.active_power_constraints(model, cp, buffer)
     ExaPF.reactive_power_constraints(model, cq, buffer)
     ExaPF.flow_constraints(model, cl, buffer)
-    results[:voltage] =        ExaOpt.max_infeasibility_rel(cv, v_lb, v_ub)
-    results[:slack_power] =    ExaOpt.max_infeasibility_rel(cp, p_lb, p_ub)
-    results[:reactive_power] = ExaOpt.max_infeasibility_rel(cq, q_lb, q_ub)
-    results[:line_constraints] =   ExaOpt.max_infeasibility_rel(cl, l_lb, l_ub)
+    results[:voltage] =        Argos.max_infeasibility_rel(cv, v_lb, v_ub)
+    results[:slack_power] =    Argos.max_infeasibility_rel(cp, p_lb, p_ub)
+    results[:reactive_power] = Argos.max_infeasibility_rel(cq, q_lb, q_ub)
+    results[:line_constraints] =   Argos.max_infeasibility_rel(cl, l_lb, l_ub)
     results[:feas] =   norm(aug.cons, Inf)
     return results
 end
 
-function dump_results(tracker::ExaOpt.NLPTracker, dirdump="")
+function dump_results(tracker::Argos.NLPTracker, dirdump="")
     corr = [
         ("pr_feas", :primal_infeasibility),
         ("du_feas", :dual_infeasibility),
