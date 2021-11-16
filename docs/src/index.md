@@ -1,11 +1,11 @@
 # ExaPF
 
-[`ExaOpt.jl`](https://github.com/exanauts/ExaPF-Opt.jl) is a
+[`Argos.jl`](https://github.com/exanauts/ExaPF-Opt.jl) is a
 package extending [`ExaPF.jl`](https://github.com/exanauts/ExaPF-Opt.jl)
 for the resolution of large-scale optimal power flow (OPF) problems
 on exascale architectures.
 
-[`ExaOpt.jl`](https://github.com/exanauts/ExaPF-Opt.jl) implements
+[`Argos.jl`](https://github.com/exanauts/ExaPF-Opt.jl) implements
 a generic interface for the various callbacks needed by nonlinear
 optimization solvers. The callbacks are defined inside `Evaluators`
 structure, each `Evaluator` having its particular use-case.

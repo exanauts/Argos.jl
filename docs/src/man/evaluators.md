@@ -1,12 +1,12 @@
 # Evaluators
 
-In `ExaOpt.jl`, the evaluators are the final layer of the structure.
+In `Argos.jl`, the evaluators are the final layer of the structure.
 They take as input a given `ExaPF.AbstractFormulation` and implement the
 callbacks for the optimization solvers.
 
 ## Overview of the AbstractNLPEvaluator
 
-An [`ExaOpt.AbstractNLPEvaluator`](@ref) implements an optimization problem
+An [`Argos.AbstractNLPEvaluator`](@ref) implements an optimization problem
 associated with an underlying `ExaPF.AbstractFormulation`:
 ```math
 \begin{aligned}
@@ -23,10 +23,10 @@ $h: \mathbb{R}^n \to \mathbb{R}^{m_I}$ non-linear inequality constraints.
 
 Most non-linear optimization algorithms rely on *callbacks* to pass
 information about the structure of the problem to the optimizer.
-In `ExaOpt`, the implementation of the evaluators allows to have a proper splitting
+In `Argos`, the implementation of the evaluators allows to have a proper splitting
 between the model (formulated in the `ExaPF.AbstractFormulation` layer)
 and the optimization algorithms. By design, the implementation
-of an [`ExaOpt.AbstractNLPEvaluator`](@ref) shares a similar spirit with the implementations
+of an [`Argos.AbstractNLPEvaluator`](@ref) shares a similar spirit with the implementations
 introduced in other packages, as
 
 - MathOptInterface.jl's [AbstractNLPEvaluator](https://jump.dev/MathOptInterface.jl/stable/apireference/#MathOptInterface.AbstractNLPEvaluator)
@@ -37,12 +37,12 @@ the callbacks (e.g. the polar representation of the problem, with voltage
 magnitudes and angles). This cache allows to reduce the number of memory allocations to
 its minimum.
 Once a new variable $u$ passed to the evaluator
-a function `ExaOpt.update!` is being called to update the cache,
+a function `Argos.update!` is being called to update the cache,
 according to the model specified in the underlying `ExaPF.AbstractFormulation`.
 Denoting by `nlp` an instance of AbstractNLPEvaluator, the cache is
 updated via
 ```julia-repl
-julia> ExaOpt.update!(nlp, u)
+julia> Argos.update!(nlp, u)
 ```
 
 Once the internal structure updated, we are ready to call the different
@@ -50,13 +50,13 @@ callbacks, in every order. For instance, computing the objective, the
 gradient and the constraints amounts to
 ```julia-repl
 # Objective
-julia> obj = ExaOpt.objective(nlp, u)
+julia> obj = Argos.objective(nlp, u)
 # Gradient
 julia> g = zeros(n_variables(nlp))
-julia> ExaOpt.gradient!(nlp, g, u)
+julia> Argos.gradient!(nlp, g, u)
 # Constraints
 julia> cons = zeros(n_constraints(nlp))
-julia> ExaOpt.constraint!(nlp, cons, u)
+julia> Argos.constraint!(nlp, cons, u)
 
 ```
 
@@ -64,13 +64,13 @@ julia> ExaOpt.constraint!(nlp, cons, u)
 ## A journey to the reduced space with the ReducedSpaceEvaluator
 
 When we aim at optimizing the problem directly in the powerflow
-manifold, the [`ExaOpt.ReducedSpaceEvaluator`](@ref) is our workhorse.
+manifold, the [`Argos.ReducedSpaceEvaluator`](@ref) is our workhorse.
 We recall that the powerflow manifold is defined implicitly by the
 powerflow equations:
 ```math
     g(x(u), u) = 0.
 ```
-By design, the [`ExaOpt.ReducedSpaceEvaluator`](@ref) works in the reduced
+By design, the [`Argos.ReducedSpaceEvaluator`](@ref) works in the reduced
 space $(x(u), u)$. Hence, the reduced optimization problem writes out
 ```math
 \begin{aligned}
@@ -88,17 +88,17 @@ This formulation comes with two advantages:
 ### Playing with the ReducedSpaceEvaluator
 
 #### Constructor
-To create a [`ExaOpt.ReducedSpaceEvaluator`](@ref), we just need a polar formulation
+To create a [`Argos.ReducedSpaceEvaluator`](@ref), we just need a polar formulation
 `polar::PolarForm`:
 ```julia-repl
-julia> nlp = ExaOpt.ReducedSpaceEvaluator(polar)
+julia> nlp = Argos.ReducedSpaceEvaluator(polar)
 
 ```
 or we could alternatively instantiate the evaluator directly from
 a MATPOWER (or PSSE) instance:
 ```julia-repl
 julia> datafile = "case9.m"
-julia> nlp = ExaOpt.ReducedSpaceEvaluator(datafile)
+julia> nlp = Argos.ReducedSpaceEvaluator(datafile)
 A ReducedSpaceEvaluator object
     * device: KernelAbstractions.CPU()
     * #vars: 5
@@ -126,11 +126,11 @@ to choose the parameters she wants. For instance,
   to the evaluator:
   ```julia-repl
   julia> constraints = Function[]
-  julia> nlp = ExaOpt.ReducedSpaceEvaluator(datafile; constraints=constraints)
+  julia> nlp = Argos.ReducedSpaceEvaluator(datafile; constraints=constraints)
   ```
 * We could load the evaluator on the GPU simply by changing the `device` option:
   ```julia-repl
-  julia> nlp = ExaOpt.ReducedSpaceEvaluator(datafile; device=CUDADevice())
+  julia> nlp = Argos.ReducedSpaceEvaluator(datafile; device=CUDADevice())
   ```
 
 
@@ -153,7 +153,7 @@ available. First, we need to find the corresponding state `xk`,
 such that ``g(x_k, u_k) = 0``.
 In the evaluator's API, this sums up to:
 ```julia-repl
-ExaOpt.update!(nlp, uk)
+Argos.update!(nlp, uk)
 
 ```
 The function `update!` will
@@ -166,50 +166,50 @@ all the different callbacks, independently of one other.
 
 * Objective
   ```julia-repl
-  julia> cost = ExaOpt.objective(nlp, uk)
+  julia> cost = Argos.objective(nlp, uk)
   ```
 * Objective's gradient
   ```julia-repl
   julia> g = zeros(n_variables(nlp))
-  julia> ExaOpt.gradient!(nlp, g, uk)
+  julia> Argos.gradient!(nlp, g, uk)
   ```
 * Constraints
   ```julia-repl
   # Evaluate constraints
   julia> cons = zeros(n_constraints(nlp))
-  julia> ExaOpt.constraint!(nlp, cons, uk)
+  julia> Argos.constraint!(nlp, cons, uk)
   ```
 * Constraints' Jacobian
   ```julia-repl
   ## Evaluate Jacobian
-  julia> ExaOpt.jacobian!(nlp, jac, uk)
+  julia> Argos.jacobian!(nlp, jac, uk)
   ```
 * Constraints' Jacobian-vector product:
   ```julia-repl
   ## Evaluate Jacobian-vector product
   julia> v = zeros(n_variables(nlp))
   julia> jv = zeros(n_constraints(nlp))
-  julia> ExaOpt.jprod!(nlp, jv, uk, v)
+  julia> Argos.jprod!(nlp, jv, uk, v)
   ```
 * Constraints' transpose Jacobian-vector product
   ```julia-repl
   ## Evaluate transpose Jacobian-vector product
   julia> v = zeros(n_constraints(nlp))
   julia> jv = zeros(n_variables(nlp))
-  julia> ExaOpt.jtprod!(nlp, jv, uk, v)
+  julia> Argos.jtprod!(nlp, jv, uk, v)
   ```
 * Hessian-vector product:
   ```julia-repl
   ## Evaluate transpose Jacobian-vector product
   julia> v = zeros(n_variables(nlp))
   julia> hv = zeros(n_variables(nlp))
-  julia> ExaOpt.hessprod!(nlp, hv, uk, v)
+  julia> Argos.hessprod!(nlp, hv, uk, v)
   ```
 * Hessian:
   ```julia-repl
   ## Evaluate transpose Jacobian-vector product
   julia> H = zeros(n_variables(nlp), n_variables(nlp))
-  julia> ExaOpt.hessprod!(nlp, H, uk)
+  julia> Argos.hessprod!(nlp, H, uk)
   ```
 
 !!! note
@@ -217,8 +217,8 @@ all the different callbacks, independently of one other.
 
 ## Passing the problem to an optimization solver with MathOptInterface
 
-`ExaOpt.jl` provides a utility to pass the non-linear structure
-specified by a [`ExaOpt.AbstractNLPEvaluator`](@ref) to a `MathOptInterface` (MOI)
+`Argos.jl` provides a utility to pass the non-linear structure
+specified by a [`Argos.AbstractNLPEvaluator`](@ref) to a `MathOptInterface` (MOI)
 optimization problem. That allows to solve the corresponding
 optimal power flow problem using any non-linear optimization solver compatible
 with MOI.
@@ -232,7 +232,7 @@ optimizer = Ipopt.Optimizer()
 MOI.set(optimizer, MOI.RawParameter("print_level"), 5)
 MOI.set(optimizer, MOI.RawParameter("limited_memory_max_history"), 50)
 MOI.set(optimizer, MOI.RawParameter("hessian_approximation"), "limited-memory")
-solution = ExaOpt.optimize!(optimizer, nlp)
+solution = Argos.optimize!(optimizer, nlp)
 MOI.empty!(optimizer)
 
 ```

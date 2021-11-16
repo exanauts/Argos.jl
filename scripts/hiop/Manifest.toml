@@ -175,11 +175,11 @@ version = "0.8.4"
 deps = ["ArgTools", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 
-[[ExaOpt]]
+[[Argos]]
 deps = ["ExaPF", "LinearAlgebra", "LinearOperators", "MathOptInterface", "Printf", "TimerOutputs", "UnicodePlots"]
 git-tree-sha1 = "94d1d80ace19c038e0fa4b45846f253804ef60db"
 repo-rev = "master"
-repo-url = "/home/fpacaud/exa/ExaOpt"
+repo-url = "/home/fpacaud/exa/Argos"
 uuid = "ef244971-cf80-42b0-9762-2c2c832df5d5"
 version = "0.1.0"
 

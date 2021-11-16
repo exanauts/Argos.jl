@@ -167,7 +167,7 @@ version = "0.8.5"
 deps = ["ArgTools", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 
-[[ExaOpt]]
+[[Argos]]
 deps = ["BlockPowerFlow", "CUDA", "CUDAKernels", "ExaPF", "FiniteDiff", "Ipopt", "KernelAbstractions", "LinearAlgebra", "MadNLP", "MathOptInterface", "Printf", "Random", "SparseArrays", "Test"]
 path = "../.."
 uuid = "ef244971-cf80-42b0-9762-2c2c832df5d5"

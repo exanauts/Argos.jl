@@ -7,7 +7,7 @@ using CUDA
 using KernelAbstractions
 
 using ExaPF
-using ExaOpt
+using Argos
 
 using MathOptInterface
 const MOI = MathOptInterface

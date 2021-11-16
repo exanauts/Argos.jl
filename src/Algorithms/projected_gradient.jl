@@ -277,7 +277,7 @@ function ngpa(
         # Active-set embedding
         if active_set && (n_iter >= 5)
             grad_act .= ∇f
-            ExaOpt.active!(grad_act, uk, u♭, u♯)
+            active!(grad_act, uk, u♭, u♯)
             feasible_direction!(dk, wk, uk, ∇f, 1.0, u♭, u♯)
             ndk = norm(dk, Inf)
             # Update active set

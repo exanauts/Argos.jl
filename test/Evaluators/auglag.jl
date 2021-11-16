@@ -1,59 +1,59 @@
 function test_auglag_evaluator(nlp, device, MT)
-    u0 = ExaOpt.initial(nlp)
-    w♭, w♯ = ExaOpt.bounds(nlp, ExaOpt.Variables())
+    u0 = Argos.initial(nlp)
+    w♭, w♯ = Argos.bounds(nlp, Argos.Variables())
     # Build penalty evaluator
     @testset "Scaling $scaling" for scaling in [true, false]
-        ExaOpt.reset!(nlp)
-        pen = ExaOpt.AugLagEvaluator(nlp, u0; scale=scaling)
+        Argos.reset!(nlp)
+        pen = Argos.AugLagEvaluator(nlp, u0; scale=scaling)
         VTD, MTD = MT{Float64, 1}, MT{Float64, 2}
-        bgd = ExaOpt.BridgeDeviceEvaluator(pen, VTD, MTD)
+        bgd = Argos.BridgeDeviceEvaluator(pen, VTD, MTD)
         u = w♭
         # Update nlp to stay on manifold
-        ExaOpt.update!(pen, u)
+        Argos.update!(pen, u)
         # Compute objective
-        c = ExaOpt.objective(pen, u)
-        c_ref = ExaOpt.inner_objective(pen, u)
+        c = Argos.objective(pen, u)
+        c_ref = Argos.inner_objective(pen, u)
         @test isa(c, Real)
         @test c >= c_ref
-        inf_pr2 = ExaOpt.primal_infeasibility(pen, u)
+        inf_pr2 = Argos.primal_infeasibility(pen, u)
         @test inf_pr2 >= 0.0
 
         ##################################################
         # Update penalty weigth
         # (with a large-enough factor to have a meaningful derivative check)
         ##################################################
-        ExaOpt.update_penalty!(pen, η=1e3)
-        ExaOpt.update_multipliers!(pen)
+        Argos.update_penalty!(pen, η=1e3)
+        Argos.update_multipliers!(pen)
 
         ##################################################
         # Callbacks
         ##################################################
-        ExaOpt.update!(pen, u)
-        obj = ExaOpt.objective(pen, u)
-        g = ExaOpt.gradient(pen, u)
+        Argos.update!(pen, u)
+        obj = Argos.objective(pen, u)
+        g = Argos.gradient(pen, u)
         # Compare with finite differences
         function reduced_cost(u_)
-            ExaOpt.update!(bgd, u_)
-            return ExaOpt.objective(bgd, u_)
+            Argos.update!(bgd, u_)
+            return Argos.objective(bgd, u_)
         end
         grad_fd = FiniteDiff.finite_difference_gradient(reduced_cost, u |> Array)
         @test myisapprox(grad_fd, g, rtol=1e-4)
 
         # Test Hessian only on ReducedSpaceEvaluator and SlackEvaluator
         if (
-           isa(nlp, ExaOpt.ReducedSpaceEvaluator) ||
-           isa(nlp, ExaOpt.SlackEvaluator)
+           isa(nlp, Argos.ReducedSpaceEvaluator) ||
+           isa(nlp, Argos.SlackEvaluator)
         )
             n = length(u)
-            ExaOpt.update!(pen, u)
+            Argos.update!(pen, u)
             hv = similar(u) ; fill!(hv, 0)
             w = similar(u)
             h_w = zeros(n) ; h_w[1] = 1.0
             copyto!(w, h_w)
 
-            ExaOpt.hessprod!(pen, hv, u, w)
+            Argos.hessprod!(pen, hv, u, w)
             H = similar(u, n, n) ; fill!(H, 0)
-            ExaOpt.hessian!(pen, H, u)
+            Argos.hessian!(pen, H, u)
             # Is Hessian vector product relevant?
             @test H * w ≈ hv
             # Is Hessian correct?
@@ -65,8 +65,8 @@ function test_auglag_evaluator(nlp, device, MT)
             @test isapprox(h_H, h_H_fd, rtol=1e-5)
         end
         # Test estimation of multipliers (only on SlackEvaluator)
-        if isa(nlp, ExaOpt.SlackEvaluator) && isa(device, CPU)
-            λ = ExaOpt.estimate_multipliers(pen, u)
+        if isa(nlp, Argos.SlackEvaluator) && isa(device, CPU)
+            λ = Argos.estimate_multipliers(pen, u)
         end
     end
 end

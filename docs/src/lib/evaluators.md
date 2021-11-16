@@ -1,5 +1,5 @@
 ```@meta
-CurrentModule = ExaOpt
+CurrentModule = Argos
 ```
 
 # Evaluators

@@ -173,7 +173,7 @@ version = "0.8.5"
 deps = ["ArgTools", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 
-[[ExaOpt]]
+[[Argos]]
 deps = ["BlockPowerFlow", "CUDA", "CUDAKernels", "ExaPF", "FiniteDiff", "Ipopt", "KernelAbstractions", "LinearAlgebra", "MathOptInterface", "Printf", "Random", "SparseArrays", "Test"]
 git-tree-sha1 = "d7c697f39c209f80128130dc464d2ed4b70e6f1b"
 repo-rev = "master"

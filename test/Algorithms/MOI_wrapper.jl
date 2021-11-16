@@ -22,7 +22,7 @@ const MOI = MathOptInterface
     ]
 
     datafile = joinpath(dirname(pathof(ExaPF)), "..", "data", "case57.m")
-    nlp = ExaOpt.ReducedSpaceEvaluator(datafile)
+    nlp = Argos.ReducedSpaceEvaluator(datafile)
 
     @testset "ReducedSpaceEvaluator with L-BFGS" begin
         optimizer = Ipopt.Optimizer()
@@ -31,7 +31,7 @@ const MOI = MathOptInterface
         MOI.set(optimizer, MOI.RawParameter("hessian_approximation"), "limited-memory")
         MOI.set(optimizer, MOI.RawParameter("tol"), 1e-4)
 
-        solution = ExaOpt.optimize!(optimizer, nlp)
+        solution = Argos.optimize!(optimizer, nlp)
         MOI.empty!(optimizer)
         @test solution.status ∈ [MOI.OPTIMAL, MOI.LOCALLY_SOLVED]
         @test solution.minimum ≈ 3.7589338e+04
@@ -44,9 +44,9 @@ const MOI = MathOptInterface
         MOI.set(optimizer, MOI.RawParameter("print_level"), 0)
         MOI.set(optimizer, MOI.RawParameter("tol"), 1e-4)
         MOI.set(optimizer, MOI.RawParameter("max_iter"), 30)
-        aug = ExaOpt.AugLagEvaluator(nlp, ExaOpt.initial(nlp); c₀=0.1)
+        aug = Argos.AugLagEvaluator(nlp, Argos.initial(nlp); c₀=0.1)
 
-        solution = ExaOpt.optimize!(optimizer, aug)
+        solution = Argos.optimize!(optimizer, aug)
         MOI.empty!(optimizer)
         @test solution.status ∈ [MOI.OPTIMAL, MOI.LOCALLY_SOLVED]
         @test solution.minimum ≈ 25138.76310420395

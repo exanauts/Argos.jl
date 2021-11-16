@@ -1,12 +1,12 @@
 
-using Revise, MadNLP, ExaOpt
+using Revise, MadNLP, Argos
 using MadNLPGPU
 
 # Load GPU interface
 include(joinpath(@__DIR__, "..", "madnlp", "main.jl"))
 include(joinpath(@__DIR__, "..", "..", "test", "cusolver.jl"))
 # Instance
-datafile = joinpath(dirname(pathof(ExaOpt)), "..", "data", "case1354pegase.m")
+datafile = joinpath(dirname(pathof(Argos)), "..", "data", "case1354pegase.m")
 
 INSTANTIATE = true
 MAX_BATCHES = 250
@@ -16,22 +16,22 @@ CPU_SOLVE = true
 
 if INSTANTIATE && CPU_SOLVE
     @info "Instantiate problem on CPU"
-    aug_cpu = @time ExaOpt.instantiate_auglag_model(datafile)
-    nlp_cpu = ExaOpt.inner_evaluator(aug_cpu)
+    aug_cpu = @time Argos.instantiate_auglag_model(datafile)
+    nlp_cpu = Argos.inner_evaluator(aug_cpu)
 end
 
 if INSTANTIATE
     # Params
-    nbatches = min(MAX_BATCHES, ExaOpt.n_variables(nlp_cpu))
+    nbatches = min(MAX_BATCHES, Argos.n_variables(nlp_cpu))
     linear_solver = MadNLPLapackGPU
 
     # GPU evaluators
     # Wrap GPU callbacks to pass Hessian matrix on the host
     @info "Instantiate problem on GPU (wrapped)"
-    aug_wrapped = @time ExaOpt.instantiate_auglag_model(datafile; nbatches=nbatches, scale=SCALE, wrap=true, device=CUDADevice())
+    aug_wrapped = @time Argos.instantiate_auglag_model(datafile; nbatches=nbatches, scale=SCALE, wrap=true, device=CUDADevice())
     # Wrap GPU callbacks to pass Hessian matrix on the host
     @info "Instantiate problem on GPU (unwrapped)"
-    aug_unwrapped = @time ExaOpt.instantiate_auglag_model(datafile; nbatches=nbatches, scale=SCALE, wrap=false, device=CUDADevice())
+    aug_unwrapped = @time Argos.instantiate_auglag_model(datafile; nbatches=nbatches, scale=SCALE, wrap=false, device=CUDADevice())
 end
 
 if CPU_SOLVE

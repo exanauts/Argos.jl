@@ -1,21 +1,21 @@
 using ExaPF
 using MadNLP
-using ExaOpt
+using Argos
 using CUDA
 
 if CUDA.has_cuda_gpu()
     using CUDAKernels
     using CUDA.CUSPARSE
     using MadNLPGPU
-    # Include CUDA extension for ExaOpt
-    include(joinpath(dirname(pathof(ExaOpt)), "..", "test", "cusolver.jl"))
+    # Include CUDA extension for Argos
+    include(joinpath(dirname(pathof(Argos)), "..", "test", "cusolver.jl"))
 end
 
-const DATA_DIRECTORY = joinpath(dirname(pathof(ExaOpt)), "..", "data")
+const DATA_DIRECTORY = joinpath(dirname(pathof(Argos)), "..", "data")
 
 function solve_auglag_madnlp(aug; linear_solver=MadNLPLapackCPU, max_iter=10, penalty=10.0, rate=10.0)
     # Clean AugLagEvaluator
-    ExaOpt.reset!(aug)
+    Argos.reset!(aug)
     aug.ρ = penalty # update penalty in Evaluator
     # MadNLP solver
     mnlp = MadNLP.NonlinearProgram(aug)
@@ -27,16 +27,16 @@ function solve_auglag_madnlp(aug; linear_solver=MadNLPLapackCPU, max_iter=10, pe
     )
     ipp = MadNLP.Solver(mnlp; option_dict=madnlp_options)
     # Auglag solver
-    solver = ExaOpt.AuglagSolver(ipp; max_iter=max_iter, verbose=1, rate=rate, ε_dual=1e-2, ε_primal=1e-5)
+    solver = Argos.AuglagSolver(ipp; max_iter=max_iter, verbose=1, rate=rate, ε_dual=1e-2, ε_primal=1e-5)
 
-    x0 = ExaOpt.initial(aug)
+    x0 = Argos.initial(aug)
 
-    return ExaOpt.optimize!(solver, aug, x0)
+    return Argos.optimize!(solver, aug, x0)
 end
 
-function solve_auglag_madnlp_schur(aug::ExaOpt.AugLagEvaluator{Ev,T,VT}; linear_solver=MadNLPLapackGPU, max_iter=10, penalty=10.0, rate=10.0) where {Ev, T, VT}
+function solve_auglag_madnlp_schur(aug::Argos.AugLagEvaluator{Ev,T,VT}; linear_solver=MadNLPLapackGPU, max_iter=10, penalty=10.0, rate=10.0) where {Ev, T, VT}
     # Clean AugLagEvaluator
-    ExaOpt.reset!(aug)
+    Argos.reset!(aug)
     aug.ρ = penalty # update penalty in Evaluator
     # MadNLP solver
     mnlp = MadNLP.NonlinearProgram(aug)
@@ -46,23 +46,23 @@ function solve_auglag_madnlp_schur(aug::ExaOpt.AugLagEvaluator{Ev,T,VT}; linear_
         :linear_solver=>linear_solver,
         :print_level=>MadNLP.ERROR)
     kkt = if VT <: Array
-        ExaOpt.MixedAuglagKKTSystem{Float64, Vector{Float64}, Matrix{Float64}}(aug, Int[])
+        Argos.MixedAuglagKKTSystem{Float64, Vector{Float64}, Matrix{Float64}}(aug, Int[])
     elseif VT <: CuArray
-        ExaOpt.MixedAuglagKKTSystem{Float64, CuVector{Float64}, CuMatrix{Float64}}(aug, Int[])
+        Argos.MixedAuglagKKTSystem{Float64, CuVector{Float64}, CuMatrix{Float64}}(aug, Int[])
     end
     ipp = MadNLP.Solver(mnlp; option_dict=madnlp_options, kkt=kkt)
     # Auglag solver
-    solver = ExaOpt.AuglagSolver(ipp; max_iter=max_iter, verbose=1, rate=rate, ε_dual=1e-2, ε_primal=1e-5)
+    solver = Argos.AuglagSolver(ipp; max_iter=max_iter, verbose=1, rate=rate, ε_dual=1e-2, ε_primal=1e-5)
 
-    x0 = ExaOpt.initial(aug)
+    x0 = Argos.initial(aug)
 
-    return ExaOpt.optimize!(solver, aug, x0)
+    return Argos.optimize!(solver, aug, x0)
 end
 
 function _set_manual_scaler!(aug)
     nlp = aug.inner
-    g_min, g_max = ExaOpt.bounds(nlp, ExaOpt.Constraints())
-    aug.scaler = ExaOpt.NetworkScaler(nlp, g_min, g_max)
+    g_min, g_max = Argos.bounds(nlp, Argos.Constraints())
+    aug.scaler = Argos.NetworkScaler(nlp, g_min, g_max)
     return
 end
 
@@ -79,7 +79,7 @@ function pscc_solve_static_opf()
     ]
         datafile = joinpath(DATA_DIRECTORY, case)
         # Instantiate auglag problem
-        aug_g = ExaOpt.instantiate_auglag_model(
+        aug_g = Argos.instantiate_auglag_model(
             datafile;
             scale=false, line_constraints=true,
             device=CUDADevice(), nbatches=nbatches,

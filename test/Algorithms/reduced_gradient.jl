@@ -8,11 +8,11 @@ using KernelAbstractions
 @testset "RGM Optimal Power flow 9 bus case" begin
     datafile = joinpath(dirname(pathof(ExaPF)), "..", "data", "case9.m")
 
-    nlp = ExaOpt.ReducedSpaceEvaluator(datafile)
-    uk = ExaOpt.initial(nlp)
+    nlp = Argos.ReducedSpaceEvaluator(datafile)
+    uk = Argos.initial(nlp)
 
     # solve power flow
-    ExaOpt.update!(nlp, uk)
+    Argos.update!(nlp, uk)
 
     # reduced gradient method
     iterations = 0
@@ -30,12 +30,12 @@ using KernelAbstractions
     fill!(grad, 0)
 
     while norm_grad > norm_tol && iter < iter_max
-        ExaOpt.update!(nlp, uk)
-        c = ExaOpt.objective(nlp, uk)
-        ExaOpt.gradient!(nlp, grad, uk)
+        Argos.update!(nlp, uk)
+        c = Argos.objective(nlp, uk)
+        Argos.gradient!(nlp, grad, uk)
         # compute control step
         wk = uk - step*grad
-        ExaOpt.project!(uk, wk, nlp.u_min, nlp.u_max)
+        Argos.project!(uk, wk, nlp.u_min, nlp.u_max)
         norm_grad = norm(uk .- up, Inf)
         iter += 1
         up .= uk

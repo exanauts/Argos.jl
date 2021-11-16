@@ -28,7 +28,7 @@ function LS.rdiv!(s::LS.DirectSolver{Fac}, y::CuVector, J::CuSparseMatrixCSR, x:
 end
 
 # Overload factorization for batch Hessian computation
-function ExaOpt._batch_hessian_factorization(J::CuSparseMatrixCSR, nbatch)
+function Argos._batch_hessian_factorization(J::CuSparseMatrixCSR, nbatch)
     Jtrans = CUSPARSE.CuSparseMatrixCSC(J)
     if nbatch == 1
         lufac = CUSOLVERRF.CusolverRfLU(J)
@@ -40,7 +40,7 @@ function ExaOpt._batch_hessian_factorization(J::CuSparseMatrixCSR, nbatch)
     return (lufac, lufact)
 end
 
-function ExaOpt.update_factorization!(hlag::ExaOpt.AbstractHessianStorage, J::CUSPARSE.CuSparseMatrixCSR)
+function Argos.update_factorization!(hlag::Argos.AbstractHessianStorage, J::CUSPARSE.CuSparseMatrixCSR)
     LinearAlgebra.lu!(hlag.lu, J)
     ∇gₓᵀ = CUSPARSE.CuSparseMatrixCSC(J)
     LinearAlgebra.lu!(hlag.adjlu, ∇gₓᵀ)
@@ -48,7 +48,7 @@ function ExaOpt.update_factorization!(hlag::ExaOpt.AbstractHessianStorage, J::CU
 end
 
 #=
-    ExaOpt.transfer_auglag_hessian
+    Argos.transfer_auglag_hessian
 =#
 @kernel function _transfer_auglag_hessian!(dest, H, J, ρ, n, m)
     i, j = @index(Global, NTuple)
@@ -62,7 +62,7 @@ end
     end
 end
 
-function ExaOpt.transfer_auglag_hessian!(
+function Argos.transfer_auglag_hessian!(
     dest::CuMatrix{T},
     H::CuMatrix{T},
     J::CuMatrix{T},
@@ -97,7 +97,7 @@ function test_transfer_auglag_hessian!(
 end
 
 #=
-    ExaOpt.set_batch_tangents!
+    Argos.set_batch_tangents!
 =#
 @kernel function _batch_tangents_kernel!(seeds, offset, n, n_batches)
     i, j = @index(Global, NTuple)
@@ -108,7 +108,7 @@ end
     end
 end
 
-function ExaOpt.set_batch_tangents!(seeds::CuMatrix, offset, n, n_batches)
+function Argos.set_batch_tangents!(seeds::CuMatrix, offset, n, n_batches)
     ndrange = (n, n_batches)
     ev = _batch_tangents_kernel!(CUDADevice())(seeds, offset, n, n_batches, ndrange=ndrange, dependencies=Event(CUDADevice()))
     wait(ev)
@@ -123,7 +123,7 @@ function test_batch_tangents!(seeds::Matrix, offset, n, n_batches)
 end
 
 #=
-    ExaOpt._init_tangent!
+    Argos._init_tangent!
 =#
 @kernel function _init_tangent_kernel!(tgt, z, w, nx, nu, nbatch)
     i, j = @index(Global, NTuple)
@@ -134,7 +134,7 @@ end
     end
 end
 
-function ExaOpt._init_tangent!(tgt::CuMatrix, z::CuMatrix, w::CuMatrix, nx, nu, nbatch)
+function Argos._init_tangent!(tgt::CuMatrix, z::CuMatrix, w::CuMatrix, nx, nu, nbatch)
     ndrange = size(tgt)
     ev = _init_tangent_kernel!(CUDADevice())(tgt, z, w, nx, nu, nbatch, ndrange=ndrange, dependencies=Event(CUDADevice()))
     wait(ev)
@@ -147,7 +147,7 @@ function test_init_tangent!(tgt::Matrix, z::Matrix, w::Matrix, nx, nu, nbatch)
 end
 
 #=
-    ExaOpt._fetch_batch_hessprod!
+    Argos._fetch_batch_hessprod!
 =#
 @kernel function _fetch_batch_hessprod_kernel!(dfx, dfu, hv, nx, nu)
     i, j = @index(Global, NTuple)
@@ -158,7 +158,7 @@ end
     end
 end
 
-function ExaOpt._fetch_batch_hessprod!(dfx::CuMatrix, dfu::CuMatrix, hv::CuMatrix, nx, nu)
+function Argos._fetch_batch_hessprod!(dfx::CuMatrix, dfu::CuMatrix, hv::CuMatrix, nx, nu)
     ndrange = size(hv)
     ev = _fetch_batch_hessprod_kernel!(CUDADevice())(dfx, dfu, hv, nx, nu,
                                                      ndrange=ndrange, dependencies=Event(CUDADevice()))
