@@ -127,10 +127,12 @@ function optimize!(optimizer::MOI.AbstractOptimizer, nlp::AbstractNLPEvaluator, 
     MOI.set(optimizer, MOI.VariablePrimalStart(), u, x0)
     MOI.optimize!(optimizer)
     x_opt = MOI.get(optimizer, MOI.VariablePrimal(), u)
+    y_opt = MOI.get(optimizer, MOI.NLPBlockDual())
     solution = (
         status=MOI.get(optimizer, MOI.TerminationStatus()),
         minimum=MOI.get(optimizer, MOI.ObjectiveValue()),
         minimizer=x_opt,
+        dual=y_opt,
     )
     return solution
 end

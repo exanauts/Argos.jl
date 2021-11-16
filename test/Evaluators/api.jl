@@ -135,6 +135,55 @@ function test_evaluator_hessian(nlp, device, M; rtol=1e-6)
     @test H ≈ hess_fd.data rtol=rtol
 end
 
+function test_evaluator_hessian_lagrangian(nlp, device, M; rtol=1e-6)
+    n, m = ExaOpt.n_variables(nlp), ExaOpt.n_constraints(nlp)
+    @test ExaOpt.has_hessian(nlp)
+    u = ExaOpt.initial(nlp)
+    cons = similar(u, m)
+    y = similar(u, m)
+    σ = rand()
+    copyto!(y, rand(m))
+    function reduced_cost(u_)
+        ExaOpt.update!(nlp, u_)
+        ExaOpt.constraint!(nlp, cons, u_)
+        obj =  ExaOpt.objective(nlp, u_)
+        return σ * obj + dot(y, cons)
+    end
+
+    ExaOpt.update!(nlp, u)
+
+    # 2/ Full Hessian
+    H = similar(u, n, n) ; fill!(H, 0)
+    ExaOpt.hessian_lagrangian!(nlp, H, u, y, σ)
+
+    # 3/ FiniteDiff
+    hess_fd = FiniteDiff.finite_difference_hessian(reduced_cost, u)
+    @test H ≈ hess_fd.data rtol=rtol
+end
+
+function test_evaluator_jacobian(nlp, device, M; rtol=1e-6)
+    n, m = ExaOpt.n_variables(nlp), ExaOpt.n_constraints(nlp)
+    @test ExaOpt.has_hessian(nlp)
+    u = ExaOpt.initial(nlp)
+    cons = similar(u, m)
+    function reduced_cost(u_)
+        ExaOpt.update!(nlp, u_)
+        ExaOpt.constraint!(nlp, cons, u_)
+        return cons[:]
+    end
+
+    ExaOpt.update!(nlp, u)
+
+    # 2/ Full Hessian
+    J = similar(u, m, n) ; fill!(J, 0)
+    ExaOpt.jacobian!(nlp, J, u)
+
+    # 3/ FiniteDiff
+    jac_fd = FiniteDiff.finite_difference_jacobian(reduced_cost, u)
+    return J, jac_fd
+    @test J ≈ jac_fd rtol=rtol
+end
+
 function test_evaluator_batch_hessian(nlp, device, M; rtol=1e-5)
     n = Argos.n_variables(nlp)
     nbatch = Argos.number_batches_hessian(nlp)

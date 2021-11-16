@@ -38,6 +38,18 @@ const MOI = MathOptInterface
         @test solution.minimizer ≈ CASE57_SOLUTION rtol=1e-5
     end
 
+    @testset "ReducedSpaceEvaluator with Hessian" begin
+        optimizer = Ipopt.Optimizer()
+        MOI.set(optimizer, MOI.RawParameter("print_level"), 0)
+        MOI.set(optimizer, MOI.RawParameter("tol"), 1e-4)
+
+        solution = ExaOpt.optimize!(optimizer, nlp)
+        MOI.empty!(optimizer)
+        @test solution.status ∈ [MOI.OPTIMAL, MOI.LOCALLY_SOLVED]
+        @test solution.minimum ≈ 3.7589338e+04
+        @test solution.minimizer ≈ CASE57_SOLUTION rtol=1e-5
+    end
+
     # Test resolution with AugLagEvaluator and Ipopt, as used inside ProxAL
     @testset "AugLagEvaluator with Hessian" begin
         optimizer = Ipopt.Optimizer()

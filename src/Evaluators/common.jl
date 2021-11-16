@@ -285,6 +285,68 @@ function update_factorization!(hlag::AbstractHessianStorage, J::AbstractSparseMa
     return
 end
 
+struct FullHessianLagrangian{MT,VI,VT,Hess} <: AbstractHessianStorage
+    # Autodiff Backend
+    hess::Hess
+    # Hessian in COO format
+    h_I::VI
+    h_J::VI
+    h_V::VT
+    # Coloring
+    ncolors::Int
+    coloring::VI
+    compressedH::MT
+    seeds::MT
+    # cache
+    y::VT
+    tgt::VT
+    hv::VT
+end
+
+function FullHessianLagrangian(polar::PolarForm{T, VI, VT, MT}, func::Function, buffer) where {T, VI, VT, MT}
+    nx, nu = ExaPF.get(polar, ExaPF.NumberOfState()), ExaPF.get(polar, ExaPF.NumberOfControl())
+    m = ExaPF.size_constraint(polar, func)::Int
+    nv = nx + nu
+
+    # Init AutoDiff
+    hess_ad = AutoDiff.Hessian(polar, func)
+    y = VT(undef, m)
+    tgt = VT(undef, nv)
+    hv = VT(undef, nv)
+
+    # TODO: which initial multipliers?
+    λ = randn(ExaPF.get(polar, PS.NumberOfBuses()))
+    # Run sparsity detection on MATPOWER Hessian matrix
+    H_mat = ExaPF.hessian_sparsity(polar, func, buffer, λ)
+
+    # Build-up LowerTriangular structure
+    H = SparseMatrixCSC(LowerTriangular([H_mat.xx H_mat.xu' ; H_mat.xu H_mat.uu]))
+
+    I, J, V = SparseArrays.findnz(H)
+    V = real.(V)
+
+    # Coloring
+    colors = ExaPF.AutoDiff.SparseDiffTools.matrix_colors(H)
+    ncolors = length(unique(colors))
+    compressedH = MT(undef, nv, ncolors)
+    fill!(compressedH, 0.0)
+
+    # Seeds
+    seeds = MT(undef, nv, ncolors)
+    fill!(seeds, 0.0)
+    for i in 1:nv
+        @inbounds for j in 1:ncolors
+            if colors[i] == j
+                seeds[i, j] = 1.0
+            end
+        end
+    end
+
+    return FullHessianLagrangian{MT, typeof(I), typeof(V), typeof(hess_ad)}(
+        hess_ad, I, J, V, ncolors, colors, compressedH, seeds, y, tgt, hv,
+    )
+end
+
 function transfer_auglag_hessian!(
     dest::AbstractMatrix{T},
     H::AbstractMatrix{T},

@@ -109,6 +109,26 @@ function subproblem_moi(aug; linear_solver=MadNLPLapackCPU, max_iter=100)
     return optimizer.ips
 end
 
+function subproblem_nlp(
+    aug; max_iter=100, scaling=true,
+    linear_solver=MadNLPLapackCPU,
+    inertia=MadNLP.INERTIA_AUTO,
+)
+    Argos.reset!(aug)
+    mnlp = Argos.ExaNLPModel(aug)
+    options = Dict{Symbol, Any}(
+        :tol=>1e-5, :max_iter=>max_iter,
+        :nlp_scaling=>scaling,
+        :inertia_correction_method=>inertia,
+        :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
+        :print_level=>MadNLP.DEBUG,
+        :linear_solver=>linear_solver
+    )
+    ipp = MadNLP.InteriorPointSolver(mnlp; option_dict=options)
+    @time MadNLP.optimize!(ipp)
+    return ipp
+end
+
 function subproblem_dense_kkt(
     aug; max_iter=100, scaling=true,
     linear_solver=MadNLPLapackCPU,

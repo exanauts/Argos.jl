@@ -53,6 +53,7 @@ n_variables(nlp::BridgeDeviceEvaluator) = n_variables(nlp.inner)
 n_constraints(nlp::BridgeDeviceEvaluator) = n_constraints(nlp.inner)
 constraints_type(nlp::BridgeDeviceEvaluator) = constraints_type(nlp.inner)
 has_hessian(nlp::BridgeDeviceEvaluator) = has_hessian(nlp.inner)
+has_hessian_lagrangian(nlp::BridgeDeviceEvaluator) = has_hessian(nlp.inner)
 reset!(nlp::BridgeDeviceEvaluator) = reset!(nlp.inner)
 inner_evaluator(nlp::BridgeDeviceEvaluator) = inner_evaluator(nlp.inner)
 
@@ -134,6 +135,13 @@ function hessian!(nlp::BridgeDeviceEvaluator, H, u)
     return
 end
 
+function hessian_lagrangian!(nlp::BridgeDeviceEvaluator, H, u, y, σ)
+    copyto!(nlp.bridge.y, y)
+    hessian_lagrangian!(nlp.inner, nlp.bridge.H, nlp.bridge.u, nlp.bridge.y, σ)
+    copyto!(H, nlp.bridge.H)
+    return
+end
+
 function hessian_lagrangian_penalty_prod!(nlp::BridgeDeviceEvaluator, hv, u, y, σ, w, v)
     copyto!(nlp.bridge.g, v)
     copyto!(nlp.bridge.w, w)
@@ -151,3 +159,5 @@ function hessian_lagrangian_penalty!(nlp::BridgeDeviceEvaluator, H, u, y, σ, w)
     return
 end
 
+jacobian_structure(nlp::BridgeDeviceEvaluator) = jacobian_structure(nlp.inner)
+hessian_structure(nlp::BridgeDeviceEvaluator) = hessian_structure(nlp.inner)
