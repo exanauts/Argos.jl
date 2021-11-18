@@ -96,6 +96,11 @@ has_hessian_lagrangian(nlp::FullSpaceEvaluator) = true
 
 # Getters
 Base.get(nlp::FullSpaceEvaluator, ::Constraints) = nlp.constraints
+function Base.get(nlp::FullSpaceEvaluator, ::State)
+    x = similar(nlp.x_min) ; fill!(x, 0)
+    ExaPF.get!(nlp.model, State(), x, nlp.buffer)
+    return x
+end
 Base.get(nlp::FullSpaceEvaluator, ::ExaPF.PhysicalState) = nlp.buffer
 
 # Physics
@@ -106,6 +111,7 @@ Base.get(nlp::FullSpaceEvaluator, ::PS.ReactivePower) = nlp.buffer.qgen
 function Base.get(nlp::FullSpaceEvaluator, attr::PS.AbstractNetworkAttribute)
     return ExaPF.get(nlp.model, attr)
 end
+get_nnzh(nlp::FullSpaceEvaluator) = length(nlp.hesslag.h_V)
 
 # Setters
 function setvalues!(nlp::FullSpaceEvaluator, attr::PS.AbstractNetworkValues, values)
@@ -181,30 +187,47 @@ function gradient!(nlp::FullSpaceEvaluator, g, x)
     return
 end
 
-# TODO
-function jacobian_structure(nlp::FullSpaceEvaluator)
-    nnzj = SparseArrays.nnz(nlp.constraint_jacobians.Jx) + SparseArrays.nnz(nlp.constraint_jacobians.Ju)
-    rows = zeros(Int, nnzj)
-    cols = zeros(Int, nnzj)
-    jacobian_structure!(nlp, rows, cols)
-    return rows, cols
-end
+function jprod!(nlp::FullSpaceEvaluator, jv, x, v)
+    ExaPF.update_full_jacobian!(nlp.model, nlp.constraint_jacobians, nlp.buffer)
+    vx = view(v, 1:nlp.nx)
+    vu = view(v, nlp.nx+1:nlp.nx+nlp.nu)
 
-function jacobian_structure!(nlp::FullSpaceEvaluator, rows, cols)
     Jx = nlp.constraint_jacobians.Jx
-    Ju = nlp.constraint_jacobians.Jx
-    J = [Jx Ju]
-    I, J, _ = findnz(J)
-    copyto!(rows, I)
-    copyto!(cols, J)
+    Ju = nlp.constraint_jacobians.Ju
+    mul!(jv, Jx, vx)
+    mul!(jv, Ju, vu, 1.0, 1.0)
     return
 end
 
-function jacobian!(nlp::FullSpaceEvaluator, jac, x)
+function jtprod!(nlp::FullSpaceEvaluator, jv, x, v)
     ExaPF.update_full_jacobian!(nlp.model, nlp.constraint_jacobians, nlp.buffer)
+    jx = view(jv, 1:nlp.nx)
+    ju = view(jv, nlp.nx+1:nlp.nx+nlp.nu)
+
     Jx = nlp.constraint_jacobians.Jx
     Ju = nlp.constraint_jacobians.Ju
-    # TODO
+    mul!(jx, Jx', v)
+    mul!(ju, Ju', v)
+    return
+end
+
+function jacobian_structure(nlp::FullSpaceEvaluator)
+    Jx = nlp.constraint_jacobians.Jx
+    Ju = nlp.constraint_jacobians.Ju
+    J = [Jx Ju]
+    i, j, _ = findnz(J)
+    return i, j
+end
+
+function jacobian_coo!(nlp::FullSpaceEvaluator, jac::AbstractVector, x)
+    ExaPF.update_full_jacobian!(nlp.model, nlp.constraint_jacobians, nlp.buffer)
+    Jxv = nlp.constraint_jacobians.Jx.nzval
+    Juv = nlp.constraint_jacobians.Ju.nzval
+    nnjx = length(Jxv)
+    nnju = length(Juv)
+    copyto!(jac, 1, Jxv, 1, nnjx)
+    copyto!(jac, nnjx+1, Juv, 1, nnju)
+    return
 end
 
 ###
@@ -239,7 +262,7 @@ function hessian_lagrangian_prod!(
     return
 end
 
-function hessian_lagrangian!(nlp::FullSpaceEvaluator, hess, x, y, σ)
+function hessian_lagrangian_coo!(nlp::FullSpaceEvaluator, hess, x, y, σ)
     hl = nlp.hesslag
     fill!(hess, 0.0)
     set_multipliers!(nlp, y, σ)
@@ -257,15 +280,10 @@ function hessian_lagrangian!(nlp::FullSpaceEvaluator, hess, x, y, σ)
     # Uncompress Hessian
     k = 1
     for (i, j) in zip(hl.h_I, hl.h_J)
-        hess[k] = hl.compressedH[j, hl.coloring[i]]
+        hess[k] = 0.5 * (hl.compressedH[j, hl.coloring[i]] + hl.compressedH[i, hl.coloring[j]])
         k += 1
     end
     return
-end
-
-function hessian!(nlp::FullSpaceEvaluator, hess, x)
-    y = zeros(n_constraints(nlp))
-    hessian_lagrangian!(nlp, hess, x, y, 1.0)
 end
 
 # Return lower-triangular matrix

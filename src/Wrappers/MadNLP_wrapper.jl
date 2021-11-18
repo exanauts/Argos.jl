@@ -12,8 +12,6 @@ struct ExaNLPModel{VT} <: NLPModels.AbstractNLPModel{Float64,Vector{Float64}}
     d_x::VT
     d_g::VT
     d_c::VT
-    # other buffers
-    etc::Dict{Symbol, Any}
 end
 function ExaNLPModel(nlp::AbstractNLPEvaluator)
     n = n_variables(nlp)
@@ -39,8 +37,6 @@ function ExaNLPModel(nlp::AbstractNLPEvaluator)
     jcols = Int[]
     nnzj = n * m
 
-    etc = Dict{Symbol, Any}()
-
     return ExaNLPModel{VT}(
         NLPModels.NLPModelMeta(
             n,
@@ -58,7 +54,7 @@ function ExaNLPModel(nlp::AbstractNLPEvaluator)
         NLPModels.Counters(),
         nlp, UInt64[0],
         hrows, hcols, jrows, jcols,
-        d_x, d_g, d_c, etc,
+        d_x, d_g, d_c,
     )
 end
 
@@ -102,11 +98,7 @@ end
 # Jacobian: sparse callback
 function NLPModels.jac_coord!(m::ExaNLPModel, x, jac::AbstractArray)
     _update!(m, x)
-    n, m = n_variables(m.nlp), n_constraints(m.nlp)
-    fill!(jac, 0)
-    jac_v = view(jac, 1:(n*m))
-    J = reshape(jac_v, m, n)
-    jacobian!(m.nlp, J, x)
+    jacobian_coo!(m.nlp, jac, m.d_x)
 end
 
 # Jacobian: dense callback
@@ -118,21 +110,7 @@ end
 # Hessian: sparse callback (work only on CPU)
 function NLPModels.hess_coord!(m::ExaNLPModel,x, l, hess::AbstractVector; obj_weight=1.0)
     @assert isa(m.d_x, Array)
-    n = n_variables(m.nlp)
-    if !haskey(m.etc,:hess)
-        m.etc[:hess] = zeros(n, n)
-    end
-    _update!(m, x)
-    # Evaluate full reduced Hessian in the preallocated buffer.
-    H = m.etc[:hess]
-    hessian_lagrangian!(m.nlp, H, x, μ, σ)
-    # Only dense Hessian supported now
-    index = 1
-    @inbounds for i in 1:n, j in 1:i
-        # We average the values from the lower and upper triangles for stability.
-        hess[index] = 0.5 * (H[i, j] + H[j, i])
-        index += 1
-    end
+    hessian_lagrangian_coo!(m.nlp, hess, x, l, obj_weight)
 end
 
 # Hessian: dense callback
@@ -215,7 +193,7 @@ end
 MadNLP.is_reduced(::MixedAuglagKKTSystem) = true
 
 MadNLP.nnz_jacobian(kkt::MixedAuglagKKTSystem) = 0
-MadNLP.nnz_kkt(kkt::MixedAuglagKKTSystem) = length(kkt.hess)
+# MadNLP.nnz_kkt(kkt::MixedAuglagKKTSystem) = length(kkt.hess)
 # We factorize only the Hessian part!
 MadNLP.get_kkt(kkt::MixedAuglagKKTSystem) = kkt.aug_com
 MadNLP.get_jacobian(kkt::MixedAuglagKKTSystem) = Float64[]
@@ -384,5 +362,30 @@ function MadNLP.solve_refine_wrapper!(ipp::MadNLP.InteriorPointSolver{<:MixedAug
 
     MadNLP.fixed_variable_treatment_vec!(x, ipp.ind_fixed)
     return true
+end
+
+function MadNLP.get_objective_scaling(nlp::ExaNLPModel, scaler::MadNLP.MaxScaler)
+    return 0.00001
+end
+
+function MadNLP.set_constraints_scaling!(cons_scale::AbstractVector, nlp::ExaNLPModel, scaler::MadNLP.MaxScaler)
+    inner = nlp.nlp
+    shift = 1
+    for cons in inner.constraints
+        m = ExaPF.size_constraint(inner.model, cons)
+
+        β = if cons == ExaPF.voltage_magnitude_constraints
+            1
+        elseif cons == ExaPF.active_power_constraints
+            1
+        elseif cons == ExaPF.reactive_power_constraints
+            1
+        elseif cons == ExaPF.flow_constraints
+            0.1
+        end
+
+        cons_scale[shift:shift+m-1] .= β
+        shift += m
+    end
 end
 

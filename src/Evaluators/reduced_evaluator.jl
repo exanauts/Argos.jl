@@ -91,6 +91,7 @@ mutable struct ReducedSpaceEvaluator{T, VI, VT, MT, Jacx, Jacu, JacCons, HessLag
     is_adjoint_objective_updated::Bool
     is_adjoint_lagrangian_updated::Bool
     has_hessian::Bool
+    etc::Dict{Symbol, Any}
 end
 
 function ReducedSpaceEvaluator(
@@ -173,6 +174,7 @@ function ReducedSpaceEvaluator(
         state_ad, obj_ad, cons_ad, cons_jac, hess_ad,
         _linear_solver, _backward_solver,
         powerflow_solver, want_jacobian, false, false, false, want_hessian,
+        Dict{Symbol, Any}(),
     )
 end
 function ReducedSpaceEvaluator(datafile::String; device=ExaPF.CPU(), options...)
@@ -189,6 +191,16 @@ constraints_type(::ReducedSpaceEvaluator) = :inequality
 has_hessian(nlp::ReducedSpaceEvaluator) = nlp.has_hessian
 has_hessian_lagrangian(nlp::ReducedSpaceEvaluator) = nlp.has_hessian
 number_batches_hessian(nlp::ReducedSpaceEvaluator) = nlp.has_hessian ? n_batches(nlp.hesslag) : 0
+
+# Buffer for dense to sparse COO conversion.
+# Used inside MOI and NLPModels wrappers
+function get_hessian_buffer(nlp::ReducedSpaceEvaluator)
+    if !haskey(nlp.etc,:hess)
+        n = n_variables(nlp)
+        nlp.etc[:hess] = zeros(n, n)
+    end
+    return nlp.etc[:hess]
+end
 
 adjoint_jacobian(nlp::ReducedSpaceEvaluator, ::State) = nlp.state_jacobian.x.J
 adjoint_jacobian(nlp::ReducedSpaceEvaluator, ::Control) = nlp.state_jacobian.u.J
@@ -210,6 +222,7 @@ Base.get(nlp::ReducedSpaceEvaluator, ::PS.ReactivePower) = nlp.buffer.qgen
 function Base.get(nlp::ReducedSpaceEvaluator, attr::PS.AbstractNetworkAttribute)
     return ExaPF.get(nlp.model, attr)
 end
+get_nnzh(nlp::ReducedSpaceEvaluator) = n_variables(nlp)^2
 
 # Setters
 function setvalues!(nlp::ReducedSpaceEvaluator, attr::PS.AbstractNetworkValues, values)
@@ -338,26 +351,6 @@ function gradient!(nlp::ReducedSpaceEvaluator, g, u)
     _adjoint_solve!(nlp, g, ∇fₓ, ∇fᵤ, nlp.λ, u)
     nlp.is_adjoint_objective_updated = true
     return
-end
-
-function jacobian_structure(nlp::ReducedSpaceEvaluator)
-    m, n = n_constraints(nlp), n_variables(nlp)
-    nnzj = m * n
-    rows = zeros(Int, nnzj)
-    cols = zeros(Int, nnzj)
-    jacobian_structure!(nlp, rows, cols)
-    return rows, cols
-end
-
-function jacobian_structure!(nlp::ReducedSpaceEvaluator, rows, cols)
-    m, n = n_constraints(nlp), n_variables(nlp)
-    idx = 1
-    for i in 1:n # number of variables
-        for c in 1:m #number of constraints
-            rows[idx] = c ; cols[idx] = i
-            idx += 1
-        end
-    end
 end
 
 function _update_full_jacobian_constraints!(nlp)
@@ -729,14 +722,6 @@ end
 @define_batch_callback hessian_lagrangian_penalty! hessian_lagrangian_penalty_prod! x y σ D
 @define_batch_callback jacobian! jprod! x
 
-
-# Return lower-triangular matrix
-function hessian_structure(nlp::ReducedSpaceEvaluator)
-    n = n_variables(nlp)
-    rows = Int[r for r in 1:n for c in 1:r]
-    cols = Int[c for r in 1:n for c in 1:r]
-    return rows, cols
-end
 
 # Utils function
 function primal_infeasibility!(nlp::ReducedSpaceEvaluator, cons, u)

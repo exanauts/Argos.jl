@@ -12,20 +12,14 @@ Bridge from a [`AbstractNLPEvaluator`](@ref) to a `MOI.AbstractNLPEvaluator`.
 * `has_hess::Bool` (default: `false`): if `true`, pass a Hessian structure to MOI.
 
 """
-mutable struct MOIEvaluator{Evaluator<:AbstractNLPEvaluator,Hess} <: MOI.AbstractNLPEvaluator
+mutable struct MOIEvaluator{Evaluator<:AbstractNLPEvaluator} <: MOI.AbstractNLPEvaluator
     nlp::Evaluator
     hash_x::UInt
     has_hess::Bool
-    hess_buffer::Hess
 end
 # MOI needs Hessian of Lagrangian function
 function MOIEvaluator(nlp)
-    hess = nothing
-    if has_hessian_lagrangian(nlp)
-        n = n_variables(nlp)
-        hess = zeros(n, n)
-    end
-    return MOIEvaluator(nlp, UInt64(0), has_hessian_lagrangian(nlp), hess)
+    return MOIEvaluator(nlp, UInt64(0), has_hessian_lagrangian(nlp))
 end
 
 function _update!(ev::MOIEvaluator, x)
@@ -68,29 +62,12 @@ end
 
 function MOI.eval_constraint_jacobian(ev::MOIEvaluator, jac, x)
     _update!(ev, x)
-    n = n_variables(ev.nlp)
-    m = n_constraints(ev.nlp)
-    fill!(jac, 0)
-    jac_v = view(jac, 1:(n*m))
-    J = reshape(jac_v, m, n)
-    jacobian!(ev.nlp, J, x)
+    jacobian_coo!(ev.nlp, jac, x)
 end
 
 function MOI.eval_hessian_lagrangian(ev::MOIEvaluator, hess, x, σ, μ)
     _update!(ev, x)
-    n = n_variables(ev.nlp)
-    # Evaluate full reduced Hessian in the preallocated buffer.
-    H = ev.hess_buffer
-    hessian_lagrangian!(ev.nlp, H, x, μ, σ)
-    # Only dense Hessian supported now
-    index = 1
-    @inbounds for i in 1:n, j in 1:i
-        # Hessian is symmetric, and MOI considers only the lower
-        # triangular part. We average the values from the lower
-        # and upper triangles for stability.
-        hess[index] = 0.5 * (H[i, j] + H[j, i])
-        index += 1
-    end
+    hessian_lagrangian_coo!(ev.nlp, hess, x, μ, σ)
 end
 
 function MOI.eval_hessian_lagrangian_product(ev::MOIEvaluator, hv, x, v, σ, μ)

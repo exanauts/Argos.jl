@@ -115,23 +115,33 @@ returned by `n_constraints(nlp)`.
 function constraint! end
 
 """
-    jacobian_structure!(nlp::AbstractNLPEvaluator, rows, cols)
+    jacobian_structure(nlp::AbstractNLPEvaluator)
 
-Return the sparsity pattern of the Jacobian matrix. Stores
-the results inplace, in the vectors `rows` and `cols` (whose
-dimension should match the number of non-zero in the Jacobian matrix).
-
-"""
-function jacobian_structure! end
+Return the sparsity pattern of the Jacobian matrix.
+Return two vectors `rows` and `cols` (whose dimension match the number of
+non-zero in the Jacobian matrix).
 
 """
-    jacobian!(nlp::AbstractNLPEvaluator, jac, u)
+function jacobian_structure end
+
+"""
+    jacobian!(nlp::AbstractNLPEvaluator, jac::AbstractMatrix, u)
 
 Evaluate the Jacobian of the constraints, at variable `u`.
 Store the result inplace, in the `m x n` dense matrix `jac`.
 
 """
 function jacobian! end
+
+"""
+    jacobian_coo!(nlp::AbstractNLPEvaluator, jac::AbstractVector, u)
+
+Evaluate the (sparse) Jacobian of the constraints at variable `u`
+in COO format.
+Store the result inplace, in the `nnzj` vector `jac`.
+
+"""
+function jacobian_coo! end
 
 """
     jprod!(nlp::AbstractNLPEvaluator, jv, u, v)
@@ -189,6 +199,16 @@ Store the result inplace, in the `n x n` dense matrix `H`.
 
 """
 function hessian! end
+
+"""
+    hessian_coo!(nlp::AbstractNLPEvaluator, hess::AbstractVector, u)
+
+Evaluate the (sparse) Hessian of the constraints at variable `u`
+in COO format.
+Store the result inplace, in the `nnzh` vector `hess`.
+
+"""
+function hessian_coo! end
 
 """
     hessprod!(nlp::AbstractNLPEvaluator, hessvec, u, v)
