@@ -136,7 +136,19 @@ function gradient!(nlp::SlackEvaluator, grad, w)
     return
 end
 
-## Transpose Jacobian-vector product
+# Jacobian-vector product
+function jprod!(nlp::SlackEvaluator, jv, w, v)
+    # w.r.t. u
+    u = @view w[1:nlp.nv]
+    vu = @view v[1:nlp.nv]
+    vs = @view v[nlp.nv+1:end]
+    jprod!(nlp.inner, jv, u, vu)
+    # w.r.t. s
+    jv .-= vs
+    return
+end
+
+# Transpose Jacobian-vector product
 # N.B.: constraints are specified as h(u) - s = 0
 # J = [J₀  -I], so
 # J' = [ J₀' ]

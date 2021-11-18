@@ -23,7 +23,7 @@ end
 
 function FullSpaceEvaluator(
     model::PolarForm{T, VI, VT, MT};
-    line_constraints=false,
+    line_constraints=true,
 ) where {T, VI, VT, MT}
     # First, build up a network buffer
     buffer = ExaPF.get(model, ExaPF.PhysicalState())

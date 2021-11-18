@@ -15,8 +15,6 @@ function test_auglag_evaluator(nlp, device, MT)
         c_ref = Argos.inner_objective(pen, u)
         @test isa(c, Real)
         @test c >= c_ref
-        inf_pr2 = Argos.primal_infeasibility(pen, u)
-        @test inf_pr2 >= 0.0
 
         ##################################################
         # Update penalty weigth

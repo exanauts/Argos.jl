@@ -266,25 +266,6 @@ Store the result inplace, in the vector `hessvec`.
 """
 function hessian_lagrangian_penalty_prod! end
 
-# Utilities
-"""
-    primal_infeasibility(nlp::AbstractNLPEvaluator, u)
-
-Return primal infeasibility associated to current model `nlp` evaluated
-at variable `u`.
-
-"""
-function primal_infeasibility end
-
-"""
-    primal_infeasibility!(nlp::AbstractNLPEvaluator, cons, u)
-
-Return primal infeasibility associated to current model `nlp` evaluated
-at variable `u`. Modify vector `cons` inplace.
-
-"""
-function primal_infeasibility! end
-
 "Return `true` if the problem is constrained, `false` otherwise."
 is_constrained(nlp::AbstractNLPEvaluator) = n_constraints(nlp) > 0
 

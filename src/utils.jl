@@ -152,30 +152,24 @@ function FullHessianLagrangian(polar::PolarForm{T, VI, VT, MT}, func::Function, 
     tgt = VT(undef, nv)
     hv = VT(undef, nv)
 
-    # TODO: which initial multipliers?
     nbus = ExaPF.get(polar, PS.NumberOfBuses())
-    λ = rand(nbus)
+    λ = ones(nbus)
     copyto!(y, randn(m))
     # Run sparsity detection on MATPOWER Hessian matrix
     H_mat = ExaPF.hessian_sparsity(polar, func, buffer, λ)
+    H = [H_mat.xx H_mat.xu' ; H_mat.xu H_mat.uu]::SparseMatrixCSC{ComplexF64, Int}
+    # Add correction associated to slack's power generation
+    Jx = ExaPF.jacobian_sparsity(polar, ExaPF.active_power_constraints, State())
+    Ju = ExaPF.jacobian_sparsity(polar, ExaPF.active_power_constraints, Control())
+    J = [Jx Ju]
+    H += J' * J
 
-    h_ = zeros(nv, nv)
-
-    for i in 1:nv
-        fill!(tgt, 0)
-        tgt[i] = 1.0
-        fill!(hv, 0.0)
-        AutoDiff.adj_hessian_prod!(polar, hess_ad, hv, buffer, y, tgt)
-        h_[:, i] .= hv
-    end
-    # Build-up LowerTriangular structure
-    H = SparseMatrixCSC(h_)
-    # H = [H_mat.xx H_mat.xu' ; H_mat.xu H_mat.uu]::SparseMatrixCSC{ComplexF64, Int}
     # Coloring
     colors = ExaPF.AutoDiff.SparseDiffTools.matrix_colors(H)
     ncolors = length(unique(colors))
     compressedH = MT(undef, nv, ncolors)
     fill!(compressedH, 0.0)
+
     # Seeds
     seeds = MT(undef, nv, ncolors)
     fill!(seeds, 0.0)

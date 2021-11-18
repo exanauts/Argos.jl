@@ -53,8 +53,9 @@ function test_evaluator_callbacks(nlp, device, M; rtol=1e-6)
 
     # 1/ update! function
     conv = Argos.update!(nlp, u)
-    @test isa(conv, ExaPF.ConvergenceStatus)
-    @test conv.has_converged
+    if isa(conv, ExaPF.ConvergenceStatus)
+        @test conv.has_converged
+    end
 
     # 2/ objective function
     c = Argos.objective(nlp, u)
@@ -92,7 +93,7 @@ function test_evaluator_callbacks(nlp, device, M; rtol=1e-6)
         jv_fd = FiniteDiff.finite_difference_gradient(reduced_cons, u0)
 
         # TODO: rtol=1e-6 breaks on case30. Investigate why.
-        # @test myisapprox(jv, jv_fd[:], rtol=1e-5)
+        # @test myisapprox(jv, jv_fd[:], rtol=1e-6)
 
         ## Evaluation of the Jacobian
         J = Argos.jacobian(nlp, u)
@@ -136,25 +137,25 @@ function test_evaluator_hessian(nlp, device, M; rtol=1e-6)
 end
 
 function test_evaluator_hessian_lagrangian(nlp, device, M; rtol=1e-6)
-    n, m = ExaOpt.n_variables(nlp), ExaOpt.n_constraints(nlp)
-    @test ExaOpt.has_hessian(nlp)
-    u = ExaOpt.initial(nlp)
+    n, m = Argos.n_variables(nlp), Argos.n_constraints(nlp)
+    @test Argos.has_hessian(nlp)
+    u = Argos.initial(nlp)
     cons = similar(u, m)
     y = similar(u, m)
     σ = rand()
     copyto!(y, rand(m))
     function reduced_cost(u_)
-        ExaOpt.update!(nlp, u_)
-        ExaOpt.constraint!(nlp, cons, u_)
-        obj =  ExaOpt.objective(nlp, u_)
+        Argos.update!(nlp, u_)
+        Argos.constraint!(nlp, cons, u_)
+        obj = Argos.objective(nlp, u_)
         return σ * obj + dot(y, cons)
     end
 
-    ExaOpt.update!(nlp, u)
+    Argos.update!(nlp, u)
 
     # 2/ Full Hessian
     H = similar(u, n, n) ; fill!(H, 0)
-    ExaOpt.hessian_lagrangian!(nlp, H, u, y, σ)
+    Argos.hessian_lagrangian!(nlp, H, u, y, σ)
 
     # 3/ FiniteDiff
     hess_fd = FiniteDiff.finite_difference_hessian(reduced_cost, u)
@@ -162,29 +163,28 @@ function test_evaluator_hessian_lagrangian(nlp, device, M; rtol=1e-6)
 end
 
 function test_evaluator_jacobian(nlp, device, M; rtol=1e-6)
-    n, m = ExaOpt.n_variables(nlp), ExaOpt.n_constraints(nlp)
-    @test ExaOpt.has_hessian(nlp)
-    u = ExaOpt.initial(nlp)
+    n, m = Argos.n_variables(nlp), Argos.n_constraints(nlp)
+    @test Argos.has_hessian(nlp)
+    u = Argos.initial(nlp)
     cons = similar(u, m)
     function reduced_cost(u_)
-        ExaOpt.update!(nlp, u_)
-        ExaOpt.constraint!(nlp, cons, u_)
+        Argos.update!(nlp, u_)
+        Argos.constraint!(nlp, cons, u_)
         return cons[:]
     end
 
-    ExaOpt.update!(nlp, u)
+    Argos.update!(nlp, u)
 
     # 2/ Full Hessian
     J = similar(u, m, n) ; fill!(J, 0)
-    ExaOpt.jacobian!(nlp, J, u)
+    Argos.jacobian!(nlp, J, u)
 
     # 3/ FiniteDiff
     jac_fd = FiniteDiff.finite_difference_jacobian(reduced_cost, u)
-    return J, jac_fd
     @test J ≈ jac_fd rtol=rtol
 end
 
-function test_evaluator_batch_hessian(nlp, device, M; rtol=1e-5)
+function test_evaluator_batch_hessian(nlp, device, M; rtol=1e-6)
     n = Argos.n_variables(nlp)
     nbatch = Argos.number_batches_hessian(nlp)
     @test Argos.has_hessian(nlp)
@@ -227,7 +227,45 @@ function test_evaluator_batch_hessian(nlp, device, M; rtol=1e-5)
             return cons
         end
         J_fd = FiniteDiff.finite_difference_jacobian(reduced_cons, u)
-        @test J ≈ J_fd rtol=rtol
+        # TODO: check why we can't relax the tolerance here
+        @test J ≈ J_fd rtol=1e-5
     end
+end
+
+function test_evaluator_sparse_callbacks(nlp, device, M; rtol=1e-6)
+    n, m = Argos.n_variables(nlp), Argos.n_constraints(nlp)
+    @test Argos.has_hessian(nlp)
+    u = Argos.initial(nlp)
+    cons = similar(u, m)
+    y = similar(u, m)
+    σ = rand()
+    copyto!(y, rand(m))
+
+    Argos.update!(nlp, u)
+
+    # 1/ Dense Hessian
+    H_d = similar(u, n, n) ; fill!(H_d, 0)
+    Argos.hessian_lagrangian!(nlp, H_d, u, y, σ)
+
+    # 2/ Sparse Hessian
+    nnzh = Argos.get_nnzh(nlp)
+    h_V = similar(u, nnzh) ; fill!(h_V, 0)
+    Argos.hessian_lagrangian_coo!(nlp, h_V, u, y, σ)
+
+    I, J = Argos.hessian_structure(nlp)
+    H_s = sparse(I, J, h_V, n, n)
+    @test H_s ≈ LowerTriangular(H_d) rtol=rtol
+    #
+    # 3/ Dense Jacobian
+    J_d = similar(u, m, n) ; fill!(J_d, 0)
+    Argos.jacobian!(nlp, J_d, u)
+
+    # 4/ Sparse Jacobian
+    j_I, j_J = Argos.jacobian_structure(nlp)
+    j_V = similar(u, length(j_I))
+    Argos.jacobian_coo!(nlp, j_V, u)
+
+    J_s = sparse(j_I, j_J, j_V, m, n)
+    @test J_s ≈ J_d rtol=rtol
 end
 

@@ -43,7 +43,7 @@ const MOI = MathOptInterface
         MOI.set(optimizer, MOI.RawParameter("print_level"), 0)
         MOI.set(optimizer, MOI.RawParameter("tol"), 1e-4)
 
-        solution = ExaOpt.optimize!(optimizer, nlp)
+        solution = Argos.optimize!(optimizer, nlp)
         MOI.empty!(optimizer)
         @test solution.status ∈ [MOI.OPTIMAL, MOI.LOCALLY_SOLVED]
         @test solution.minimum ≈ 3.7589338e+04
@@ -62,6 +62,18 @@ const MOI = MathOptInterface
         MOI.empty!(optimizer)
         @test solution.status ∈ [MOI.OPTIMAL, MOI.LOCALLY_SOLVED]
         @test solution.minimum ≈ 25138.76310420395
+    end
+
+    @testset "FullSpaceEvaluator with Hessian" begin
+        optimizer = Ipopt.Optimizer()
+        MOI.set(optimizer, MOI.RawParameter("print_level"), 0)
+        MOI.set(optimizer, MOI.RawParameter("tol"), 1e-4)
+        MOI.set(optimizer, MOI.RawParameter("max_iter"), 30)
+        nlp = Argos.FullSpaceEvaluator(datafile; line_constraints=false)
+        solution = Argos.optimize!(optimizer, nlp)
+        MOI.empty!(optimizer)
+        @test solution.status ∈ [MOI.OPTIMAL, MOI.LOCALLY_SOLVED]
+        @test solution.minimum ≈ 3.7589338e+04
     end
 end
 

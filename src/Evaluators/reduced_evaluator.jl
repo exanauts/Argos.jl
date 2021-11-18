@@ -722,31 +722,6 @@ end
 @define_batch_callback hessian_lagrangian_penalty! hessian_lagrangian_penalty_prod! x y σ D
 @define_batch_callback jacobian! jprod! x
 
-
-# Utils function
-function primal_infeasibility!(nlp::ReducedSpaceEvaluator, cons, u)
-    constraint!(nlp, cons, u) # Evaluate constraints
-    (n_inf, err_inf, n_sup, err_sup) = _check(cons, nlp.g_min, nlp.g_max)
-    return max(err_inf, err_sup)
-end
-function primal_infeasibility(nlp::ReducedSpaceEvaluator, u)
-    cons = similar(nlp.g_min) ; fill!(cons, 0)
-    return primal_infeasibility!(nlp, cons, u)
-end
-
-# Printing
-function sanity_check(nlp::ReducedSpaceEvaluator, u, cons)
-    println("Check violation of constraints")
-    print("Control  \t")
-    (n_inf, err_inf, n_sup, err_sup) = _check(u, nlp.u_min, nlp.u_max)
-    @printf("UB: %.4e (%d)    LB: %.4e (%d)\n",
-            err_sup, n_sup, err_inf, n_inf)
-    print("Constraints\t")
-    (n_inf, err_inf, n_sup, err_sup) = _check(cons, nlp.g_min, nlp.g_max)
-    @printf("UB: %.4e (%d)    LB: %.4e (%d)\n",
-            err_sup, n_sup, err_inf, n_inf)
-end
-
 function Base.show(io::IO, nlp::ReducedSpaceEvaluator)
     n = n_variables(nlp)
     m = n_constraints(nlp)

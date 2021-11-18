@@ -364,28 +364,3 @@ function MadNLP.solve_refine_wrapper!(ipp::MadNLP.InteriorPointSolver{<:MixedAug
     return true
 end
 
-function MadNLP.get_objective_scaling(nlp::ExaNLPModel, scaler::MadNLP.MaxScaler)
-    return 0.00001
-end
-
-function MadNLP.set_constraints_scaling!(cons_scale::AbstractVector, nlp::ExaNLPModel, scaler::MadNLP.MaxScaler)
-    inner = nlp.nlp
-    shift = 1
-    for cons in inner.constraints
-        m = ExaPF.size_constraint(inner.model, cons)
-
-        β = if cons == ExaPF.voltage_magnitude_constraints
-            1
-        elseif cons == ExaPF.active_power_constraints
-            1
-        elseif cons == ExaPF.reactive_power_constraints
-            1
-        elseif cons == ExaPF.flow_constraints
-            0.1
-        end
-
-        cons_scale[shift:shift+m-1] .= β
-        shift += m
-    end
-end
-
