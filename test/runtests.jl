@@ -13,7 +13,6 @@ using MathOptInterface
 const MOI = MathOptInterface
 
 # Data
-using LazyArtifacts
 const INSTANCES_DIR = ExaPF.instances_directory()
 const CASES = ["case9.m", "case30.m"]
 ARCHS = Any[(CPU(), Array, SparseMatrixCSC)]
