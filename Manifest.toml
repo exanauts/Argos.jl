@@ -174,8 +174,8 @@ deps = ["ArgTools", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 
 [[ExaPF]]
-deps = ["CUDA", "FiniteDiff", "ForwardDiff", "KernelAbstractions", "Krylov", "LightGraphs", "LinearAlgebra", "Metis", "Printf", "SparseArrays", "SparseDiffTools", "TimerOutputs"]
-git-tree-sha1 = "028b5e8b24b75a26daadd42afe3bfd0864684d51"
+deps = ["CUDA", "FiniteDiff", "ForwardDiff", "KernelAbstractions", "Krylov", "LazyArtifacts", "LightGraphs", "LinearAlgebra", "Metis", "Printf", "SparseArrays", "SparseDiffTools", "TimerOutputs"]
+git-tree-sha1 = "644c7b5dbcf0170b63c3195d74bd228cc431ea8c"
 repo-rev = "fp/exaopt"
 repo-url = "https://github.com/exanauts/ExaPF.jl.git"
 uuid = "0cf0e50c-a82e-488f-ac7e-41ffdff1b8aa"
@@ -308,9 +308,9 @@ version = "4.6.0"
 
 [[LLVMExtra_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "6a2af408fe809c4f1a54d2b3f188fdd3698549d6"
+git-tree-sha1 = "9436f02a0c9f726d914cc6539f87850701be18fc"
 uuid = "dad2f222-ce93-54a1-a47d-0025e8a3acab"
-version = "0.0.11+0"
+version = "0.0.12+0"
 
 [[LazyArtifacts]]
 deps = ["Artifacts", "Pkg"]
