@@ -1,7 +1,7 @@
-struct ExaNLPModel{VT} <: NLPModels.AbstractNLPModel{Float64,Vector{Float64}}
+struct ExaNLPModel{VT,Evaluator} <: NLPModels.AbstractNLPModel{Float64,Vector{Float64}}
     meta::NLPModels.NLPModelMeta{Float64, Vector{Float64}}
     counters::NLPModels.Counters
-    nlp::AbstractNLPEvaluator
+    nlp::Evaluator
     hash_x::Vector{UInt64}
     # Sparsity pattern
     hrows::Vector{Int}
@@ -30,14 +30,12 @@ function ExaNLPModel(nlp::AbstractNLPEvaluator)
     d_g = similar(d_x0, n)
     d_c = similar(d_x0, m)
     # Sparsity
-    hrows = Int[]
-    hcols = Int[]
-    nnzh = div(n * (n + 1), 2)
-    jrows = Int[]
-    jcols = Int[]
-    nnzj = n * m
+    hrows, hcols = hessian_structure(nlp)
+    jrows, jcols = jacobian_structure(nlp)
+    nnzh = length(hrows)
+    nnzj = length(jrows)
 
-    return ExaNLPModel{VT}(
+    return ExaNLPModel{VT, typeof(nlp)}(
         NLPModels.NLPModelMeta(
             n,
             ncon = m,
@@ -73,6 +71,16 @@ end
 function NLPModels.obj(m::ExaNLPModel,x)
     _update!(m, x)
     return objective(m.nlp, m.d_x)
+end
+
+function NLPModels.jac_structure!(m::ExaNLPModel, rows, cols)
+    copyto!(rows, m.jrows)
+    copyto!(cols, m.jcols)
+end
+
+function NLPModels.hess_structure!(m::ExaNLPModel, rows, cols)
+    copyto!(rows, m.hrows)
+    copyto!(cols, m.hcols)
 end
 
 # Gradient

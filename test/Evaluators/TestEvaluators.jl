@@ -52,7 +52,6 @@ function runtests(datafile, device, AT)
         Argos.ProxALEvaluator,
         Argos.SlackEvaluator,
         Argos.FeasibilityEvaluator,
-        Argos.FullSpaceEvaluator,
     ]
         nlp = Evaluator(datafile; device=device)
         test_evaluator_api(nlp, device, AT)
@@ -82,8 +81,10 @@ function runtests(datafile, device, AT)
         test_auglag_evaluator(nlp, device, AT)
     end
     if isa(device, CPU) # Currently supported only on the CPU
-        @testset "Argos.FullSpaceEvaluator sparse Hessian & Jacobian" begin
+        @testset "Argos.FullSpaceEvaluator Interface" begin
             nlp = Argos.FullSpaceEvaluator(datafile)
+            test_evaluator_api(nlp, device, AT)
+            test_evaluator_callbacks(nlp, device, AT)
             test_evaluator_hessian_lagrangian(nlp, device, AT)
             test_evaluator_sparse_callbacks(nlp, device, AT)
         end

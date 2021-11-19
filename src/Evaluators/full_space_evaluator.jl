@@ -263,6 +263,7 @@ function hessian_lagrangian_prod!(
 end
 
 function hessian_lagrangian_coo!(nlp::FullSpaceEvaluator, hess, x, y, σ)
+    n = n_variables(nlp)::Int
     hl = nlp.hesslag
     fill!(hess, 0.0)
     set_multipliers!(nlp, y, σ)
@@ -271,10 +272,10 @@ function hessian_lagrangian_coo!(nlp::FullSpaceEvaluator, hess, x, y, σ)
 
     # Evaluate Hessian matrix with coloring vectors
     for i in 1:hl.ncolors
-        copy!(w, hl.seeds[:, i])
+        copyto!(w, 1, hl.seeds, (i-1)*n+1, n)
         fill!(hv, 0.0)
         AutoDiff.adj_hessian_prod!(nlp.model, hl.hess, hv, nlp.buffer, μ, w)
-        hl.compressedH[:, i] .= hv
+        copyto!(hl.compressedH, (i-1)*n+1, hv, 1, n)
     end
 
     # Uncompress Hessian
