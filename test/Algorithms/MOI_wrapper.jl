@@ -6,22 +6,23 @@ const MOI = MathOptInterface
 
 @testset "MOI wrapper" begin
     CASE57_SOLUTION = [
-        1.0260825400262428,
-        1.016218932360429,
-        1.009467718490475,
-        1.027857273911734,
-        1.06,
-        0.9962215167521776,
-        0.9965415804936182,
-        0.0,
-        0.6,
-        0.0,
-        8.603379123083476,
-        0.0,
-        1.3982297290334753,
+        1.009292142238587,
+        1.0075546562785322,
+        1.0032634469498336,
+        1.0256670737344367,
+        1.0438264453243065,
+        1.004075412844108,
+        0.9918490001351085,
+        0.8779133160884935,
+        0.45070969015991846,
+        0.7286288333432149,
+        4.598049504568289,
+        0.976335191632888,
+        3.6152219445289338
     ]
+    CASE57_OBJECTIVE = 41737.78674184994
 
-    datafile = joinpath(dirname(pathof(ExaPF)), "..", "data", "case57.m")
+    datafile = joinpath(INSTANCES_DIR, "case57.m")
     nlp = Argos.ReducedSpaceEvaluator(datafile)
 
     @testset "ReducedSpaceEvaluator with L-BFGS" begin
@@ -34,7 +35,7 @@ const MOI = MathOptInterface
         solution = Argos.optimize!(optimizer, nlp)
         MOI.empty!(optimizer)
         @test solution.status ∈ [MOI.OPTIMAL, MOI.LOCALLY_SOLVED]
-        @test solution.minimum ≈ 3.7589338e+04
+        @test solution.minimum ≈ CASE57_OBJECTIVE
         @test solution.minimizer ≈ CASE57_SOLUTION rtol=1e-5
     end
 
@@ -46,7 +47,7 @@ const MOI = MathOptInterface
         solution = Argos.optimize!(optimizer, nlp)
         MOI.empty!(optimizer)
         @test solution.status ∈ [MOI.OPTIMAL, MOI.LOCALLY_SOLVED]
-        @test solution.minimum ≈ 3.7589338e+04
+        @test solution.minimum ≈ CASE57_OBJECTIVE
         @test solution.minimizer ≈ CASE57_SOLUTION rtol=1e-5
     end
 
@@ -61,7 +62,6 @@ const MOI = MathOptInterface
         solution = Argos.optimize!(optimizer, aug)
         MOI.empty!(optimizer)
         @test solution.status ∈ [MOI.OPTIMAL, MOI.LOCALLY_SOLVED]
-        @test solution.minimum ≈ 25138.76310420395
     end
 
     @testset "FullSpaceEvaluator with Hessian" begin
@@ -73,7 +73,7 @@ const MOI = MathOptInterface
         solution = Argos.optimize!(optimizer, nlp)
         MOI.empty!(optimizer)
         @test solution.status ∈ [MOI.OPTIMAL, MOI.LOCALLY_SOLVED]
-        @test solution.minimum ≈ 3.7589338e+04
+        @test solution.minimum ≈ CASE57_OBJECTIVE
     end
 end
 

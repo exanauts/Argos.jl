@@ -6,7 +6,7 @@ using LinearAlgebra
 using KernelAbstractions
 
 @testset "RGM Optimal Power flow 9 bus case" begin
-    datafile = joinpath(dirname(pathof(ExaPF)), "..", "data", "case9.m")
+    datafile = joinpath(INSTANCES_DIR, "case9.m")
 
     nlp = Argos.ReducedSpaceEvaluator(datafile)
     uk = Argos.initial(nlp)

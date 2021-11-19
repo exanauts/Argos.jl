@@ -12,7 +12,9 @@ using Argos
 using MathOptInterface
 const MOI = MathOptInterface
 
-const INSTANCES_DIR = joinpath(dirname(pathof(ExaPF)), "..", "data")
+# Data
+using LazyArtifacts
+const INSTANCES_DIR = ExaPF.instances_directory()
 const CASES = ["case9.m", "case30.m"]
 ARCHS = Any[(CPU(), Array, SparseMatrixCSC)]
 
