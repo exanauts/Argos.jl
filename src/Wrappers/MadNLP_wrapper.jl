@@ -76,11 +76,13 @@ end
 function NLPModels.jac_structure!(m::ExaNLPModel, rows, cols)
     copyto!(rows, m.jrows)
     copyto!(cols, m.jcols)
+    return rows, cols
 end
 
 function NLPModels.hess_structure!(m::ExaNLPModel, rows, cols)
     copyto!(rows, m.hrows)
     copyto!(cols, m.hcols)
+    return rows, cols
 end
 
 # Gradient

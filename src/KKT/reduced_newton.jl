@@ -77,13 +77,15 @@ function BieglerKKTSystem{T, VI, VT, MT}(nlp::ExaNLPModel, ind_cons=MadNLP.get_i
     # Scaling
     jacobian_scaling = VT(undef, nnzj) ; fill!(jacobian_scaling, one(T))
 
+    ind_fixed = ind_cons.ind_fixed .- nx
+
     return BieglerKKTSystem{T, VI, VT, MT}(
         h_V, h_I, h_J,
         j_V, j_I, j_J,
         pr_diag, du_diag,
         aug_com, hess_raw, jac_raw, S, Gxi,
         nx, nu,
-        ind_cons.ind_ineq, ind_cons.ind_fixed, jacobian_scaling,
+        ind_cons.ind_ineq, ind_fixed, jacobian_scaling,
     )
 end
 
