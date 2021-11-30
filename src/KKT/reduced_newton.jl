@@ -108,8 +108,36 @@ function MadNLP.initialize!(kkt::BieglerKKTSystem)
     fill!(kkt.hess_raw, 0.0)
 end
 
+# Use for inertia-free regularization (require full-space multiplication)
+# TODO: rewrite
+function _mul_expanded!(y, kkt::BieglerKKTSystem, x)
+    # Build full-space KKT system
+    n = kkt.nx + kkt.nu
+    m = length(kkt.con_scale)
+    ns = length(kkt.ind_ineq)
+    W = sparse(kkt.h_I, kkt.h_J, kkt.h_V)
+    Σₓ = spdiagm(kkt.pr_diag[1:n])
+    Σₛ = spdiagm(kkt.pr_diag[n+1:n+ns])
+    # Jacobian
+    Jx = sparse(kkt.j_I, kkt.j_J, kkt.j_V)
+    Js = sparse(kkt.ind_ineq, 1:ns, -kkt.con_scale[kkt.ind_ineq], m, ns)
+    Σᵤ = spdiagm(kkt.du_diag)
+
+    Z = spzeros(n, ns)
+    K = [
+        W+Σₓ Z  Jx'
+        Z'   Σₛ Js'
+        Jx   Js Σᵤ
+    ]::SparseMatrixCSC{Float64, Int}
+    mul!(y, K, x)
+end
+
 function MadNLP.mul!(y::AbstractVector, kkt::BieglerKKTSystem, x::AbstractVector)
-    mul!(y, kkt.aug_com, x)
+    if size(kkt.aug_com, 1) == length(x) == length(y)
+        mul!(y, kkt.aug_com, x)
+    else
+        _mul_expanded!(y, kkt, x)
+    end
 end
 
 function MadNLP.jtprod!(y::AbstractVector, kkt::BieglerKKTSystem, x::AbstractVector)
