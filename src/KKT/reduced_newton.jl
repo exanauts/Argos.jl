@@ -27,6 +27,7 @@ struct BieglerKKTSystem{T, VI, VT, MT} <: MadNLP.AbstractReducedKKTSystem{T, MT}
     # Info
     ind_ineq::Vector{Int}
     ind_fixed::Vector{Int}
+    con_scale::VT
     jacobian_scaling::VT
 end
 
@@ -58,7 +59,7 @@ function BieglerKKTSystem{T, VI, VT, MT}(nlp::ExaNLPModel, ind_cons=MadNLP.get_i
     n_kkt = nu + n_slack + m - nx
 
     # Sensitivities
-    S = MT(undef, nx, nu)
+    S = MT(undef, nx, nu) ; fill!(S, 0.0)
     # Initial factorization
     # Evaluate Jacobian
     x = initial(nlp.nlp)
@@ -68,13 +69,14 @@ function BieglerKKTSystem{T, VI, VT, MT}(nlp::ExaNLPModel, ind_cons=MadNLP.get_i
     Gxi = lu(Gx)
 
     # Wᵤᵤ
-    hess_raw = MT(undef, nu, nu) ; fill!(hess_raw, zero(T))
+    hess_raw = MT(undef, nu, nu)      ; fill!(hess_raw, zero(T))
     # Jᵤ
-    jac_raw = MT(undef, m - nx, nu) ; fill!(jac_raw, zero(T))
+    jac_raw = MT(undef, m - nx, nu)   ; fill!(jac_raw, zero(T))
     # W
     aug_com = MT(undef, n_kkt, n_kkt) ; fill!(aug_com, zero(T))
 
     # Scaling
+    con_scale = VT(undef, m)           ; fill!(con_scale, one(T))
     jacobian_scaling = VT(undef, nnzj) ; fill!(jacobian_scaling, one(T))
 
     ind_fixed = ind_cons.ind_fixed .- nx
@@ -85,7 +87,7 @@ function BieglerKKTSystem{T, VI, VT, MT}(nlp::ExaNLPModel, ind_cons=MadNLP.get_i
         pr_diag, du_diag,
         aug_com, hess_raw, jac_raw, S, Gxi,
         nx, nu,
-        ind_cons.ind_ineq, ind_fixed, jacobian_scaling,
+        ind_cons.ind_ineq, ind_fixed, con_scale, jacobian_scaling,
     )
 end
 
@@ -94,9 +96,16 @@ MadNLP.get_hessian(kkt::BieglerKKTSystem) = kkt.h_V
 MadNLP.get_jacobian(kkt::BieglerKKTSystem) = kkt.j_V
 MadNLP.is_reduced(::BieglerKKTSystem) = true
 
+# Return SparseMatrixCOO to MadNLP
+function MadNLP.get_raw_jacobian(kkt::BieglerKKTSystem)
+    n, m = kkt.nx + kkt.nu, size(kkt.jac_raw, 1)
+    return MadNLP.SparseMatrixCOO(n, m, kkt.j_I, kkt.j_J, kkt.j_V)
+end
+
 function MadNLP.initialize!(kkt::BieglerKKTSystem)
     fill!(kkt.pr_diag, 1.0)
     fill!(kkt.du_diag, 0.0)
+    fill!(kkt.hess_raw, 0.0)
 end
 
 function MadNLP.mul!(y::AbstractVector, kkt::BieglerKKTSystem, x::AbstractVector)
@@ -110,7 +119,7 @@ function MadNLP.jtprod!(y::AbstractVector, kkt::BieglerKKTSystem, x::AbstractVec
     yx = view(y, 1:n)
     mul!(yx, J', x)
     ys = view(y, n+1:nv)
-    ys .= -x[kkt.ind_ineq]
+    ys .= -x[kkt.ind_ineq] .* kkt.con_scale[kkt.ind_ineq]
 end
 
 MadNLP.nnz_jacobian(kkt::BieglerKKTSystem) = size(kkt.jac_raw, 1) * size(kkt.jac_raw, 2)
@@ -138,7 +147,7 @@ end
 # Build reduced Hessian
 MadNLP.compress_hessian!(kkt::BieglerKKTSystem) = nothing
 
-function _build_dense_kkt_system!(dest, hess, jac, pr_diag, du_diag, ind_ineq, nu, nx, m, ns)
+function _build_dense_kkt_system!(dest, hess, jac, pr_diag, du_diag, con_scale, ind_ineq, nu, nx, m, ns)
     # Transfer Hessian
     for i in 1:nu, j in 1:i
         if i == j
@@ -160,8 +169,8 @@ function _build_dense_kkt_system!(dest, hess, jac, pr_diag, du_diag, ind_ineq, n
     # Transfer slack Jacobian
     for i in 1:ns
         is = ind_ineq[i] - nx
-        dest[is + nu + ns, is + nu] = - 1.0
-        dest[is + nu, is + nu + ns] = - 1.0
+        dest[is + nu + ns, is + nu] = - con_scale[ind_ineq[i]]
+        dest[is + nu, is + nu + ns] = - con_scale[ind_ineq[i]]
     end
     # Transfer dual regularization
     for i in 1:m
@@ -188,12 +197,13 @@ function MadNLP.build_kkt!(kkt::BieglerKKTSystem{T, VI, VT, MT}) where {T, VI, V
     # Assemble final matrix used in factorization
     fill!(kkt.aug_com, 0.0)
     _build_dense_kkt_system!(kkt.aug_com, kkt.hess_raw, kkt.jac_raw,
-                             kkt.pr_diag, kkt.du_diag, kkt.ind_ineq, nu, nx, m, ns)
+                             kkt.pr_diag, kkt.du_diag, kkt.con_scale, kkt.ind_ineq, nu, nx, m, ns)
 
     MadNLP.treat_fixed_variable!(kkt)
 end
 
 function MadNLP.set_jacobian_scaling!(kkt::BieglerKKTSystem, constraint_scaling::AbstractVector)
+    copyto!(kkt.con_scale, constraint_scaling)
     nnzJ = length(kkt.j_V)::Int
     @inbounds for i in 1:nnzJ
         index = kkt.j_I[i]
