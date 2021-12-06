@@ -5,7 +5,9 @@ using JuMP
 # Tools to solve the static OPF problem
 include(joinpath(dirname(@__FILE__), "static_opf.jl"))
 # JuMP extension
-include(joinpath(dirname(pathof(Argos)), "..", "scripts", "jump", "jump_model.jl"))
+include(joinpath(dirname(pathof(ExaOpt)), "..", "scripts", "jump", "jump_model.jl"))
+
+MadNLP.num_variables(kkt::ExaOpt.MixedAuglagKKTSystem) = size(kkt.hess, 1)
 
 #=
     UTILS
@@ -83,7 +85,7 @@ end
 =#
 struct ExaRealTimeOPF
     T::Int
-    aug::Argos.AugLagEvaluator
+    aug::ExaOpt.AugLagEvaluator
     ploads::Array{Float64, 2}
     qloads::Array{Float64, 2}
     line_constraints::Bool
@@ -98,7 +100,7 @@ end
 function ExaRealTimeOPF(aug, case::String; line_constraints=false)
     ploads, qloads = _load_ts_data(case)
 
-    polar = Argos.backend(aug)
+    polar = ExaOpt.backend(aug)
     baseMVA = polar.network.baseMVA
     horizon = size(ploads, 2)
     return ExaRealTimeOPF(horizon, aug, ploads ./ baseMVA, qloads ./ baseMVA, line_constraints)
@@ -106,7 +108,7 @@ end
 
 # Warmstart with Ipopt's solution
 function warmstart!(opf::ExaRealTimeOPF)
-    polar = Argos.backend(opf.aug)
+    polar = ExaOpt.backend(opf.aug)
     buffer = get(opf.aug, ExaPF.PhysicalState())
     m = build_opf_model(polar, buffer, Ipopt.Optimizer; line_constraints=opf.line_constraints)
     JuMP.optimize!(m)
@@ -119,16 +121,16 @@ function set_loads!(opf::ExaRealTimeOPF, t::Int)
     pd = opf.ploads[:, t]
     qd = opf.qloads[:, t]
     # Update loads inside Augmented Lagrangian evaluator
-    Argos.setvalues!(opf.aug, PS.ActiveLoad(), pd)
-    Argos.setvalues!(opf.aug, PS.ReactiveLoad(), qd)
+    ExaOpt.setvalues!(opf.aug, PS.ActiveLoad(), pd)
+    ExaOpt.setvalues!(opf.aug, PS.ReactiveLoad(), qd)
     return
 end
 
 function _solve_qp!(
-    qp::Argos.QuadraticModel;
+    qp::ExaOpt.QuadraticModel;
     max_iter=100, linear_solver=MadNLPLapackCPU,
 )
-    mnlp = MadNLP.NonlinearProgram(qp)
+    mnlp = ExaOpt.ExaNLPModel(qp)
     options = Dict{Symbol, Any}(
         :tol=>1e-6, :max_iter=>max_iter,
         :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
@@ -137,18 +139,18 @@ function _solve_qp!(
         :hessian_constant=>true,
         :jacobian_constant=>true,
     )
-    ipp = MadNLP.Solver(mnlp; option_dict=options)
+    ipp = MadNLP.InteriorPointSolver(mnlp; option_dict=options)
     MadNLP.optimize!(ipp)
     return ipp.x
 end
 
 function _solve_qp!(
-    qp::Argos.AuglagQuadraticModel;
+    qp::ExaOpt.AuglagQuadraticModel;
     max_iter=100, linear_solver=MadNLPLapackGPU,
 )
     @assert CUDA.has_cuda_gpu()
-    mnlp = MadNLP.NonlinearProgram(qp)
-    kkt = Argos.MixedAuglagKKTSystem{Float64, CuVector{Float64}, CuMatrix{Float64}}(qp, Int[])
+    mnlp = ExaOpt.ExaNLPModel(qp)
+    kkt = ExaOpt.MixedAuglagKKTSystem{Float64, CuVector{Float64}, CuMatrix{Float64}}(qp, Int[])
     options = Dict{Symbol, Any}(
         :tol=>1e-5, :max_iter=>max_iter,
         :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
@@ -156,25 +158,25 @@ function _solve_qp!(
         :linear_solver=>linear_solver,
         :lapackgpu_algorithm=>MadNLPLapackGPU.CHOLESKY,
     )
-    ipp = MadNLP.Solver(mnlp, kkt=kkt; option_dict=options)
+    ipp = MadNLP.InteriorPointSolver(mnlp, kkt=kkt; option_dict=options)
     MadNLP.optimize!(ipp)
     return ipp.x |> CuArray
 end
 
-function tracking_algorithm!(opf::ExaRealTimeOPF, xₖ=Argos.initial(opf.aug); schur=true, y=nothing, maxT=opf.T)
+function tracking_algorithm!(opf::ExaRealTimeOPF, xₖ=ExaOpt.initial(opf.aug); schur=true, y=nothing, maxT=opf.T)
     aug = opf.aug
 
-    Argos.reset!(aug)
-    Argos.update!(aug, xₖ)
+    ExaOpt.reset!(aug)
+    ExaOpt.update!(aug, xₖ)
 
     if !isnothing(y)
         copyto!(aug.λ, y)
     end
 
     if schur
-        qp = Argos.AuglagQuadraticModel(aug, xₖ)
+        qp = ExaOpt.AuglagQuadraticModel(aug, xₖ)
     else
-        qp = Argos.QuadraticModel(aug)
+        qp = ExaOpt.QuadraticModel(aug)
     end
 
     ngen = get(aug, PS.NumberOfGenerators())
@@ -189,28 +191,28 @@ function tracking_algorithm!(opf::ExaRealTimeOPF, xₖ=Argos.initial(opf.aug); s
         set_loads!(opf, t)
 
         # Update quadratic model with new setpoint
-        Argos.refresh!(qp, xₖ)
+        ExaOpt.refresh!(qp, xₖ)
 
         # Update primal
         x₊ = _solve_qp!(qp)
         # Update dual
-        conv = Argos.update!(aug, x₊)
+        conv = ExaOpt.update!(aug, x₊)
         # Backtracking line-search
         if !conv.has_converged
-            Argos.reset!(aug.inner)
+            ExaOpt.reset!(aug.inner)
             dₖ = (x₊ .- xₖ)
             k = 0
             α = 0.999
             while (k < 20) && !conv.has_converged
                 x₊ = xₖ + α * dₖ
-                Argos.reset!(aug.inner)
-                conv = Argos.update!(aug, x₊)
+                ExaOpt.reset!(aug.inner)
+                conv = ExaOpt.update!(aug, x₊)
                 α *= 0.8
                 k += 1
             end
 
             if !conv.has_converged
-                Argos.update!(aug, xₖ)
+                ExaOpt.update!(aug, xₖ)
                 x₊ .= xₖ
                 println("Unable to converge")
                 break
@@ -219,13 +221,13 @@ function tracking_algorithm!(opf::ExaRealTimeOPF, xₖ=Argos.initial(opf.aug); s
 
         pg_vals[:, t] .= buffer.pgen |> Array
         xₖ .= x₊
-        Argos.update_multipliers!(aug)
+        ExaOpt.update_multipliers!(aug)
 
         # Update solution
-        obj_vals[t] = Argos.inner_objective(aug, xₖ)
+        obj_vals[t] = ExaOpt.inner_objective(aug, xₖ)
         prfeas_vals[t] = norm(aug.cons, Inf)
         if !isnothing(aug.tracker)
-            Argos.store!(aug, aug.tracker, xₖ)
+            ExaOpt.store!(aug, aug.tracker, xₖ)
         end
     end
 
@@ -236,12 +238,12 @@ end
     Unit-tests
 =#
 function test_qp(
-    aug::Argos.AugLagEvaluator; max_iter=100, scaling=true,
+    aug::ExaOpt.AugLagEvaluator; max_iter=100, scaling=true,
     linear_solver=MadNLPLapackCPU,
     inertia=MadNLP.INERTIA_AUTO,
 )
-    qp = Argos.QuadraticModel(aug)
-    mnlp = MadNLP.NonlinearProgram(qp)
+    qp = ExaOpt.QuadraticModel(aug)
+    mnlp = ExaOpt.ExaNLPModel(qp)
 
     options = Dict{Symbol, Any}(
         :tol=>1e-4, :max_iter=>max_iter,
@@ -255,27 +257,36 @@ function test_qp(
         :jacobian_constant=>true,
         :mu_init=>1e-4,
     )
-    ipp = MadNLP.Solver(mnlp; option_dict=options)
+    ipp = MadNLP.InteriorPointSolver(mnlp; option_dict=options)
     MadNLP.optimize!(ipp)
     return (qp, ipp)
 end
 
-function test_qp_schur(aug, u; max_iter=100, tol=1e-3, inertia=true, verbose=false)
-    qpaug = Argos.AuglagQuadraticModel(aug, u)
-    t1 = @timed Argos.refresh!(qpaug, u)
-    mnlp = MadNLP.NonlinearProgram(qpaug)
-    kkt = Argos.MixedAuglagKKTSystem{Float64, CuVector{Float64}, CuMatrix{Float64}}(qpaug, Int[])
+function test_qp_schur(
+    aug::ExaOpt.AugLagEvaluator{Ev, T, VT}, u;
+    max_iter=100, tol=1e-3, inertia=true, verbose=false,
+    linear_solver=MadNLPLapackGPU,
+) where {Ev, T, VT}
+    qpaug = ExaOpt.AuglagQuadraticModel(aug, u)
+    t1 = @timed ExaOpt.refresh!(qpaug, u)
+    mnlp = ExaOpt.ExaNLPModel(qpaug)
     inertia_alg = inertia ? MadNLP.INERTIA_BASED : MadNLP.INERTIA_FREE
-    options = Dict{Symbol, Any}(:tol=>tol, :max_iter=>max_iter,
-                                :print_level=>verbose ? MadNLP.DEBUG : MadNLP.ERROR,
-                                :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
-                                :linear_solver=>MadNLPLapackGPU,
-                                :inertia_correction_method=>inertia_alg,
-                                :lapackgpu_algorithm=>MadNLPLapackGPU.CHOLESKY,
-        # :hessian_constant=>true,
-        # :jacobian_constant=>true,
+    options = Dict{Symbol, Any}(
+        :tol=>tol, :max_iter=>max_iter,
+        :print_level=>verbose ? MadNLP.DEBUG : MadNLP.ERROR,
+        :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
+        :linear_solver=>linear_solver,
+        :inertia_correction_method=>inertia_alg,
+        :lapackgpu_algorithm=>MadNLPLapackGPU.CHOLESKY,
     )
-    ipp = MadNLP.Solver(mnlp; kkt=kkt, option_dict=options)
+    madopt = MadNLP.Options(linear_solver=linear_solver)
+    MadNLP.set_options!(madopt, options)
+    if VT <: CuArray
+        KKT = ExaOpt.MixedAuglagKKTSystem{Float64, CuVector{Float64}, CuMatrix{Float64}}
+    else
+        KKT = ExaOpt.MixedAuglagKKTSystem{Float64, Vector{Float64}, Matrix{Float64}}
+    end
+    ipp = MadNLP.InteriorPointSolver{KKT}(mnlp, madopt; option_linear_solver=options)
     t2 = @timed MadNLP.optimize!(ipp)
     return ipp, t1, t2
 end
@@ -293,7 +304,7 @@ function pscc_time_tracking_update()
     ]
         @info "Benchmark tracking update: $case"
         datafile = joinpath(DATA_DIRECTORY, case)
-        aug_g = Argos.instantiate_auglag_model(
+        aug_g = ExaOpt.instantiate_auglag_model(
             datafile;
             scale=false, line_constraints=true,
             device=CUDADevice(), nbatches=nbatches,
@@ -315,7 +326,7 @@ function pscc_real_time_opf(case; line_constraints=false)
     datafile = joinpath(DATA_DIRECTORY, "$(case).m")
 
     # Initiate model
-    aug_g = Argos.instantiate_auglag_model(
+    aug_g = ExaOpt.instantiate_auglag_model(
         datafile;
         scale=false, line_constraints=line_constraints,
         device=CUDADevice(), nbatches=nbatches,
