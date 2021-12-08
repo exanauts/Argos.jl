@@ -487,10 +487,10 @@ function hessprod!(nlp::ReducedSpaceEvaluator, hessvec, u, w)
 
     # Step 1: computation of first second-order adjoint
     mul!(z, ∇gᵤ, w, -1.0, 0.0)
-    LinearAlgebra.ldiv!(H.lu, z)
+    t1 = @timed LinearAlgebra.ldiv!(H.lu, z)
 
     # Init tangent with z and w
-    _init_tangent!(tgt, z, w, nx, nu, nbatch)
+    t2 = @timed _init_tangent!(tgt, z, w, nx, nu, nbatch)
 
     # Init adjoint
     fill!(y, 0.0)
@@ -498,16 +498,17 @@ function hessprod!(nlp::ReducedSpaceEvaluator, hessvec, u, w)
     y[1:nx] .-= nlp.λ  # / power balance
 
     # STEP 2: AutoDiff
-    ∂fₓ, ∂fᵤ = full_hessprod!(nlp, hv, y, tgt)
+    t3 = @timed full_hessprod!(nlp, hv, y, tgt)
+    ∂fₓ, ∂fᵤ = t3.value
 
     # STEP 3: computation of second second-order adjoint
     copyto!(ψ, ∂fₓ)
-    LinearAlgebra.ldiv!(H.adjlu, ψ)
+    t4 = @timed LinearAlgebra.ldiv!(H.adjlu, ψ)
 
     hessvec .= ∂fᵤ
     mul!(hessvec, transpose(∇gᵤ), ψ, -1.0, 1.0)
 
-    return
+    return t1.time, t2.time, t3.time, t4.time
 end
 
 function hessian_lagrangian_penalty_prod!(
