@@ -8,27 +8,97 @@ using SuiteSparse
 using KernelAbstractions
 using CUDAKernels
 
-using ExaPF, Argos
+using ExaPF, ExaOpt
+
+# Deactivate iterative refinements
+SuiteSparse.UMFPACK.umf_ctrl[8] = 0
 
 # Load GPU extension
-include(joinpath(dirname(pathof(Argos)), "..", "test", "cusolver.jl"))
+include(joinpath(dirname(pathof(ExaOpt)), "..", "test", "cusolver.jl"))
 
 OUTPUTDIR = joinpath(dirname(@__FILE__), "results")
-SOURCE_DATA = joinpath(dirname(pathof(Argos)), "..", "data")
+SOURCE_DATA = joinpath(dirname(pathof(ExaOpt)), "..", "data")
+
+if !isdir(OUTPUTDIR)
+    mkdir(OUTPUTDIR)
+end
 
 function _instantiate_nlp(datafile, device, nbatches, line_constraints, pf_tol)
     # Instantiate problem
     pf = NewtonRaphson(tol=pf_tol)
-    nlp = Argos.ReducedSpaceEvaluator(
+    nlp = ExaOpt.ReducedSpaceEvaluator(
         datafile;
         device=device, nbatch_hessian=nbatches, line_constraints=line_constraints,
         powerflow_solver=pf,
     )
-    u = Argos.initial(nlp)
+    u = ExaOpt.initial(nlp)
     g = similar(u)
-    Argos.update!(nlp, u)
-    Argos.gradient!(nlp, g, u)
+    ExaOpt.update!(nlp, u)
+    ExaOpt.gradient!(nlp, g, u)
     return (nlp, u)
+end
+
+"""
+    Benchmark computation of *one* batched Hessian-vector product on instance `datafile`.
+    Computation are deported on `device` (only `CUDADevice()` is available now).
+
+    Use to reproduce results displayed in Figure 6 in the article.
+"""
+function benchmark_batched_hessprod(
+    datafile, device;
+    ntrials=10, line_constraints=false, pf_tol=1e-10,
+)
+    batches = [4, 8, 16, 32, 64, 128, 256, 512]
+
+    timings = zeros(4)
+    results = zeros(length(batches) + 1, 4)
+
+    # Reference is CPU (with batch=1 to fallback to default Hessian)
+    nlp_ref, h_u = _instantiate_nlp(datafile, CPU(), 1, line_constraints, pf_tol)
+    nu = ExaOpt.n_variables(nlp_ref)
+    m = ExaOpt.n_constraints(nlp_ref)
+
+    # Compute reference
+    hv = zeros(nu)
+    v = zeros(nu)
+    v[1] = 1.0
+
+    for i in 1:ntrials
+        times_cpu = ExaOpt.hessprod!(nlp_ref, hv, h_u, v)
+        timings .+= [t for t in times_cpu]
+    end
+
+    results[1, :] .= timings ./ ntrials
+
+    # Instantiate nlp on target device
+    nlp, u = _instantiate_nlp(datafile, device, 2, line_constraints, pf_tol)
+    model = ExaOpt.backend(nlp)
+    # Instantiate Hessian
+    v[1] = 1.0
+
+    # # Get power flow's Jacobian
+    J = ExaPF.powerflow_jacobian_device(model)
+    func = line_constraints ? ExaPF.network_line_operations : ExaPF.network_operations
+
+    for (id, nbatch) in enumerate(batches)
+        (nbatch > nu) && break
+        v_cpu = rand(nu, nbatch)
+        hv = similar(u, nu, nbatch)
+        v = similar(u, nu, nbatch)
+        copy!(v, v_cpu)
+        batch_ad = ExaOpt.BatchHessianLagrangian(model, func, J, nbatch, m)
+        nlp.hesslag = batch_ad
+        timings .= 0
+        for i in 1:ntrials
+            times = ExaOpt.hessprod!(nlp, hv, u, v)
+            timings .+= [t for t in times]
+        end
+        results[id+1, :] .= timings ./ ntrials
+
+        GC.gc(true)
+        isa(device, GPU) && CUDA.reclaim()
+    end
+    return results
 end
 
 """
@@ -36,6 +106,7 @@ end
     on instance `datafile`. Computation are deported on
     `device` (either `CPU()` or `CUDADevice()`).
 
+    Use to reproduce results displayed in Figure 5 in the article.
 """
 function benchmark_batched_hessian_objective(
     datafile, device;
@@ -48,13 +119,13 @@ function benchmark_batched_hessian_objective(
 
     # Reference is CPU (with batch=1 to fallback to default Hessian)
     nlp_ref, h_u = _instantiate_nlp(datafile, CPU(), 1, line_constraints, pf_tol)
-    nu = Argos.n_variables(nlp_ref)
-    m = Argos.n_constraints(nlp_ref)
+    nu = ExaOpt.n_variables(nlp_ref)
+    m = ExaOpt.n_constraints(nlp_ref)
 
     # Compute reference
     hess = zeros(nu, nu)
     for i in 1:ntrials
-        t1 = @timed Argos.hessian!(nlp_ref, hess, h_u)
+        t1 = @timed ExaOpt.hessian!(nlp_ref, hess, h_u)
         timings[i] = t1.time
     end
     results[1, 1] = mean(timings)
@@ -65,7 +136,7 @@ function benchmark_batched_hessian_objective(
 
     # Instantiate nlp on target device
     nlp, u = _instantiate_nlp(datafile, device, 2, line_constraints, pf_tol)
-    model = Argos.backend(nlp)
+    model = ExaOpt.backend(nlp)
     # Instantiate Hessian
     hess = similar(u, nu, nu)
 
@@ -75,10 +146,10 @@ function benchmark_batched_hessian_objective(
 
     for (id, nbatch) in enumerate(batches)
         (nbatch > nu) && break
-        batch_ad = Argos.BatchHessianLagrangian(model, func, J, nbatch, m)
+        batch_ad = ExaOpt.BatchHessianLagrangian(model, func, J, nbatch, m)
         nlp.hesslag = batch_ad
         for i in 1:ntrials
-            t1 = @timed Argos.hessian!(nlp, hess, u)
+            t1 = @timed ExaOpt.hessian!(nlp, hess, u)
             timings[i] = t1.time
         end
         results[id+1, 1] = mean(timings)
