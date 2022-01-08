@@ -120,11 +120,33 @@ function subproblem_nlp(
         :tol=>1e-5, :max_iter=>max_iter,
         :nlp_scaling=>scaling,
         :inertia_correction_method=>inertia,
-        :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
         :print_level=>MadNLP.DEBUG,
-        :linear_solver=>linear_solver
+        :linear_solver=>linear_solver,
     )
     ipp = MadNLP.InteriorPointSolver(mnlp; option_dict=options)
+    @time MadNLP.optimize!(ipp)
+    return ipp
+end
+
+function subproblem_biegler(
+    aug; max_iter=100, scaling=true,
+    linear_solver=MadNLPLapackCPU,
+    inertia=MadNLP.INERTIA_AUTO,
+)
+    Argos.reset!(aug)
+    mnlp = Argos.ExaNLPModel(aug)
+    options = Dict{Symbol, Any}(
+        :tol=>1e-5, :max_iter=>max_iter,
+        :nlp_scaling=>scaling,
+        :inertia_correction_method=>inertia,
+        :print_level=>MadNLP.DEBUG,
+        :linear_solver=>linear_solver,
+    )
+    madopt = MadNLP.Options(linear_solver=linear_solver)
+    MadNLP.set_options!(madopt, options,Dict())
+
+    KKT = Argos.BieglerKKTSystem{Float64, Vector{Int}, Vector{Float64}, Matrix{Float64}}
+    ipp = MadNLP.InteriorPointSolver{KKT}(mnlp, madopt; option_linear_solver=options)
     @time MadNLP.optimize!(ipp)
     return ipp
 end

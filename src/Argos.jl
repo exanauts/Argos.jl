@@ -22,6 +22,9 @@ include("Evaluators/Evaluators.jl")
 include("Wrappers/MOI_wrapper.jl")
 include("Wrappers/MadNLP_wrapper.jl")
 
+# KKT systems
+include("KKT/KKTsystems.jl")
+
 # Algorithms
 include("Algorithms/Algorithms.jl")
 
