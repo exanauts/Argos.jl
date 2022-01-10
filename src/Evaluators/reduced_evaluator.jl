@@ -135,6 +135,8 @@ function ReducedSpaceEvaluator(
         shift += m
     end
 
+    g_max = min.(g_max, 1e5)
+
     # Build Linear Algebra
     J = ExaPF.powerflow_jacobian_device(model)
     _linear_solver = isnothing(linear_solver) ? LS.DirectSolver(J) : linear_solver
@@ -559,7 +561,8 @@ function hessian_lagrangian_prod!(
     ## OBJECTIVE HESSIAN
     fill!(μ, 0.0)
     # power flow
-    μ[1:nx] .-= λ
+    μx = view(μ, 1:nx)
+    axpy!(-1.0, λ, μx)
     # objective
     μ[2*nbus+1:2*nbus+1] .= σ         # objective
     # operational constraints

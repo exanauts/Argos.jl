@@ -129,10 +129,19 @@ function NLPModels.hprod!(m::ExaNLPModel, x, l, v, hv::AbstractVector; obj_weigh
     hessian_lagrangian_prod!(m.nlp, hv, x, l, obj_weight, v)
 end
 
+function _copyto!(dest::AbstractArray, off1, src::Array, off2, n)
+    copyto!(dest, off1, src, off2, n)
+end
+function _copyto!(dest::AbstractArray, off1, src::SubArray, off2, n)
+    p_src = parent(src)
+    copyto!(dest, off1, p_src, off2 + src.offset1, n)
+end
+
 # Hessian: dense callback
 function MadNLP.hess_dense!(m::ExaNLPModel, x, l, hess::AbstractMatrix; obj_weight=1.0)
     _update!(m, x)
+    _copyto!(m.d_c, 1, l, 1, NLPModels.get_ncon(m))
     # Evaluate full reduced Hessian in the preallocated buffer.
-    hessian_lagrangian!(m.nlp, hess, m.d_x, l, obj_weight)
+    hessian_lagrangian!(m.nlp, hess, m.d_x, m.d_c, obj_weight)
 end
 
