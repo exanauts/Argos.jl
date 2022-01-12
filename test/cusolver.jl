@@ -103,9 +103,6 @@ end
     i, j = @index(Global, NTuple)
     val = (i == j + offset) ? 1.0 : 0.0
     @inbounds seeds[i, j] = val
-    if (i == j + offset)
-        @inbounds seeds[i, j] = 1.0
-    end
 end
 
 function Argos.set_batch_tangents!(seeds::CuMatrix, offset, n, n_batches)

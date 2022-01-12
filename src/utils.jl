@@ -51,12 +51,10 @@ function _batch_hessian_factorization(J::AbstractSparseMatrix, nbatch)
     return (lufac, lufac')
 end
 
-abstract type AbstractHessianStorage end
+abstract type AbstractReduction end
 
-struct HessianLagrangian{VT,Hess,Fac1,Fac2} <: AbstractHessianStorage
-    hess::Hess
+struct Reduction{VT,Fac1,Fac2} <: AbstractReduction
     # Adjoints
-    y::VT
     z::VT
     ψ::VT
     # Buffers
@@ -67,26 +65,21 @@ struct HessianLagrangian{VT,Hess,Fac1,Fac2} <: AbstractHessianStorage
     lu::Fac1
     adjlu::Fac2
 end
-function HessianLagrangian(polar::PolarForm{T, VI, VT, MT}, func::Function, J::AbstractSparseMatrix, ncons::Int) where {T, VI, VT, MT}
+function Reduction(polar::PolarForm{T, VI, VT, MT}, J::AbstractSparseMatrix, ncons::Int) where {T, VI, VT, MT}
     lu1, lu2 = _batch_hessian_factorization(J, 1)
     nx, nu = ExaPF.get(polar, ExaPF.NumberOfState()), ExaPF.get(polar, ExaPF.NumberOfControl())
-    m = ExaPF.size_constraint(polar, func)::Int
-    H = AutoDiff.Hessian(polar, func)
-    y = VT(undef, m)
     z = VT(undef, nx)
     ψ = VT(undef, nx)
     tgt = VT(undef, nx+nu)
     hv = VT(undef, nx+nu)
     _w1 = VT(undef, ncons)
-    return HessianLagrangian(H, y, z, ψ, _w1, tgt, hv, lu1, lu2)
+    return Reduction(z, ψ, _w1, tgt, hv, lu1, lu2)
 end
-n_batches(hlag::HessianLagrangian) = 1
+n_batches(hlag::Reduction) = 1
 
-struct BatchHessianLagrangian{MT,Hess,Fac1,Fac2} <: AbstractHessianStorage
+struct BatchReduction{MT,Fac1,Fac2} <: AbstractReduction
     nbatch::Int
-    hess::Hess
     # Adjoints
-    y::MT
     z::MT
     ψ::MT
     # Buffer
@@ -100,12 +93,10 @@ struct BatchHessianLagrangian{MT,Hess,Fac1,Fac2} <: AbstractHessianStorage
     lu::Fac1
     adjlu::Fac2
 end
-function BatchHessianLagrangian(polar::PolarForm{T, VI, VT, MT}, func::Function, J, nbatch, ncons) where {T, VI, VT, MT}
+function BatchReduction(polar::PolarForm{T, VI, VT, MT}, J, nbatch, ncons) where {T, VI, VT, MT}
     lu1, lu2 = _batch_hessian_factorization(J, nbatch)
     nx, nu = ExaPF.get(polar, ExaPF.NumberOfState()), ExaPF.get(polar, ExaPF.NumberOfControl())
     m = ExaPF.size_constraint(polar, func)::Int
-    H = ExaPF.BatchHessian(polar, func, nbatch)
-    y   = MT(undef, m, 1)  # adjoint is the same for all batches
     z   = MT(undef, nx, nbatch)
     ψ   = MT(undef, nx, nbatch)
     tgt = MT(undef, nx+nu, nbatch)
@@ -114,16 +105,16 @@ function BatchHessianLagrangian(polar::PolarForm{T, VI, VT, MT}, func::Function,
     _w1 = MT(undef, ncons, nbatch)
     _w2 = MT(undef, nx, nbatch)
     _w3 = MT(undef, nu, nbatch)
-    return BatchHessianLagrangian(nbatch, H, y, z, ψ, _w1, _w2, _w3, v, tgt, hv, lu1, lu2)
+    return BatchReduction(nbatch, z, ψ, _w1, _w2, _w3, v, tgt, hv, lu1, lu2)
 end
-n_batches(hlag::BatchHessianLagrangian) = hlag.nbatch
+n_batches(hlag::BatchReduction) = hlag.nbatch
 
-function update_factorization!(hlag::AbstractHessianStorage, J::AbstractSparseMatrix)
+function update_factorization!(hlag::AbstractReduction, J::AbstractSparseMatrix)
     LinearAlgebra.lu!(hlag.lu, J)
     return
 end
 
-struct FullHessianLagrangian{MT,VI,VT,Hess} <: AbstractHessianStorage
+struct FullHessianLagrangian{MT,VI,VT,Hess}
     # Autodiff Backend
     hess::Hess
     # Hessian in COO format
@@ -153,7 +144,7 @@ function FullHessianLagrangian(polar::PolarForm{T, VI, VT, MT}, func::Function, 
     hv = VT(undef, nv)
 
     nbus = ExaPF.get(polar, PS.NumberOfBuses())
-    λ = ones(nbus)
+    λ = rand(nbus)
     copyto!(y, randn(m))
     # Run sparsity detection on MATPOWER Hessian matrix
     H_mat = ExaPF.hessian_sparsity(polar, func, buffer, λ)
