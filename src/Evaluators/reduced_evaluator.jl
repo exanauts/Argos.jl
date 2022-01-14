@@ -344,34 +344,15 @@ function gradient!(nlp::ReducedSpaceEvaluator, grad, u)
     return
 end
 
-function update_full_jacobian!(nlp)
+function jprod!(nlp::ReducedSpaceEvaluator, jm, u, v)
     if !nlp.is_jacobian_updated
         ExaPF.jacobian!(nlp.jac, nlp.stack)
         nlp.is_jacobian_updated = true
     end
-end
-
-function jprod!(nlp::ReducedSpaceEvaluator, jm, u, v)
-    nu = nlp.nu
-    m  = n_constraints(nlp)
-    update_full_jacobian!(nlp)
 
     J = nlp.jac.J
-    H = nlp.reduction
     Gu = nlp.Gu.J
-
-    # Arrays
-    z = H.z
-
-    # init RHS
-    mul!(z, Gu, v)
-    LinearAlgebra.ldiv!(H.lu, z)
-
-    # _init_tangent!(tgt, z, w, nx, nu, size(v, 2))
-    # jv .= Ju * v .- Jx * z
-    # TODO
-    tgt = [-z ; v]
-    mul!(jm, J, tgt)
+    direct_reduction!(nlp.reduction, jm, J, Gu, v)
     return
 end
 

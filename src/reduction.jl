@@ -14,11 +14,12 @@ abstract type AbstractReduction end
 function init_tangent!(tgt::AbstractArray, z::AbstractArray, w::AbstractArray, nx, nu)
     nbatch = size(tgt, 2)
     for i in 1:nbatch
-        mxu = 1 + (i-1)*(nx+nu)
-        mx = 1 + (i-1)*nx
-        mu = 1 + (i-1)*nu
-        copyto!(tgt, mxu,    z, mx, nx)
-        copyto!(tgt, mxu+nx, w, mu, nu)
+        for j in 1:nx
+            @inbounds tgt[j, i] = z[j, i]
+        end
+        for j in 1:nu
+            @inbounds tgt[j+nx, i] = w[j, i]
+        end
     end
 end
 
@@ -30,6 +31,27 @@ end
 function split_array!(src::AbstractMatrix, dfx::AbstractMatrix, dfu::AbstractMatrix, nx, nu)
     dfx .= @view src[1:nx, :]
     dfu .= @view src[nx+1:nx+nu, :]
+    return
+end
+
+#=
+    Direct reduction
+    Operator [I ; -inv(Gx) * Gu]
+=#
+function direct_reduction!(red::AbstractReduction, jvec, J, Gu, w)
+    @assert size(w, 2) == n_batches(red)
+    # Load variables
+    nx, nu = red.nx, red.nu
+    nbatch = n_batches(red)
+    tgt = red.tmp_tgt
+    z = red.z
+
+    # Step 1: solve linear system inv(Gx) * Gu * w
+    mul!(z, Gu, w, -1.0, 0.0)
+    LinearAlgebra.ldiv!(red.lu, z)
+
+    init_tangent!(tgt, z, w, nx, nu)
+    mul!(jvec, J, tgt)
     return
 end
 
