@@ -65,8 +65,9 @@ mutable struct ReducedSpaceEvaluator{T, VI, VT, MT, Jacx, Jacu, JacCons, Hess, H
     model::ExaPF.PolarForm{T, VI, VT, MT}
     nx::Int
     nu::Int
-    mapx::Vector{Int}
-    mapu::Vector{Int}
+    mapx::VI
+    mapu::VI
+    mapxu::VI
 
     # Expressions
     basis::ExaPF.AbstractExpression
@@ -74,8 +75,12 @@ mutable struct ReducedSpaceEvaluator{T, VI, VT, MT, Jacx, Jacu, JacCons, Hess, H
     constraints::ExaPF.AbstractExpression
 
     # Buffers
+    obj::T
+    cons::VT
     grad::VT
     multipliers::VT
+    wu::VT
+    wx::VT
     λ::VT # adjoint of objective
     μ::VT # adjoint of Lagrangian
 
@@ -101,9 +106,11 @@ mutable struct ReducedSpaceEvaluator{T, VI, VT, MT, Jacx, Jacu, JacCons, Hess, H
     powerflow_solver::ExaPF.AbstractNonLinearSolver
     pf_buffer::ExaPF.NLBuffer{VT}
     is_jacobian_updated::Bool
+    is_hessian_objective_updated::Bool
+    is_hessian_lagrangian_updated::Bool
     is_adjoint_objective_updated::Bool
     is_adjoint_lagrangian_updated::Bool
-	etc::Dict{Symbol, Any}
+    etc::Dict{Symbol, Any}
 end
 
 function ReducedSpaceEvaluator(
@@ -118,6 +125,7 @@ function ReducedSpaceEvaluator(
     # Load mapping
     mapx = ExaPF.my_map(model, State())
     mapu = ExaPF.my_map(model, Control())
+    mapxu = [mapx; mapu]
     nx = length(mapx)
     nu = length(mapu)
 
@@ -139,23 +147,30 @@ function ReducedSpaceEvaluator(
     stack = ExaPF.NetworkStack(model)
     ∂stack = ExaPF.NetworkStack(model)
     # Buffers
+    obj = Inf
+    cons = VT(undef, m)
+    wx = VT(undef, nx)
+    wu = VT(undef, nu)
     grad = VT(undef, nx+nu)
     y = VT(undef, m + nx + 1)
     λ = VT(undef, nx)
     μ = VT(undef, nx)
     pf_buffer = ExaPF.NLBuffer{VT}(nx)
 
-    u_min, u_max = ExaPF.bounds(model, Control())
+    s_min, s_max = ExaPF.bounds(model, stack)
+    u_min, u_max = s_min[mapu], s_max[mapu]
     g_min, g_max = ExaPF.bounds(model, constraints)
+    # Remove bounds below a given threshold
+    g_max = min.(g_max, 1e5)
 
     # Jacobians
     Gx = ExaPF.MyJacobian(model, powerflow ∘ basis, mapx)
     Gu = ExaPF.MyJacobian(model, powerflow ∘ basis, mapu)
-    jac = ExaPF.MyJacobian(model, constraints ∘ basis, [mapx; mapu])
+    jac = ExaPF.MyJacobian(model, constraints ∘ basis, mapxu)
     # Hessian of Lagrangian
     lagrangian_expr = [costs; powerflow; constraints_expr]
     lagrangian = ExaPF.MultiExpressions(lagrangian_expr)
-    hess = ExaPF.FullHessian(model, lagrangian ∘ basis, [mapx; mapu])
+    hess = ExaPF.FullHessian(model, lagrangian ∘ basis, mapxu)
 
     # Build Linear Algebra
     J = Gx.J
@@ -169,15 +184,15 @@ function ReducedSpaceEvaluator(
     etc = Dict{Symbol, Any}()
 
     return ReducedSpaceEvaluator{T,VI,VT,MT,typeof(Gx),typeof(Gu),typeof(jac),typeof(hess),Nothing}(
-        model, nx, nu, mapx, mapu,
+        model, nx, nu, mapx, mapu, mapxu,
         basis, costs, constraints,
-        grad, y, λ, μ,
+        obj, cons, grad, y, wu, wx, λ, μ,
         u_min, u_max, g_min, g_max,
         stack, ∂stack,
         Gx, Gu, jac, hess, redop,
         _linear_solver,
         powerflow_solver, pf_buffer,
-        false, false, false, etc,
+        false, false, false, false, false, etc,
     )
 end
 function ReducedSpaceEvaluator(datafile::String; device=ExaPF.CPU(), options...)
@@ -240,8 +255,10 @@ end
 # end
 
 # Initial position
-function initial(nlp::ReducedSpaceEvaluator)
-    return nlp.stack.input[nlp.mapu]
+function initial(nlp::ReducedSpaceEvaluator{T, VI, VT, MT}) where {T, VI, VT, MT}
+    u = VT(undef, nlp.nu)
+    copyto!(u, nlp.stack, nlp.mapu)
+    return u
 end
 
 # Bounds
@@ -251,7 +268,7 @@ bounds(nlp::ReducedSpaceEvaluator, ::Constraints) = (nlp.g_min, nlp.g_max)
 ## Callbacks
 function update!(nlp::ReducedSpaceEvaluator, u)
     # Transfer control u into the network cache
-    nlp.stack.input[nlp.mapu] .= u
+    copyto!(nlp.stack, nlp.mapu, u)
 
     # Get corresponding point on the manifold
     conv = ExaPF.nlsolve!(
@@ -266,8 +283,10 @@ function update!(nlp::ReducedSpaceEvaluator, u)
         return conv
     end
 
-    # Update basis
+    # Full forward pass
     nlp.basis(nlp.stack.ψ, nlp.stack)
+    nlp.obj = nlp.costs(nlp.stack)[1]
+    nlp.constraints(nlp.cons, nlp.stack)
 
     # Evaluate Jacobian of power flow equation on current u
     ExaPF.jacobian!(nlp.Gu, nlp.stack)
@@ -275,6 +294,8 @@ function update!(nlp::ReducedSpaceEvaluator, u)
     nlp.is_jacobian_updated = false
     nlp.is_adjoint_lagrangian_updated = false
     nlp.is_adjoint_objective_updated = false
+    nlp.is_hessian_objective_updated = false
+    nlp.is_hessian_lagrangian_updated = false
 
     Gx = nlp.Gx.J
     LS.update!(nlp.linear_solver, Gx)
@@ -283,8 +304,8 @@ function update!(nlp::ReducedSpaceEvaluator, u)
     return conv
 end
 
-objective(nlp::ReducedSpaceEvaluator, u) = nlp.costs(nlp.stack)[1]
-constraint!(nlp::ReducedSpaceEvaluator, cons, u) = nlp.constraints(cons, nlp.stack)
+objective(nlp::ReducedSpaceEvaluator, u) = nlp.obj
+constraint!(nlp::ReducedSpaceEvaluator, cons, u) = copyto!(cons, nlp.cons)
 
 ###
 # First-order code
@@ -304,7 +325,7 @@ function _adjoint_solve!(
     ∇fu = @view ∇f[1+nx:nx+nu]
 
     # λ = ∇gₓ' \ ∂fₓ
-    LS.rsolve!(nlp.linear_solver, λ, ∇fx)
+    LS.rdiv!(nlp.linear_solver, λ, ∇fx)
 
     grad .= ∇fu
     mul!(grad, transpose(Gu), λ, -1.0, 1.0)
@@ -313,11 +334,11 @@ end
 
 function gradient!(nlp::ReducedSpaceEvaluator, grad, u)
     ∇f = nlp.grad
+    objective(nlp, u)
     ExaPF.empty!(nlp.∂stack)
     ExaPF.adjoint!(nlp.costs, nlp.∂stack, nlp.stack, 1.0)
     ExaPF.adjoint!(nlp.basis, nlp.∂stack, nlp.stack, nlp.∂stack.ψ)
-    mapxu = [nlp.mapx; nlp.mapu]
-    ∇f .= nlp.∂stack.input[mapxu]
+    copyto!(∇f, nlp.∂stack, nlp.mapxu)
     _adjoint_solve!(nlp, grad, ∇f, u, nlp.λ)
     nlp.is_adjoint_objective_updated = true
     return
@@ -348,6 +369,7 @@ function jprod!(nlp::ReducedSpaceEvaluator, jm, u, v)
 
     # _init_tangent!(tgt, z, w, nx, nu, size(v, 2))
     # jv .= Ju * v .- Jx * z
+    # TODO
     tgt = [-z ; v]
     mul!(jm, J, tgt)
     return
@@ -358,9 +380,8 @@ function jtprod!(nlp::ReducedSpaceEvaluator, jv, u, v)
     empty!(nlp.∂stack)
     ExaPF.adjoint!(nlp.constraints, nlp.∂stack, nlp.stack, v)
     ExaPF.adjoint!(nlp.basis, nlp.∂stack, nlp.stack, nlp.∂stack.ψ)
-    mapxu = [nlp.mapx; nlp.mapu]
-    grad .= nlp.∂stack.input[mapxu]
-    μ = view(nlp.grad, 1:nlp.nx)
+    copyto!(grad, nlp.∂stack, nlp.mapxu)
+    μ = nlp.wx
     _adjoint_solve!(nlp, jv, grad, u, μ)
 end
 
@@ -373,9 +394,7 @@ function ojtprod!(nlp::ReducedSpaceEvaluator, jv, u, σ, v)
     ExaPF.adjoint!(nlp.constraints, nlp.∂stack, nlp.stack, v)
     # Accumulate adjoint / basis
     ExaPF.adjoint!(nlp.basis, nlp.∂stack, nlp.stack, nlp.∂stack.ψ)
-
-    mapxu = [nlp.mapx; nlp.mapu]
-    grad .= nlp.∂stack.input[mapxu]
+    copyto!(grad, nlp.∂stack, nlp.mapxu)
     # Evaluate gradient in reduced space
     _adjoint_solve!(nlp, jv, grad, u, nlp.μ)
     nlp.is_adjoint_lagrangian_updated = true
@@ -387,93 +406,16 @@ end
 ####
 # Single version
 function update_full_hessian!(nlp::ReducedSpaceEvaluator, y::AbstractVector)
-    ExaPF.hessian!(nlp.hess, nlp.stack, y)
-end
-
-function full_hessprod!(nlp::ReducedSpaceEvaluator, hv::AbstractVector, y::AbstractVector, tgt::AbstractVector)
-    nx, nu = ExaPF.get(nlp.model, ExaPF.NumberOfState()), ExaPF.get(nlp.model, ExaPF.NumberOfControl())
-    H = nlp.hess.H
-    mul!(hv, H, tgt)
-    ∂fₓ = @view hv[1:nx]
-    ∂fᵤ = @view hv[nx+1:nx+nu]
-    return ∂fₓ , ∂fᵤ
-end
-
-# Batch version
-#
-## Auxiliary functions
-function _fetch_batch_hessprod!(dfx::AbstractArray, dfu::AbstractArray, hv::AbstractArray, nx, nu)
-    dfx .= @view hv[1:nx, :]
-    dfu .= @view hv[nx+1:nx+nu, :]
-    return
-end
-
-function _init_tangent!(tgt::AbstractArray, z::AbstractArray, w::AbstractArray, nx, nu, nbatch)
-    for i in 1:nbatch
-        mxu = 1 + (i-1)*(nx+nu)
-        mx = 1 + (i-1)*nx
-        mu = 1 + (i-1)*nu
-        copyto!(tgt, mxu,    z, mx, nx)
-        copyto!(tgt, mxu+nx, w, mu, nu)
+    if !nlp.is_hessian_updated
+        nlp.is_hessian_updated = true
     end
 end
-
-function full_hessprod!(nlp::ReducedSpaceEvaluator, hv::AbstractMatrix, y::AbstractMatrix, tgt::AbstractMatrix)
-    nx, nu = ExaPF.get(nlp.model, ExaPF.NumberOfState()), ExaPF.get(nlp.model, ExaPF.NumberOfControl())
-    H = nlp.hess.H
-    mul!(hv, H, tgt)
-    # Use buffers to avoid large allocations on the GPU
-    ∂fₓ = H._w2
-    ∂fᵤ = H._w3
-    _fetch_batch_hessprod!(∂fₓ, ∂fᵤ, hv, nx, nu) # Overload this function on the GPU
-    return ∂fₓ , ∂fᵤ
-end
-
-function _hessprod!(nlp::ReducedSpaceEvaluator, hessvec, u, w, y)
-    @assert nlp.reduction != nothing
-    update_full_hessian!(nlp, y)
-    nx, nu = nlp.nx, nlp.nu
-    nbatch = size(w, 2)
-
-    Gu = nlp.Gu.J
-
-    # Number of batches
-
-    # Load variables and buffers
-    tgt = nlp.reduction.tmp_tgt
-    hv = nlp.reduction.tmp_hv
-    z = nlp.reduction.z
-    ψ = nlp.reduction.ψ
-
-    # First-order adjoint
-    λ = nlp.λ
-
-    # Step 1: computation of first second-order adjoint
-    mul!(z, Gu, w, -1.0, 0.0)
-    LinearAlgebra.ldiv!(nlp.reduction.lu, z)
-
-    # Init tangent with z and w
-    _init_tangent!(tgt, z, w, nx, nu, nbatch)
-
-    # STEP 2: AutoDiff
-    ∂fₓ, ∂fᵤ = full_hessprod!(nlp, hv, y, tgt)
-
-    # STEP 3: computation of second second-order adjoint
-    copyto!(ψ, ∂fₓ)
-    LinearAlgebra.ldiv!(nlp.reduction.adjlu, ψ)
-
-    hessvec .= ∂fᵤ
-    mul!(hessvec, transpose(Gu), ψ, -1.0, 1.0)
-
-    return
-end
-
 function hessprod!(nlp::ReducedSpaceEvaluator, hessvec, u, w)
     nx, nu = nlp.nx, nlp.nu
     m = length(nlp.constraints)
     # Check that the first-order adjoint is correct
     if !nlp.is_adjoint_objective_updated
-        g = view(nlp.grad, nx+1:nx+nu)
+        g = nlp.wu
         gradient!(nlp, g, u)
     end
     y = nlp.multipliers
@@ -481,7 +423,15 @@ function hessprod!(nlp::ReducedSpaceEvaluator, hessvec, u, w)
     fill!(y, 0.0)
     y[1] = 1.0         # / objective
     y[2:nx+1] .-= nlp.λ       # / power balance
-    _hessprod!(nlp, hessvec, u, w, y)
+    # Update Hessian
+    if !nlp.is_hessian_objective_updated
+        ExaPF.hessian!(nlp.hess, nlp.stack, y)
+        nlp.is_hessian_objective_updated = true
+        nlp.is_hessian_lagrangian_updated = false
+    end
+    H = nlp.hess.H
+    Gu = nlp.Gu.J
+    adjoint_adjoint_reduction!(nlp.reduction, hessvec, H, Gu, w)
 end
 
 function hessian_lagrangian_prod!(
@@ -490,7 +440,7 @@ function hessian_lagrangian_prod!(
     nx, nu = nlp.nx, nlp.nu
     m = length(nlp.constraints)
     if !nlp.is_adjoint_lagrangian_updated
-        g = view(nlp.grad, nx+1:nx+nu)
+        g = nlp.wu
         ojtprod!(nlp, g, u, σ, μ)
     end
     y = nlp.multipliers
@@ -498,8 +448,17 @@ function hessian_lagrangian_prod!(
     fill!(y, 0.0)
     y[1] = σ           # / objective
     y[2:nx+1] .-= nlp.μ       # / power balance
-    y[nx+2:nx+1+m] .= μ       # / power balance
-    _hessprod!(nlp, hessvec, u, w, y)
+    y[nx+2:nx+1+m] .= μ       # / constraints
+    # Update Hessian
+    if !nlp.is_hessian_lagrangian_updated
+        ExaPF.hessian!(nlp.hess, nlp.stack, y)
+        nlp.is_hessian_lagrangian_updated = true
+        nlp.is_hessian_objective_updated = false
+    end
+    # Get sparse matrices
+    H = nlp.hess.H
+    Gu = nlp.Gu.J
+    adjoint_adjoint_reduction!(nlp.reduction, hessvec, H, Gu, w)
 end
 
 function hessian_lagrangian_penalty_prod!(
@@ -659,6 +618,11 @@ function reset!(nlp::ReducedSpaceEvaluator)
     empty!(nlp.stack)
     empty!(nlp.∂stack)
     ExaPF.init!(nlp.model, nlp.stack)
+    nlp.is_jacobian_updated = false
+    nlp.is_hessian_lagrangian_updated = false
+    nlp.is_hessian_objective_updated = false
+    nlp.is_adjoint_lagrangian_updated = false
+    nlp.is_adjoint_objective_updated = false
     return
 end
 

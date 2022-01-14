@@ -12,13 +12,12 @@ import BlockPowerFlow: CUSOLVERRF
 
 const LS = LinearSolvers
 
-#=
-    ExaPF.LinearSolvers
-=#
-ExaPF.default_sparse_matrix(::CUDADevice) = CUSPARSE.CuSparseMatrixCSR
-
 # Overload factorization routine to use cusolverRF
 LS.DirectSolver(J::CuSparseMatrixCSR) = LS.DirectSolver(CUSOLVERRF.CusolverRfLU(J))
+
+function LS.update!(s::LS.DirectSolver{Fac}, J::CuSparseMatrixCSR) where {Fac <: Factorization}
+    lu!(s.factorization, J) # Update factorization inplace with transpose matrix
+end
 
 function LS.rdiv!(s::LS.DirectSolver{Fac}, y::CuVector, J::CuSparseMatrixCSR, x::CuVector) where {Fac}
     Jt = CuSparseMatrixCSC(J) # Transpose of CSR is CSC
@@ -131,7 +130,7 @@ end
     end
 end
 
-function Argos._init_tangent!(tgt::CuMatrix, z::CuMatrix, w::CuMatrix, nx, nu, nbatch)
+function Argos.init_tangent!(tgt::CuMatrix, z::CuMatrix, w::CuMatrix, nx, nu)
     ndrange = size(tgt)
     ev = _init_tangent_kernel!(CUDADevice())(tgt, z, w, nx, nu, nbatch, ndrange=ndrange, dependencies=Event(CUDADevice()))
     wait(ev)
@@ -144,7 +143,7 @@ function test_init_tangent!(tgt::Matrix, z::Matrix, w::Matrix, nx, nu, nbatch)
 end
 
 #=
-    Argos._fetch_batch_hessprod!
+    Argos.split_array!
 =#
 @kernel function _fetch_batch_hessprod_kernel!(dfx, dfu, hv, nx, nu)
     i, j = @index(Global, NTuple)
@@ -155,7 +154,7 @@ end
     end
 end
 
-function Argos._fetch_batch_hessprod!(dfx::CuMatrix, dfu::CuMatrix, hv::CuMatrix, nx, nu)
+function Argos.split_array!(hv::CuMatrix, dfx::CuMatrix, dfu::CuMatrix, nx, nu)
     ndrange = size(hv)
     ev = _fetch_batch_hessprod_kernel!(CUDADevice())(dfx, dfu, hv, nx, nu,
                                                      ndrange=ndrange, dependencies=Event(CUDADevice()))
