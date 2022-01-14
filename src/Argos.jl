@@ -16,6 +16,7 @@ using NLPModels
 using MadNLP
 
 include("utils.jl")
+include("reduction.jl")
 include("Evaluators/Evaluators.jl")
 
 # Wrappers
