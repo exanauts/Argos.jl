@@ -137,9 +137,8 @@ struct BatchReduction{MT,Fac1,Fac2} <: AbstractReduction
 end
 
 function BatchReduction(polar::PolarForm{T, VI, VT, MT}, J, nbatch, ncons) where {T, VI, VT, MT}
-    lu1, lu2 = _batch_hessian_factorization(J, nbatch)
-    nx, nu = ExaPF.get(polar, ExaPF.NumberOfState()), ExaPF.get(polar, ExaPF.NumberOfControl())
-    m = ExaPF.size_constraint(polar, func)::Int
+    lu1, lu2 = batch_factorization(J, nbatch)
+    nx, nu = ExaPF.number(polar, ExaPF.State()), ExaPF.number(polar, ExaPF.Control())
     z   = MT(undef, nx, nbatch)
     ψ   = MT(undef, nx, nbatch)
     tgt = MT(undef, nx+nu, nbatch)

@@ -19,7 +19,7 @@ function LS.update!(s::LS.DirectSolver{Fac}, J::CuSparseMatrixCSR) where {Fac <:
     lu!(s.factorization, J) # Update factorization inplace with transpose matrix
 end
 
-function LS.rdiv!(s::LS.DirectSolver{Fac}, y::CuVector, J::CuSparseMatrixCSR, x::CuVector) where {Fac}
+function LS.rdiv!(s::LS.DirectSolver{Fac}, y::CuVector, J::CuSparseMatrixCSR, x::CuVector) where {Fac <: CUSOLVERRF.CusolverRfLU}
     Jt = CuSparseMatrixCSC(J) # Transpose of CSR is CSC
     lu!(s.factorization, Jt) # Update factorization inplace with transpose matrix
     LinearAlgebra.ldiv!(y, s.factorization, x) # Forward-backward solve
@@ -27,7 +27,7 @@ function LS.rdiv!(s::LS.DirectSolver{Fac}, y::CuVector, J::CuSparseMatrixCSR, x:
 end
 
 # Overload factorization for batch Hessian computation
-function Argos._batch_hessian_factorization(J::CuSparseMatrixCSR, nbatch)
+function Argos.batch_factorization(J::CuSparseMatrixCSR, nbatch)
     Jtrans = CUSPARSE.CuSparseMatrixCSC(J)
     if nbatch == 1
         lufac = CUSOLVERRF.CusolverRfLU(J)
@@ -39,7 +39,7 @@ function Argos._batch_hessian_factorization(J::CuSparseMatrixCSR, nbatch)
     return (lufac, lufact)
 end
 
-function Argos.update_factorization!(hlag::Argos.AbstractHessianStorage, J::CUSPARSE.CuSparseMatrixCSR)
+function Argos.update_factorization!(hlag::Argos.AbstractReduction, J::CUSPARSE.CuSparseMatrixCSR)
     LinearAlgebra.lu!(hlag.lu, J)
     ∇gₓᵀ = CUSPARSE.CuSparseMatrixCSC(J)
     LinearAlgebra.lu!(hlag.adjlu, ∇gₓᵀ)
@@ -131,6 +131,7 @@ end
 end
 
 function Argos.init_tangent!(tgt::CuMatrix, z::CuMatrix, w::CuMatrix, nx, nu)
+    nbatch = size(tgt, 2)
     ndrange = size(tgt)
     ev = _init_tangent_kernel!(CUDADevice())(tgt, z, w, nx, nu, nbatch, ndrange=ndrange, dependencies=Event(CUDADevice()))
     wait(ev)

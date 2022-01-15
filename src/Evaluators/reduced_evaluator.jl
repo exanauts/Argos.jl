@@ -61,7 +61,7 @@ and the by-product `y`. Each time we are calling the method `update!`,
 the values of the control are copied into the buffer.
 
 """
-mutable struct ReducedSpaceEvaluator{T, VI, VT, MT, Jacx, Jacu, JacCons, Hess, HessLag} <: AbstractNLPEvaluator
+mutable struct ReducedSpaceEvaluator{T, VI, VT, MT, Jacx, Jacu, JacCons, Hess, MyReduction} <: AbstractNLPEvaluator
     model::ExaPF.PolarForm{T, VI, VT, MT}
     nx::Int
     nu::Int
@@ -99,12 +99,12 @@ mutable struct ReducedSpaceEvaluator{T, VI, VT, MT, Jacx, Jacu, JacCons, Hess, H
     jac::JacCons
 
     hess::Hess
-    reduction::Reduction
+    reduction::MyReduction
 
     # Options
     linear_solver::LS.AbstractLinearSolver
     powerflow_solver::ExaPF.AbstractNonLinearSolver
-    pf_buffer::ExaPF.NLBuffer{VT}
+    pf_buffer::ExaPF.NLBuffer
     is_jacobian_updated::Bool
     is_hessian_objective_updated::Bool
     is_hessian_lagrangian_updated::Bool
@@ -118,7 +118,7 @@ function ReducedSpaceEvaluator(
     line_constraints=true,
     linear_solver=nothing,
     backward_solver=nothing,
-    powerflow_solver=NewtonRaphson(tol=1e-12),
+    powerflow_solver=NewtonRaphson(tol=1e-10),
     want_jacobian=true,
     nbatch_hessian=1,
 ) where {T, VI, VT, MT}
@@ -183,7 +183,7 @@ function ReducedSpaceEvaluator(
 
     etc = Dict{Symbol, Any}()
 
-    return ReducedSpaceEvaluator{T,VI,VT,MT,typeof(Gx),typeof(Gu),typeof(jac),typeof(hess),Nothing}(
+    return ReducedSpaceEvaluator{T,VI,VT,MT,typeof(Gx),typeof(Gu),typeof(jac),typeof(hess),typeof(redop)}(
         model, nx, nu, mapx, mapu, mapxu,
         basis, costs, constraints,
         obj, cons, grad, y, wu, wx, λ, μ,
@@ -285,7 +285,7 @@ function update!(nlp::ReducedSpaceEvaluator, u)
 
     # Full forward pass
     nlp.basis(nlp.stack.ψ, nlp.stack)
-    nlp.obj = nlp.costs(nlp.stack)[1]
+    nlp.obj = sum(nlp.costs(nlp.stack))
     nlp.constraints(nlp.cons, nlp.stack)
 
     # Evaluate Jacobian of power flow equation on current u
@@ -325,7 +325,7 @@ function _adjoint_solve!(
     ∇fu = @view ∇f[1+nx:nx+nu]
 
     # λ = ∇gₓ' \ ∂fₓ
-    LS.rdiv!(nlp.linear_solver, λ, ∇fx)
+    LS.rdiv!(nlp.linear_solver, λ,∇fx)
 
     grad .= ∇fu
     mul!(grad, transpose(Gu), λ, -1.0, 1.0)
@@ -334,7 +334,6 @@ end
 
 function gradient!(nlp::ReducedSpaceEvaluator, grad, u)
     ∇f = nlp.grad
-    objective(nlp, u)
     ExaPF.empty!(nlp.∂stack)
     ExaPF.adjoint!(nlp.costs, nlp.∂stack, nlp.stack, 1.0)
     ExaPF.adjoint!(nlp.basis, nlp.∂stack, nlp.stack, nlp.∂stack.ψ)
@@ -427,7 +426,7 @@ function hessian_lagrangian_prod!(
     y = nlp.multipliers
     # Init adjoint
     fill!(y, 0.0)
-    y[1] = σ           # / objective
+    y[1:1] .= σ           # / objective
     y[2:nx+1] .-= nlp.μ       # / power balance
     y[nx+2:nx+1+m] .= μ       # / constraints
     # Update Hessian
