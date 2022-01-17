@@ -3,75 +3,73 @@ mutable struct FullSpaceEvaluator{T, VI, VT, MT, JacCons, HessLag} <: AbstractNL
     model::ExaPF.PolarForm{T, VI, VT, MT}
     nx::Int
     nu::Int
+    mapxu::VI
+
+    # Expressions
+    basis::ExaPF.AbstractExpression
+    costs::ExaPF.AbstractExpression
+    constraints::ExaPF.AbstractExpression
+
+    _obj::T
+    _cons::VT
+    _multipliers::VT
+
     x_min::VT
     x_max::VT
-    u_min::VT
-    u_max::VT
-
-    constraints::Vector{Function}
     g_min::VT
     g_max::VT
 
     # Cache
-    buffer::ExaPF.PolarNetworkState{VI, VT}
-    # AutoDiff
-    obj_stack::AutoDiff.TapeMemory{typeof(ExaPF.cost_production), ExaPF.AdjointStackObjective{VT}, Nothing}
-    cons_stacks::Vector{AutoDiff.TapeMemory} # / constraints
-    constraint_jacobians::JacCons
-    hesslag::HessLag
+    stack::ExaPF.ExaPF.NetworkStack
+    ∂stack::ExaPF.ExaPF.NetworkStack
+
+    jac::JacCons
+    hess::HessLag
 end
 
 function FullSpaceEvaluator(
     model::PolarForm{T, VI, VT, MT};
     line_constraints=true,
 ) where {T, VI, VT, MT}
-    # First, build up a network buffer
-    buffer = ExaPF.get(model, ExaPF.PhysicalState())
-    # Populate buffer with default values of the network, as stored inside model
-    ExaPF.init_buffer!(model, buffer)
+    # Load mapping
+    mapx = ExaPF.my_map(model, State())
+    mapu = ExaPF.my_map(model, Control())
+    mapxu = [mapx; mapu]
+    nx = length(mapx)
+    nu = length(mapu)
 
-    u_min, u_max = ExaPF.bounds(model, Control())
-    x_min, x_max = ExaPF.bounds(model, State())
-
-    constraints = Function[
-        ExaPF.power_balance,
-        ExaPF.active_power_constraints,
-        ExaPF.reactive_power_constraints
+    # Expressions
+    basis = ExaPF.PolarBasis(model)
+    costs = ExaPF.CostFunction(model)
+    powerflow = ExaPF.PowerFlowBalance(model)
+    constraints_expr = [
+        ExaPF.PowerFlowBalance(model),
+        ExaPF.PowerGenerationBounds(model),
     ]
     if line_constraints
-        push!(constraints, ExaPF.flow_constraints)
+        push!(constraints_expr, ExaPF.LineFlows(model))
     end
+    constraints = ExaPF.MultiExpressions(constraints_expr)
+    m = length(constraints)
 
-    m = sum(Int[ExaPF.size_constraint(model, cons)::Int for cons in constraints])
-    g_min = VT(undef, m)
-    g_max = VT(undef, m)
+    stack = ExaPF.NetworkStack(model)
+    ∂stack = ExaPF.NetworkStack(model)
+    # Buffers
+    obj = Inf
+    cons = VT(undef, m)
+    y = VT(undef, m + 1)
 
-    shift = 1
-    for cons in constraints
-        cb, cu = ExaPF.bounds(model, cons)
-        m = ExaPF.size_constraint(model, cons)
-        copyto!(g_min, shift, cb, 1, m)
-        copyto!(g_max, shift, cu, 1, m)
-        shift += m
-    end
+    s_min, s_max = ExaPF.bounds(model, stack)
+    x_min, x_max = s_min[mapxu], s_max[mapxu]
 
-    obj_ad = ExaPF.pullback_objective(model)
-    cons_ad = AutoDiff.TapeMemory[]
-    for cons in constraints
-        push!(cons_ad, AutoDiff.TapeMemory(model, cons, VT))
-    end
+    g_min, g_max = ExaPF.bounds(model, constraints)
+    # Remove bounds below a given threshold
+    g_max = min.(g_max, 1e5)
 
-    # Init Jacobian + coloring.
-    # All results in CSC format.
-    cons_jac = ExaPF.ConstraintsJacobianStorage(model, constraints)
-
-    # Hessians
-    m = length(g_min)
-    func = line_constraints ? ExaPF.network_line_operations : ExaPF.network_operations
-    hess_ad = FullHessianLagrangian(model, func, buffer)
-
-    nx = length(x_min)
-    nu = length(u_min)
+    jac = ExaPF.MyJacobian(model, constraints ∘ basis, mapxu)
+    lagrangian_expr = [costs; constraints_expr]
+    lagrangian = ExaPF.MultiExpressions(lagrangian_expr)
+    hess = ExaPF.FullHessian(model, lagrangian ∘ basis, mapxu)
 
     return FullSpaceEvaluator(
         model, nx, nu, x_min, x_max, u_min, u_max,
@@ -87,7 +85,7 @@ end
 backend(nlp::FullSpaceEvaluator) = nlp.model
 inner_evaluator(nlp::FullSpaceEvaluator) = nlp
 
-n_variables(nlp::FullSpaceEvaluator) = length(nlp.u_min) + length(nlp.x_min)
+n_variables(nlp::FullSpaceEvaluator) = nlp.nx + nlp.nu
 n_constraints(nlp::FullSpaceEvaluator) = length(nlp.g_min)
 
 constraints_type(::FullSpaceEvaluator) = :inequality
@@ -101,13 +99,11 @@ function Base.get(nlp::FullSpaceEvaluator, ::State)
     ExaPF.get!(nlp.model, State(), x, nlp.buffer)
     return x
 end
-Base.get(nlp::FullSpaceEvaluator, ::ExaPF.PhysicalState) = nlp.buffer
 
 # Physics
-Base.get(nlp::FullSpaceEvaluator, ::PS.VoltageMagnitude) = nlp.buffer.vmag
-Base.get(nlp::FullSpaceEvaluator, ::PS.VoltageAngle) = nlp.buffer.vang
-Base.get(nlp::FullSpaceEvaluator, ::PS.ActivePower) = nlp.buffer.pgen
-Base.get(nlp::FullSpaceEvaluator, ::PS.ReactivePower) = nlp.buffer.qgen
+Base.get(nlp::FullSpaceEvaluator, ::PS.VoltageMagnitude) = nlp.stack.vmag
+Base.get(nlp::FullSpaceEvaluator, ::PS.VoltageAngle) = nlp.stack.vang
+Base.get(nlp::FullSpaceEvaluator, ::PS.ActivePower) = nlp.stack.pgen
 function Base.get(nlp::FullSpaceEvaluator, attr::PS.AbstractNetworkAttribute)
     return ExaPF.get(nlp.model, attr)
 end
@@ -135,162 +131,100 @@ function transfer!(
 end
 
 # Initial position
-function initial(nlp::FullSpaceEvaluator)
-    x = similar(nlp.x_min) ; fill!(x, 0.0)
-    ExaPF.get!(nlp.model, State(), x, nlp.buffer)
-    u = similar(nlp.u_min) ; fill!(u, 0.0)
-    ExaPF.get!(nlp.model, Control(), u, nlp.buffer)
-    return [x; u]
+function initial(nlp::FullSpaceEvaluator{T,VI,VT,MT}) where {T,VI,VT,MT}
+    x = VT(undef, n_variables(nlp))
+    copyto!(x, nlp.stack, nlp.mapxu)
+    return x
 end
 
 # Bounds
-bounds(nlp::FullSpaceEvaluator, ::Variables) = ([nlp.x_min; nlp.u_min], [nlp.x_max; nlp.u_max])
+bounds(nlp::FullSpaceEvaluator, ::Variables) = nlp.x_min, nlp.x_max
 bounds(nlp::FullSpaceEvaluator, ::Constraints) = (nlp.g_min, nlp.g_max)
 
 ## Callbacks
 # Update buffer with new state and control
 function update!(nlp::FullSpaceEvaluator, x)
-    x_ = view(x, 1:nlp.nx)
-    u_ = view(x, 1+nlp.nx:nlp.nx+nlp.nu)
-    ExaPF.transfer_state!(nlp.model, nlp.buffer, x_)
-    ExaPF.transfer!(nlp.model, nlp.buffer, u_)
+    copyto!(nlp.stack, nlp.mapxu, x)
+    # Full forward pass
+    nlp.basis(nlp.stack.ψ, nlp.stack)
+    nlp._obj = nlp.costs(nlp.stack)[1]
+    nlp.constraints(nlp._cons, nlp.stack)
     return true
 end
 
-function objective(nlp::FullSpaceEvaluator, x)
-    return ExaPF.cost_production(nlp.model, nlp.buffer)
-end
-
-function constraint!(nlp::FullSpaceEvaluator, c, x)
-    ϕ = nlp.buffer
-    mf = 1::Int
-    mt = 0::Int
-    for cons in nlp.constraints
-        m_ = ExaPF.size_constraint(nlp.model, cons)::Int
-        mt += m_
-        cons_ = @view(c[mf:mt])
-        cons(nlp.model, cons_, ϕ)
-        mf += m_
-    end
-end
+objective(nlp::FullSpaceEvaluator, x) = nlp._obj
+constraint!(nlp::FullSpaceEvaluator, c, x) = copyto!(c, nlp._cons)
 
 ###
 # First-order code
 ####
 function gradient!(nlp::FullSpaceEvaluator, g, x)
-    buffer = nlp.buffer
-    # Evaluate adjoint of cost function and update inplace AdjointStackObjective
-    ExaPF.gradient_objective!(nlp.model, nlp.obj_stack, buffer)
-    ∇fₓ, ∇fᵤ = nlp.obj_stack.stack.∇fₓ, nlp.obj_stack.stack.∇fᵤ
-    copyto!(g, 1, ∇fₓ, 1, nlp.nx)
-    copyto!(g, nlp.nx + 1, ∇fᵤ, 1, nlp.nu)
+    ExaPF.empty!(nlp.∂stack)
+    ExaPF.adjoint!(nlp.costs, nlp.∂stack, nlp.stack, 1.0)
+    ExaPF.adjoint!(nlp.basis, nlp.∂stack, nlp.stack, nlp.∂stack.ψ)
+    copyto!(g, nlp.∂stack, nlp.mapxu)
     return
 end
 
 function jprod!(nlp::FullSpaceEvaluator, jv, x, v)
-    ExaPF.update_full_jacobian!(nlp.model, nlp.constraint_jacobians, nlp.buffer)
+    ExaPF.jacobian!(nlp.jac, nlp.stack)
     vx = view(v, 1:nlp.nx)
     vu = view(v, nlp.nx+1:nlp.nx+nlp.nu)
-
-    Jx = nlp.constraint_jacobians.Jx
-    Ju = nlp.constraint_jacobians.Ju
-    mul!(jv, Jx, vx)
-    mul!(jv, Ju, vu, 1.0, 1.0)
+    mul!(jv, jac.J, v)
     return
 end
 
 function jtprod!(nlp::FullSpaceEvaluator, jv, x, v)
-    ExaPF.update_full_jacobian!(nlp.model, nlp.constraint_jacobians, nlp.buffer)
-    jx = view(jv, 1:nlp.nx)
-    ju = view(jv, nlp.nx+1:nlp.nx+nlp.nu)
-
-    Jx = nlp.constraint_jacobians.Jx
-    Ju = nlp.constraint_jacobians.Ju
-    mul!(jx, Jx', v)
-    mul!(ju, Ju', v)
+    ExaPF.jacobian!(nlp.jac, nlp.stack)
+    mul!(jv, Jx', v)
     return
 end
 
 function jacobian_structure(nlp::FullSpaceEvaluator)
-    Jx = nlp.constraint_jacobians.Jx
-    Ju = nlp.constraint_jacobians.Ju
-    J = [Jx Ju]
+    J = nlp.jac.J
     i, j, _ = findnz(J)
     return i, j
 end
 
-function jacobian_coo!(nlp::FullSpaceEvaluator, jac::AbstractVector, x)
-    ExaPF.update_full_jacobian!(nlp.model, nlp.constraint_jacobians, nlp.buffer)
-    Jxv = nlp.constraint_jacobians.Jx.nzval
-    Juv = nlp.constraint_jacobians.Ju.nzval
-    nnjx = length(Jxv)
-    nnju = length(Juv)
-    copyto!(jac, 1, Jxv, 1, nnjx)
-    copyto!(jac, nnjx+1, Juv, 1, nnju)
+function jacobian_coo!(nlp::FullSpaceEvaluator, jacval::AbstractVector, x)
+    ExaPF.jacobian!(nlp.jac, nlp.stack)
+    J = nlp.jac.J
+    copyto!(jacval, J.nzval)
     return
 end
 
 ###
 # Second-order code
 ####
-function set_multipliers!(nlp::FullSpaceEvaluator, y, σ)
-    nx, nu = nlp.nx, nlp.nu
-    nbus = ExaPF.get(nlp.model, ExaPF.PowerSystem.NumberOfBuses())
-
-    μ = nlp.hesslag.y
-    fill!(μ, 0.0)
-    # power flow
-    copyto!(μ, 1, y, 1, 2*nbus)
-    # objective
-    μ[2*nbus+1] = σ
-    # line flow
-    if nlp.constraints[end] == ExaPF.flow_constraints
-        m = ExaPF.size_constraint(nlp.model, ExaPF.flow_constraints)::Int
-        copyto!(μ, 2*nbus+2, y, 2*nbus+1, m)
-    end
-end
 #
 
 function hessian_lagrangian_prod!(
     nlp::FullSpaceEvaluator, hessvec, x, y, σ, w,
 )
-    H = nlp.hesslag
-    fill!(hessvec, 0.0)
-    set_multipliers!(nlp, y, σ)
+    m = n_constraints(nlp)::Int
+    nlp._multipliers[1] = σ
+    nlp._multipliers[2:m+1] .= y
 
-    AutoDiff.adj_hessian_prod!(nlp.model, H.hess, hessvec, nlp.buffer, H.y, w)
+    ExaPF.hessian!(nlp.hess, nlp.stack, nlp._multipliers)
+    H = nlp.hess.H
+    mul!(hessvec, H, w)
     return
 end
 
 function hessian_lagrangian_coo!(nlp::FullSpaceEvaluator, hess, x, y, σ)
     n = n_variables(nlp)::Int
-    hl = nlp.hesslag
-    fill!(hess, 0.0)
-    set_multipliers!(nlp, y, σ)
-
-    μ, w, hv = hl.y, hl.tgt, hl.hv
-
-    # Evaluate Hessian matrix with coloring vectors
-    for i in 1:hl.ncolors
-        copyto!(w, 1, hl.seeds, (i-1)*n+1, n)
-        fill!(hv, 0.0)
-        AutoDiff.adj_hessian_prod!(nlp.model, hl.hess, hv, nlp.buffer, μ, w)
-        copyto!(hl.compressedH, (i-1)*n+1, hv, 1, n)
-    end
-
-    # Uncompress Hessian
-    k = 1
-    for (i, j) in zip(hl.h_I, hl.h_J)
-        hess[k] = 0.5 * (hl.compressedH[j, hl.coloring[i]] + hl.compressedH[i, hl.coloring[j]])
-        k += 1
-    end
+    m = n_constraints(nlp)
+    nlp._multipliers[1] = σ
+    nlp._multipliers[2:m+1] .= y
+    ExaPF.hessian!(nlp.hess, nlp.stack, nlp._multipliers)
     return
 end
 
 # Return lower-triangular matrix
 function hessian_structure(nlp::FullSpaceEvaluator)
-    rows = nlp.hesslag.h_I
-    cols = nlp.hesslag.h_J
+    i, j, _ = findnz(nlp.hess.H)
+    rows = Int[ix for (ix, jx) in zip(i, j) if jx <= ix]
+    cols = Int[jx for (ix, jx) in zip(i, j) if jx <= ix]
     return rows, cols
 end
 
@@ -309,7 +243,12 @@ end
 
 function reset!(nlp::FullSpaceEvaluator)
     # Reset buffer
-    ExaPF.init_buffer!(nlp.model, nlp.buffer)
+    nlp._obj = Inf
+    fill!(nlp._multipliers, 0)
+    fill!(nlp._cons, 0)
+    empty!(nlp.stack)
+    empty!(nlp.∂stack)
+    ExaPF.init!(nlp.model, nlp.stack)
     return
 end
 
