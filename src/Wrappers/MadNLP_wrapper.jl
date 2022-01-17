@@ -144,4 +144,3 @@ function MadNLP.hess_dense!(m::ExaNLPModel, x, l, hess::AbstractMatrix; obj_weig
     # Evaluate full reduced Hessian in the preallocated buffer.
     hessian_lagrangian!(m.nlp, hess, m.d_x, m.d_c, obj_weight)
 end
-

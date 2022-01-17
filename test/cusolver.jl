@@ -98,73 +98,90 @@ end
 #=
     Argos.set_batch_tangents!
 =#
-@kernel function _batch_tangents_kernel!(seeds, offset, n, n_batches)
-    i, j = @index(Global, NTuple)
-    val = (i == j + offset) ? 1.0 : 0.0
-    @inbounds seeds[i, j] = val
+@kernel function _batch_tangents_kernel2!(seeds, offset, n_batches)
+    i = @index(Global, Linear)
+    @inbounds seeds[i + offset, i] = 1.0
 end
 
 function Argos.set_batch_tangents!(seeds::CuMatrix, offset, n, n_batches)
-    ndrange = (n, n_batches)
-    ev = _batch_tangents_kernel!(CUDADevice())(seeds, offset, n, n_batches, ndrange=ndrange, dependencies=Event(CUDADevice()))
+    @assert offset + n_batches <= n
+    ndrange = (n_batches)
+    fill!(seeds, 0.0)
+    ev = _batch_tangents_kernel!(CUDADevice())(
+        seeds, offset, n_batches;
+        ndrange=ndrange, dependencies=Event(CUDADevice()),
+    )
     wait(ev)
     return
 end
 
 function test_batch_tangents!(seeds::Matrix, offset, n, n_batches)
-    ndrange = (n, n_batches)
-    ev = _batch_tangents_kernel!(CPU())(seeds, offset, n, n_batches, ndrange=ndrange)
+    @assert offset + n_batches <= n
+    ndrange = (n_batches)
+    fill!(seeds, 0.0)
+    ev = _batch_tangents_kernel2!(CPU())(seeds, offset, n_batches, ndrange=ndrange)
     wait(ev)
     return
 end
 
-#=
-    Argos._init_tangent!
-=#
-@kernel function _init_tangent_kernel!(tgt, z, w, nx, nu, nbatch)
-    i, j = @index(Global, NTuple)
-    if i <= nx
-        @inbounds tgt[i, j] = z[i, j]
-    else
-        @inbounds tgt[i, j] = w[i - nx, j]
+@kernel function _tgtmul_1_kernel4!(y, A_rowPtr, A_colVal, A_nzVal, z, w, nx, nu)
+    i, k = @index(Global, NTuple)
+    @inbounds for c in A_rowPtr[i]:A_rowPtr[i+1]-1
+        j = A_colVal[c]
+        if j <= nx
+            @inbounds y[i, k] += A_nzVal[c] * z[j, k]
+        else
+            @inbounds y[i, k] += A_nzVal[c] * w[j - nx, k]
+        end
     end
 end
 
-function Argos.init_tangent!(tgt::CuMatrix, z::CuMatrix, w::CuMatrix, nx, nu)
-    nbatch = size(tgt, 2)
-    ndrange = size(tgt)
-    ev = _init_tangent_kernel!(CUDADevice())(tgt, z, w, nx, nu, nbatch, ndrange=ndrange, dependencies=Event(CUDADevice()))
-    wait(ev)
-end
 
-function test_init_tangent!(tgt::Matrix, z::Matrix, w::Matrix, nx, nu, nbatch)
-    ndrange = size(tgt)
-    ev = _init_tangent_kernel!(CPU())(tgt, z, w, nx, nu, nbatch, ndrange=ndrange)
-    wait(ev)
-end
-
-#=
-    Argos.split_array!
-=#
-@kernel function _fetch_batch_hessprod_kernel!(dfx, dfu, hv, nx, nu)
-    i, j = @index(Global, NTuple)
-    if i <= nx
-        @inbounds dfx[i, j] = hv[i, j]
-    else
-        @inbounds dfu[i - nx, j] = hv[i, j]
+@kernel function _tgtmul_2_kernel!(yx, yu, A_rowPtr, A_colVal, A_nzVal, z, w, nx, nu)
+    i, k = @index(Global, NTuple)
+    @inbounds for c in A_rowPtr[i]:A_rowPtr[i+1]-1
+        j = A_colVal[c]
+        if (i <= nx) && (j <= nx)
+            @inbounds yx[i, k] += A_nzVal[c] * z[j, k]
+        elseif (i <= nx) && (j <= nx + nu)
+            @inbounds yx[i, k] += A_nzVal[c] * w[j - nx, k]
+        elseif (i <= nx + nu) && (j <= nx)
+            @inbounds yu[i - nx, k] += A_nzVal[c] * z[j, k]
+        elseif (i <= nx + nu) && (j <= nx + nu)
+            @inbounds yu[i - nx, k] += A_nzVal[c] * w[j - nx, k]
+        end
     end
 end
 
-function Argos.split_array!(hv::CuMatrix, dfx::CuMatrix, dfu::CuMatrix, nx, nu)
-    ndrange = size(hv)
-    ev = _fetch_batch_hessprod_kernel!(CUDADevice())(dfx, dfu, hv, nx, nu,
-                                                     ndrange=ndrange, dependencies=Event(CUDADevice()))
+function Argos.tgtmul!(y::AbstractArray, A::CuSparseMatrixCSR, z::AbstractArray, w::AbstractArray)
+
+    n, m = size(A)
+    nz, nw = size(z, 1), size(w, 1)
+    @assert m == nz + nw
+    @assert size(z, 2) == size(w, 2) == size(y, 2)
+    k = size(z, 2)
+    ndrange = (n, k)
+    fill!(y, 0)
+    ev = _tgtmul_1_kernel4!(CUDADevice())(
+        y, A.rowPtr, A.colVal, A.nzVal, z, w, nz, nw;
+        ndrange=ndrange, dependencies=Event(CUDADevice()),
+    )
     wait(ev)
 end
 
-function test_fetch_batch_hessprod!(dfx::Matrix, dfu::Matrix, hv::Matrix, nx, nu)
-    ndrange = size(hv)
-    ev = _fetch_batch_hessprod_kernel!(CPU())(dfx, dfu, hv, nx, nu, ndrange=ndrange)
+function Argos.tgtmul!(yx::AbstractArray, yu::AbstractArray, A::CuSparseMatrixCSR, z::AbstractArray, w::AbstractArray)
+    n, m = size(A)
+    nz, nw = size(z, 1), size(w, 1)
+    @assert m == nz + nw
+    @assert size(z, 2) == size(w, 2) == size(yx, 2) == size(yu, 2)
+    k = size(z, 2)
+    ndrange = (n, k)
+    fill!(yx, 0)
+    fill!(yu, 0)
+    ev = _tgtmul_2_kernel!(CUDADevice())(
+        yx, yu, A.rowPtr, A.colVal, A.nzVal, z, w, nz, nw;
+        ndrange=ndrange, dependencies=Event(CUDADevice()),
+    )
     wait(ev)
 end
 

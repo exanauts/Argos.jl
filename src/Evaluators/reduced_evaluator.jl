@@ -325,7 +325,7 @@ function _adjoint_solve!(
     ∇fu = @view ∇f[1+nx:nx+nu]
 
     # λ = ∇gₓ' \ ∂fₓ
-    LS.rdiv!(nlp.linear_solver, λ,∇fx)
+    LS.rdiv!(nlp.reduction.adjlu, λ,∇fx)
 
     grad .= ∇fu
     mul!(grad, transpose(Gu), λ, -1.0, 1.0)
@@ -528,7 +528,7 @@ macro define_batch_callback(function_name, target_function, args...)
             @assert has_hessian(nlp)
             @assert n_batches(reduction) > 1
             n = n_variables(nlp)
-            nbatch = size(reduction.tmp_hv, 2)
+            nbatch = n_batches(reduction)
 
             # Allocate memory for tangents
             v = reduction.tangents
