@@ -98,22 +98,28 @@ end
 #=
     Argos.set_batch_tangents!
 =#
-@kernel function _batch_tangents_kernel!(seeds, offset, n, n_batches)
-    i, j = @index(Global, NTuple)
-    val = (i == j + offset) ? 1.0 : 0.0
-    @inbounds seeds[i, j] = val
+@kernel function _batch_tangents_kernel2!(seeds, offset, n_batches)
+    i = @index(Global, Linear)
+    @inbounds seeds[i + offset, i] = 1.0
 end
 
 function Argos.set_batch_tangents!(seeds::CuMatrix, offset, n, n_batches)
-    ndrange = (n, n_batches)
-    ev = _batch_tangents_kernel!(CUDADevice())(seeds, offset, n, n_batches, ndrange=ndrange, dependencies=Event(CUDADevice()))
+    @assert offset + n_batches <= n
+    ndrange = (n_batches)
+    fill!(seeds, 0.0)
+    ev = _batch_tangents_kernel!(CUDADevice())(
+        seeds, offset, n_batches;
+        ndrange=ndrange, dependencies=Event(CUDADevice()),
+    )
     wait(ev)
     return
 end
 
 function test_batch_tangents!(seeds::Matrix, offset, n, n_batches)
-    ndrange = (n, n_batches)
-    ev = _batch_tangents_kernel!(CPU())(seeds, offset, n, n_batches, ndrange=ndrange)
+    @assert offset + n_batches <= n
+    ndrange = (n_batches)
+    fill!(seeds, 0.0)
+    ev = _batch_tangents_kernel2!(CPU())(seeds, offset, n_batches, ndrange=ndrange)
     wait(ev)
     return
 end

@@ -9,47 +9,49 @@ function batch_factorization(J::AbstractSparseMatrix, nbatch)
 end
 
 
-function tgtmul!(yx::AbstractVector, yu::AbstractVector, A::SparseMatrixCSC, z::AbstractVector, w::AbstractVector)
+function tgtmul!(yx::AbstractArray, yu::AbstractArray, A::SparseMatrixCSC, z::AbstractArray, w::AbstractArray)
     n, m = size(A)
-    nz, nw = length(z), length(w)
-    nx, nu = length(yx), length(yu)
+    p = size(yx, 2)
+    nz, nw = size(z, 1), size(w, 1)
+    nx, nu = size(yx, 1), size(yu, 1)
     @assert m == nz + nw
     @assert n == nx + nu
+    @assert p == size(yu, 2) == size(z, 2) == size(w, 2)
 
-    for i in 1:nx
-        @inbounds yx[i] = 0.0
-    end
-    for i in 1:nu
-        @inbounds yu[i] = 0.0
-    end
+    fill!(yx, 0.0)
+    fill!(yu, 0.0)
 
     @inbounds for j in 1:m
         for c in A.colptr[j]:A.colptr[j+1]-1
             i = A.rowval[c]
-            x = (j <= nz) ? z[j] : w[j - nz]
-            if i <= nx
-                yx[i] += A.nzval[c] * x
-            else
-                yu[i - nx] += A.nzval[c] * x
+            for k in 1:p
+                x = (j <= nz) ? z[j, k] : w[j - nz, k]
+                if i <= nx
+                    yx[i, k] += A.nzval[c] * x
+                else
+                    yu[i - nx, k] += A.nzval[c] * x
+                end
             end
         end
     end
 end
 
-function tgtmul!(y::AbstractVector, A::SparseMatrixCSC, z::AbstractVector, w::AbstractVector)
+function tgtmul!(y::AbstractArray, A::SparseMatrixCSC, z::AbstractArray, w::AbstractArray)
     n, m = size(A)
-    nz, nw = length(z), length(w)
+    nz, nw = size(z, 1), size(w, 1)
+    p = size(z, 2)
     @assert m == nz + nw
+    @assert p == size(z, 2) == size(w, 2)
 
-    @inbounds for i in 1:n
-        y[i] = 0.0
-    end
+    fill!(y, 0.0)
 
     @inbounds for j in 1:m
         for c in A.colptr[j]:A.colptr[j+1]-1
             i = A.rowval[c]
-            x = (j <= nz) ? z[j] : w[j - nz]
-            y[i] += A.nzval[c] * x
+            for k in 1:p
+                x = (j <= nz) ? z[j, k] : w[j - nz, k]
+                y[i, k] += A.nzval[c] * x
+            end
         end
     end
 end
