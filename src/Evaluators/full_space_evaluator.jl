@@ -41,7 +41,6 @@ function FullSpaceEvaluator(
     # Expressions
     basis = ExaPF.PolarBasis(model)
     costs = ExaPF.CostFunction(model)
-    powerflow = ExaPF.PowerFlowBalance(model)
     constraints_expr = [
         ExaPF.PowerFlowBalance(model),
         ExaPF.PowerGenerationBounds(model),
@@ -72,10 +71,10 @@ function FullSpaceEvaluator(
     hess = ExaPF.FullHessian(model, lagrangian ∘ basis, mapxu)
 
     return FullSpaceEvaluator(
-        model, nx, nu, x_min, x_max, u_min, u_max,
-        constraints, g_min, g_max,
-        buffer,
-        obj_ad, cons_ad, cons_jac, hess_ad,
+        model, nx, nu, mapxu,
+        basis, costs, constraints,
+        obj, cons, y, x_min, x_max, g_min, g_max,
+        stack, ∂stack, jac, hess,
     )
 end
 function FullSpaceEvaluator(datafile::String; device=ExaPF.CPU(), options...)
@@ -108,27 +107,6 @@ function Base.get(nlp::FullSpaceEvaluator, attr::PS.AbstractNetworkAttribute)
     return ExaPF.get(nlp.model, attr)
 end
 get_nnzh(nlp::FullSpaceEvaluator) = length(nlp.hesslag.h_V)
-
-# Setters
-function setvalues!(nlp::FullSpaceEvaluator, attr::PS.AbstractNetworkValues, values)
-    ExaPF.setvalues!(nlp.model, attr, values)
-end
-function setvalues!(nlp::FullSpaceEvaluator, attr::PS.ActiveLoad, values)
-    ExaPF.setvalues!(nlp.buffer, attr, values)
-end
-function setvalues!(nlp::FullSpaceEvaluator, attr::PS.ReactiveLoad, values)
-    ExaPF.setvalues!(nlp.buffer, attr, values)
-end
-
-# Transfer network values inside buffer
-function transfer!(
-    nlp::FullSpaceEvaluator, vm, va, pg, qg,
-)
-    setvalues!(nlp.buffer, PS.VoltageMagnitude(), vm)
-    setvalues!(nlp.buffer, PS.VoltageAngle(), va)
-    setvalues!(nlp.buffer, PS.ActivePower(), pg)
-    setvalues!(nlp.buffer, PS.ReactivePower(), qg)
-end
 
 # Initial position
 function initial(nlp::FullSpaceEvaluator{T,VI,VT,MT}) where {T,VI,VT,MT}
@@ -211,12 +189,29 @@ function hessian_lagrangian_prod!(
     return
 end
 
+function _transfer_csc2coo!(hessvals::AbstractVector, H::SparseMatrixCSC)
+    n, m = size(H)
+    k = 1
+    @inbounds for j in 1:m
+        for c in H.colptr[j]:H.colptr[j+1]-1
+            i = H.rowval[c]
+            v = H.nzval[c]
+            if j <= i
+                hessvals[k] = v
+                k += 1
+            end
+        end
+    end
+end
+
 function hessian_lagrangian_coo!(nlp::FullSpaceEvaluator, hess, x, y, σ)
     n = n_variables(nlp)::Int
     m = n_constraints(nlp)
     nlp._multipliers[1] = σ
     nlp._multipliers[2:m+1] .= y
     ExaPF.hessian!(nlp.hess, nlp.stack, nlp._multipliers)
+
+    _transfer_csc2coo!(hess, nlp.hess.H)
     return
 end
 
@@ -236,9 +231,6 @@ function Base.show(io::IO, nlp::FullSpaceEvaluator)
     println(io, "    * #vars: ", n)
     println(io, "    * #cons: ", m)
     println(io, "    * constraints:")
-    for cons in nlp.constraints
-        println(io, "        - ", cons)
-    end
 end
 
 function reset!(nlp::FullSpaceEvaluator)
