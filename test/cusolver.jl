@@ -1,25 +1,26 @@
 
 using LinearAlgebra
 using CUDAKernels
-using BlockPowerFlow
 
 using KernelAbstractions
 using CUDA
 using CUDA.CUSPARSE
 using ExaPF
 import ExaPF: LinearSolvers
-import BlockPowerFlow: CUSOLVERRF
 
 const LS = LinearSolvers
 
+# cusolverRF wrapper
+include("../lib/cusolverRF/cusolverRF.jl")
+
 # Overload factorization routine to use cusolverRF
-LS.DirectSolver(J::CuSparseMatrixCSR) = LS.DirectSolver(CUSOLVERRF.CusolverRfLU(J))
+LS.DirectSolver(J::CuSparseMatrixCSR) = LS.DirectSolver(CUSOLVERRF.rflu(J))
 
 function LS.update!(s::LS.DirectSolver{Fac}, J::CuSparseMatrixCSR) where {Fac <: Factorization}
     lu!(s.factorization, J) # Update factorization inplace with transpose matrix
 end
 
-function LS.rdiv!(s::LS.DirectSolver{Fac}, y::CuVector, J::CuSparseMatrixCSR, x::CuVector) where {Fac <: CUSOLVERRF.CusolverRfLU}
+function LS.rdiv!(s::LS.DirectSolver{Fac}, y::CuVector, J::CuSparseMatrixCSR, x::CuVector) where {Fac <: CUSOLVERRF.RfLU}
     Jt = CuSparseMatrixCSC(J) # Transpose of CSR is CSC
     lu!(s.factorization, Jt) # Update factorization inplace with transpose matrix
     LinearAlgebra.ldiv!(y, s.factorization, x) # Forward-backward solve
@@ -30,11 +31,11 @@ end
 function Argos.batch_factorization(J::CuSparseMatrixCSR, nbatch)
     Jtrans = CUSPARSE.CuSparseMatrixCSC(J)
     if nbatch == 1
-        lufac = CUSOLVERRF.CusolverRfLU(J)
-        lufact = CUSOLVERRF.CusolverRfLU(Jtrans)
+        lufac = CUSOLVERRF.rflu(J)
+        lufact = CUSOLVERRF.rflu(Jtrans)
     else
-        lufac = CUSOLVERRF.CusolverRfLUBatch(J, nbatch)
-        lufact = CUSOLVERRF.CusolverRfLUBatch(Jtrans, nbatch)
+        lufac = CUSOLVERRF.rflu_batch(J, nbatch)
+        lufact = CUSOLVERRF.rflu_batch(Jtrans, nbatch)
     end
     return (lufac, lufact)
 end
