@@ -1,50 +1,25 @@
 
 using LinearAlgebra
 using CUDAKernels
-using BlockPowerFlow
 
 using KernelAbstractions
 using CUDA
 using CUDA.CUSPARSE
 using ExaPF
 import ExaPF: LinearSolvers
-import BlockPowerFlow: CUSOLVERRF
 
 const LS = LinearSolvers
 
-# Overload factorization routine to use cusolverRF
-LS.DirectSolver(J::CuSparseMatrixCSR) = LS.DirectSolver(CUSOLVERRF.CusolverRfLU(J))
+# cusolverRF wrapper
+# include("../lib/cusolverRF/cusolverRF.jl")
+
+# Plug cusolverRF in ExaPF.LinearSolvers
+LS.DirectSolver(J::CuSparseMatrixCSR; kwargs...) = LS.DirectSolver(cusolverRF.RF(J; kwargs...))
 
 function LS.update!(s::LS.DirectSolver{Fac}, J::CuSparseMatrixCSR) where {Fac <: Factorization}
-    lu!(s.factorization, J) # Update factorization inplace with transpose matrix
+    lu!(s.factorization, J)
 end
 
-function LS.rdiv!(s::LS.DirectSolver{Fac}, y::CuVector, J::CuSparseMatrixCSR, x::CuVector) where {Fac <: CUSOLVERRF.CusolverRfLU}
-    Jt = CuSparseMatrixCSC(J) # Transpose of CSR is CSC
-    lu!(s.factorization, Jt) # Update factorization inplace with transpose matrix
-    LinearAlgebra.ldiv!(y, s.factorization, x) # Forward-backward solve
-    return 0
-end
-
-# Overload factorization for batch Hessian computation
-function Argos.batch_factorization(J::CuSparseMatrixCSR, nbatch)
-    Jtrans = CUSPARSE.CuSparseMatrixCSC(J)
-    if nbatch == 1
-        lufac = CUSOLVERRF.CusolverRfLU(J)
-        lufact = CUSOLVERRF.CusolverRfLU(Jtrans)
-    else
-        lufac = CUSOLVERRF.CusolverRfLUBatch(J, nbatch)
-        lufact = CUSOLVERRF.CusolverRfLUBatch(Jtrans, nbatch)
-    end
-    return (lufac, lufact)
-end
-
-function Argos.update_factorization!(hlag::Argos.AbstractReduction, J::CUSPARSE.CuSparseMatrixCSR)
-    LinearAlgebra.lu!(hlag.lu, J)
-    ∇gₓᵀ = CUSPARSE.CuSparseMatrixCSC(J)
-    LinearAlgebra.lu!(hlag.adjlu, ∇gₓᵀ)
-    return
-end
 
 #=
     Argos.transfer_auglag_hessian
@@ -98,7 +73,7 @@ end
 #=
     Argos.set_batch_tangents!
 =#
-@kernel function _batch_tangents_kernel2!(seeds, offset, n_batches)
+@kernel function _batch_tangents_kernel!(seeds, offset, n_batches)
     i = @index(Global, Linear)
     @inbounds seeds[i + offset, i] = 1.0
 end
@@ -119,12 +94,12 @@ function test_batch_tangents!(seeds::Matrix, offset, n, n_batches)
     @assert offset + n_batches <= n
     ndrange = (n_batches)
     fill!(seeds, 0.0)
-    ev = _batch_tangents_kernel2!(CPU())(seeds, offset, n_batches, ndrange=ndrange)
+    ev = _batch_tangents_kernel!(CPU())(seeds, offset, n_batches, ndrange=ndrange)
     wait(ev)
     return
 end
 
-@kernel function _tgtmul_1_kernel4!(y, A_rowPtr, A_colVal, A_nzVal, z, w, nx, nu)
+@kernel function _tgtmul_1_kernel!(y, A_rowPtr, A_colVal, A_nzVal, z, w, nx, nu)
     i, k = @index(Global, NTuple)
     @inbounds for c in A_rowPtr[i]:A_rowPtr[i+1]-1
         j = A_colVal[c]
@@ -162,7 +137,7 @@ function Argos.tgtmul!(y::AbstractArray, A::CuSparseMatrixCSR, z::AbstractArray,
     k = size(z, 2)
     ndrange = (n, k)
     fill!(y, 0)
-    ev = _tgtmul_1_kernel4!(CUDADevice())(
+    ev = _tgtmul_1_kernel!(CUDADevice())(
         y, A.rowPtr, A.colVal, A.nzVal, z, w, nz, nw;
         ndrange=ndrange, dependencies=Event(CUDADevice()),
     )
