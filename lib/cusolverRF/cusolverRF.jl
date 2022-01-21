@@ -8,6 +8,7 @@ import KLU
 import CUDA
 import CUDA: CuPtr, CuVector, CuMatrix, CuArray
 import CUDA.CUSPARSE
+import CUDA.CUSOLVER
 import CUDA.CUBLAS: unsafe_batch, unsafe_strided_batch
 
 # Headers
@@ -101,7 +102,7 @@ function RfHostLU(
     h_colsB = copy(h_colsA)
     h_valsB = copy(h_valsA)
 
-    spH = sparse_handle()
+    spH = CUSOLVER.sparse_handle()
 
     # Create matrix descriptor
     desca = CUSPARSE.CuMatrixDescriptor()
@@ -110,25 +111,25 @@ function RfHostLU(
 
     # Reordering
     if ordering == :AMD
-        cusolverSpXcsrsymamdHost(
+        CUSOLVER.cusolverSpXcsrsymamdHost(
             spH,
             n, nnzA, desca,
             h_rowsA, h_colsA, h_Qreorder,
         )
     elseif ordering == :MDQ
-        cusolverSpXcsrsymmdqHost(
+        CUSOLVER.cusolverSpXcsrsymmdqHost(
             spH,
             n, nnzA, desca,
             h_rowsA, h_colsA, h_Qreorder,
         )
     elseif ordering == :METIS
-        cusolverSpXcsrmetisndHost(
+        CUSOLVER.cusolverSpXcsrmetisndHost(
             spH,
             n, nnzA, desca,
             h_rowsA, h_colsA, C_NULL, h_Qreorder,
         )
     elseif ordering == :RCM
-        cusolverSpXcsrsymrcmHost(
+        CUSOLVER.cusolverSpXcsrsymrcmHost(
             spH,
             n, nnzA, desca,
             h_rowsA, h_colsA, h_Qreorder,
@@ -142,7 +143,7 @@ function RfHostLU(
 
     # Compute permutation in two steps
     size_perm = Ref{Csize_t}(0)
-    cusolverSpXcsrperm_bufferSizeHost(
+    CUSOLVER.cusolverSpXcsrperm_bufferSizeHost(
         spH,
         m, n, nnzA, desca,
         h_rowsB, h_colsB, h_Qreorder, h_Qreorder,
@@ -150,7 +151,7 @@ function RfHostLU(
     )
 
     buffer_cpu = zeros(Cint, size_perm[])
-    cusolverSpXcsrpermHost(
+    CUSOLVER.cusolverSpXcsrpermHost(
         spH,
         m, n, nnzA, desca,
         h_rowsB, h_colsB, h_Qreorder, h_Qreorder, h_mapBfromA,
@@ -315,7 +316,7 @@ function rf_refactor!(rflu::RfLU{T}, A::CUSPARSE.CuSparseMatrixCSR{T, Ti}) where
 end
 
 # Solve system Ax = b
-function rf_solve!(rflu::RfLU{T}, x::CuVector{T}) where T
+function rf_solve!(rflu, x::CuVector)
     n = rflu.n
     cusolverRfSolve(rflu.rf, rflu.dP, rflu.dQ, rflu.nrhs, rflu.dT, n, x, n)
     return
@@ -386,7 +387,7 @@ function rf_batch_refactor!(rflu::RfBatchLU{T}, A::CUSPARSE.CuSparseMatrixCSR{T,
         rflu.drowsA, rflu.dcolsA, Aptrs, rflu.dP, rflu.dQ,
         rflu.rf
     )
-    unsafe_free!(Aptrs)
+    CUDA.unsafe_free!(Aptrs)
     cusolverRfBatchRefactor(rflu.rf)
     return
 end
@@ -400,7 +401,7 @@ function rf_batch_refactor!(rflu::RfBatchLU{T}, As::Vector{CUSPARSE.CuSparseMatr
         rflu.drowsA, rflu.dcolsA, Aptrs, rflu.dP, rflu.dQ,
         rflu.rf
     )
-    unsafe_free!(Aptrs)
+    CUDA.unsafe_free!(Aptrs)
     cusolverRfBatchRefactor(rflu.rf)
     return
 end
@@ -410,7 +411,7 @@ function rf_batch_solve!(rflu::RfBatchLU{T}, xs::Vector{CuVector{T}}) where T
     n, nrhs = rflu.n, 1
     Xptrs = unsafe_batch(xs)
     cusolverRfBatchSolve(rflu.rf, rflu.dP, rflu.dQ, nrhs, rflu.dT, n, Xptrs, n)
-    unsafe_free!(Xptrs)
+    CUDA.unsafe_free!(Xptrs)
     return
 end
 
@@ -421,7 +422,7 @@ function rf_batch_solve!(rflu::RfBatchLU{T}, X::CuMatrix{T}) where T
     Xptrs = unsafe_strided_batch(X)
     # Forward and backward solve
     cusolverRfBatchSolve(rflu.rf, rflu.dP, rflu.dQ, nrhs, rflu.dT, n, Xptrs, n)
-    unsafe_free!(Xptrs)
+    CUDA.unsafe_free!(Xptrs)
     return
 end
 
@@ -451,9 +452,9 @@ LinearAlgebra.lu!(rflu::RfBatchLU, A::CUSPARSE.CuSparseMatrixCSR) = rf_batch_ref
 
 # KLU
 function RfLU(
-    A::SparseMatrixCSC{Float64, Int32}; fast_mode=true,
-    factorization_algo=CUSOLVERRF_FACTORIZATION_ALG0,
-    triangular_algo=CUSOLVERRF_TRIANGULAR_SOLVE_ALG1,
+    A::SparseMatrixCSC{Float64, Int32}; fast_mode=false,
+    factorization_algo=CUSOLVERRF_FACTORIZATION_ALG2,
+    triangular_algo=CUSOLVERRF_TRIANGULAR_SOLVE_ALG2,
 )
     n, m = size(A)
     nrhs = 1
@@ -468,21 +469,32 @@ function RfLU(
 
     # Initial factorization
     K = KLU.klu(A)
+    K.common.scale = 0
+    K.common.btf = 0
+    K.common.ordering = 0
+    K.common.tol = 1e-2
+    KLU.klu!(K, A)
 
+    nnzA = nnz(A)
     rowsA, colsA, valsA = convert2csr(A)
     rowsL, colsL, valsL = convert2csr(K.L)
     rowsU, colsU, valsU = convert2csr(K.U)
 
-    for vals in [rowsA, colsA, rowsL, colsL, rowsU, colsU]
+    rowsL, colsL, valsL = drop_diag_csr(rowsL, colsL, valsL)
+    nnzL = length(colsL)
+    nnzU = nnz(K.U)
+    P = Vector{Cint}(K.p)
+    Q = Vector{Cint}(K.q)
+
+    for vals in [rowsA, colsA, rowsL, colsL, rowsU, colsU, P, Q]
         decrement!(vals)
     end
-
     # Assemble internal data structures
     cusolverRfSetupHost(
-        n, nnz(A), rowsA, colsA, valsA,
-        K.lnz, rowsL, colsL, valsL,
-        K.unz, rowsU, colsU, valsU,
-        K.p, K.q,
+        n, nnzA, rowsA, colsA, valsA,
+        nnzL, rowsL, colsL, valsL,
+        nnzU, rowsU, colsU, valsU,
+        P, Q,
         rf
     )
     # Analyze available parallelism
@@ -490,11 +502,75 @@ function RfLU(
     # LU refactorization
     cusolverRfRefactor(rf)
 
-    return RfLU{T}(
-        rf, nrhs, n, m, lu_host.nnzA,
-        lu_host.rowsA, lu_host.colsA, lu_host.P, lu_host.Q, d_T
+    return RfLU{Cdouble}(
+        rf, nrhs, n, m, nnzA,
+        rowsA, colsA, P, Q, d_T
     )
 end
 
+# Forgiving function
+RfLU(A::SparseMatrixCSC{Float64, Int}; kwargs...) = RfLU(SparseMatrixCSC{Float64, Int32}(A); kwargs...)
+
+function RfBatchLU(
+    A::SparseMatrixCSC{Float64, Int32}, nbatch; fast_mode=true,
+    factorization_algo=CUSOLVERRF_FACTORIZATION_ALG2,
+    triangular_algo=CUSOLVERRF_TRIANGULAR_SOLVE_ALG2,
+)
+    n, m = size(A)
+    nrhs = 1
+    # Allocations (device)
+    d_T = CUDA.zeros(Cdouble, m * nbatch * 2)
+    # Instantiate cusolverRF
+    rf = sparse_rf_handle(;
+        fast_mode=fast_mode,
+        factorization_algo=factorization_algo,
+        triangular_algo=triangular_algo,
+    )
+
+    # Initial factorization
+    K = KLU.klu(A)
+    K.common.scale = 0
+    K.common.btf = 0
+    K.common.ordering = 1
+    K.common.tol = 1e-1
+    KLU.klu!(K, A)
+
+    nnzA = nnz(A)
+    rowsA, colsA, valsA = convert2csr(A)
+    rowsL, colsL, valsL = convert2csr(K.L)
+    rowsU, colsU, valsU = convert2csr(K.U)
+
+    rowsL, colsL, valsL = drop_diag_csr(rowsL, colsL, valsL)
+    nnzL = length(colsL)
+    nnzU = nnz(K.U)
+    P = Vector{Cint}(K.p)
+    Q = Vector{Cint}(K.q)
+
+    for vals in [rowsA, colsA, rowsL, colsL, rowsU, colsU, P, Q]
+        decrement!(vals)
+    end
+    # Assemble internal data structures
+    h_valsA_batch = Vector{Float64}[valsA for i in 1:nbatch]
+    ptrA_batch = pointer.(h_valsA_batch)
+    cusolverRfBatchSetupHost(
+        nbatch,
+        n, nnzA, rowsA, colsA, ptrA_batch,
+        nnzL, rowsL, colsL, valsL,
+        nnzU, rowsU, colsU, valsU,
+        P, Q,
+        rf
+    )
+    # Analyze available parallelism
+    cusolverRfBatchAnalyze(rf)
+    # LU refactorization
+    cusolverRfBatchRefactor(rf)
+
+    return RfBatchLU{Cdouble}(
+        rf, nbatch, n, m, nnzA,
+        rowsA, colsA, P, Q, d_T
+    )
+end
+
+RfBatchLU(A::SparseMatrixCSC{Float64, Int}, nbatch; kwargs...) = RfBatchLU(SparseMatrixCSC{Float64, Int32}(A), nbatch; kwargs...)
 
 end
