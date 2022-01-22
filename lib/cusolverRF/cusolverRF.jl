@@ -251,7 +251,7 @@ function RfHostLU(
     )
 end
 
-struct RfLU{T} <: LinearAlgebra.Factorization{T}
+struct RfLU{T}
     rf::RfHandle
     nrhs::Int
     n::Int
@@ -322,9 +322,48 @@ function rf_solve!(rflu, x::CuVector)
     return
 end
 
+function rf_extract_factors_host(rflu::RfLU, n)
+    pMp = Ptr{Cint}[Ptr{Cint}(0)]
+    pMj = Ptr{Cint}[Ptr{Cint}(0)]
+    pMx = Ptr{Float64}[Ptr{Float64}(0)]
+    pnnzM = Ref{Cint}(0)
+    CUSOLVERRF.cusolverRfExtractBundledFactorsHost(
+        rflu.rf, pnnzMM, pMp, pMj, pMx
+    )
+    nnzM = pnnzMM[]
+    Mp = unsafe_wrap(Vector{Cint}, pMp[1], n+1)
+    Mj = unsafe_wrap(Vector{Cint}, pMj[1], nnzM)
+    Mx = unsafe_wrap(Vector{Float64}, pMx[1], nnzM)
+    # Julia is 1-indexed
+    Mp .+= Cint(1)
+    Mj .+= Cint(1)
+    return SparseMatrixCSC(n, n, Mp, Mj, Mx)
+end
+
+function rf_extract_factors(rflu::RfLU, n)
+    pMp = CuPtr{Cint}[CuPtr{Cint}(0)]
+    pMj = CuPtr{Cint}[CuPtr{Cint}(0)]
+    pMx = CuPtr{Float64}[CuPtr{Float64}(0)]
+    pnnzM = Ref{Cint}(0)
+    CUSOLVERRF.cusolverRfAccessBundledFactorsDevice(
+        rflu.rf, pnnzM, pMp, pMj, pMx
+    )
+    nnzM = Int(pnnzM[])
+    Mp = unsafe_wrap(CuVector{Cint}, pMp[1], n+1)
+    Mj = unsafe_wrap(CuVector{Cint}, pMj[1], nnz_)
+    Mx = unsafe_wrap(CuVector{Float64}, pMx[1], nnz_)
+    # Avoid side effect by copying the indexings
+    myMp = copy(Mp)
+    myMj = copy(Mj)
+    # Julia is 1-indexed
+    myMp .+= Cint(1)
+    myMj .+= Cint(1)
+    return CuSparseMatrixCSR(myMp, myMj, Mx, (n, n))
+end
+
 # Batch factorization should not mix with classical LU factorization.
 # We implement a structure apart.
-struct RfBatchLU{T} <: LinearAlgebra.Factorization{T}
+struct RfBatchLU{T}
     rf::RfHandle
     batchsize::Int
     n::Int
@@ -425,30 +464,6 @@ function rf_batch_solve!(rflu::RfBatchLU{T}, X::CuMatrix{T}) where T
     CUDA.unsafe_free!(Xptrs)
     return
 end
-
-# Operators overloading
-function LinearAlgebra.ldiv!(x::CuArray{T}, rflu::RfLU{T}, b::CuArray{T}) where T
-    copyto!(x, b)
-    rf_solve!(rflu, x)
-end
-function LinearAlgebra.ldiv!(rflu::RfLU{T}, x::CuArray{T}) where T
-    rf_solve!(rflu, x)
-end
-
-LinearAlgebra.lu(A::CUSPARSE.CuSparseMatrixCSR; options...) = RfLU(A; options...)
-LinearAlgebra.lu!(rflu::RfLU, A::CUSPARSE.CuSparseMatrixCSR) = rf_refactor!(rflu, A)
-
-# Batch
-function LinearAlgebra.ldiv!(x::CuMatrix{T}, rflu::RfBatchLU{T}, b::CuMatrix{T}) where T
-    copyto!(x, b)
-    rf_batch_solve!(rflu, x)
-end
-function LinearAlgebra.ldiv!(rflu::RfBatchLU{T}, x::CuMatrix{T}) where T
-    rf_batch_solve!(rflu, x)
-end
-
-LinearAlgebra.lu!(rflu::RfBatchLU, A::CUSPARSE.CuSparseMatrixCSR) = rf_batch_refactor!(rflu, A)
-
 
 # KLU
 function RfLU(
@@ -572,5 +587,7 @@ function RfBatchLU(
 end
 
 RfBatchLU(A::SparseMatrixCSC{Float64, Int}, nbatch; kwargs...) = RfBatchLU(SparseMatrixCSC{Float64, Int32}(A), nbatch; kwargs...)
+
+include("interface.jl")
 
 end

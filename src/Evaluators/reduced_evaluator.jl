@@ -176,9 +176,9 @@ function ReducedSpaceEvaluator(
     J = Gx.J
     _linear_solver = isnothing(linear_solver) ? LS.DirectSolver(J) : linear_solver
     redop = if nbatch_hessian > 1
-        BatchReduction(model, J, nbatch_hessian, m)
+        BatchReduction(model, _linear_solver.factorization, nbatch_hessian)
     else
-        Reduction(model, J, m)
+        Reduction(model, _linear_solver.factorization)
     end
 
     etc = Dict{Symbol, Any}()
@@ -297,10 +297,6 @@ function update!(nlp::ReducedSpaceEvaluator, u)
     nlp.is_hessian_objective_updated = false
     nlp.is_hessian_lagrangian_updated = false
 
-    Gx = nlp.Gx.J
-    LS.update!(nlp.linear_solver, Gx)
-    # Update Hessian factorization
-    update_factorization!(nlp.reduction, Gx)
     return conv
 end
 
@@ -318,6 +314,7 @@ function _adjoint_solve!(
     nlp::ReducedSpaceEvaluator, grad, ∇f, u, λ,
 )
     nx, nu = nlp.nx, nlp.nu
+    lujac = nlp.linear_solver.factorization
     Gu = nlp.Gu.J
     Gx = nlp.Gx.J
 
@@ -325,7 +322,7 @@ function _adjoint_solve!(
     ∇fu = @view ∇f[1+nx:nx+nu]
 
     # λ = ∇gₓ' \ ∂fₓ
-    LS.rdiv!(nlp.reduction.adjlu, λ,∇fx)
+    LinearAlgebra.ldiv!(λ, lujac', ∇fx)
 
     grad .= ∇fu
     mul!(grad, transpose(Gu), λ, -1.0, 1.0)

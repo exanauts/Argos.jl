@@ -13,39 +13,13 @@ const LS = LinearSolvers
 # cusolverRF wrapper
 include("../lib/cusolverRF/cusolverRF.jl")
 
-# Overload factorization routine to use cusolverRF
-LS.DirectSolver(J::CuSparseMatrixCSR) = LS.DirectSolver(CUSOLVERRF.rflu(J))
+# Plug cusolverRF in ExaPF.LinearSolvers
+LS.DirectSolver(J::CuSparseMatrixCSR) = LS.DirectSolver(CUSOLVERRF.RF(J))
 
 function LS.update!(s::LS.DirectSolver{Fac}, J::CuSparseMatrixCSR) where {Fac <: Factorization}
-    lu!(s.factorization, J) # Update factorization inplace with transpose matrix
+    lu!(s.factorization, J)
 end
 
-function LS.rdiv!(s::LS.DirectSolver{Fac}, y::CuVector, J::CuSparseMatrixCSR, x::CuVector) where {Fac <: CUSOLVERRF.RfLU}
-    Jt = CuSparseMatrixCSC(J) # Transpose of CSR is CSC
-    lu!(s.factorization, Jt) # Update factorization inplace with transpose matrix
-    LinearAlgebra.ldiv!(y, s.factorization, x) # Forward-backward solve
-    return 0
-end
-
-# Overload factorization for batch Hessian computation
-function Argos.batch_factorization(J::CuSparseMatrixCSR, nbatch)
-    Jtrans = CUSPARSE.CuSparseMatrixCSC(J)
-    if nbatch == 1
-        lufac = CUSOLVERRF.rflu(J)
-        lufact = CUSOLVERRF.rflu(Jtrans)
-    else
-        lufac = CUSOLVERRF.rflu_batch(J, nbatch)
-        lufact = CUSOLVERRF.rflu_batch(Jtrans, nbatch)
-    end
-    return (lufac, lufact)
-end
-
-function Argos.update_factorization!(hlag::Argos.AbstractReduction, J::CUSPARSE.CuSparseMatrixCSR)
-    LinearAlgebra.lu!(hlag.lu, J)
-    ∇gₓᵀ = CUSPARSE.CuSparseMatrixCSC(J)
-    LinearAlgebra.lu!(hlag.adjlu, ∇gₓᵀ)
-    return
-end
 
 #=
     Argos.transfer_auglag_hessian
