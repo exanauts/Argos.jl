@@ -174,7 +174,7 @@ function ReducedSpaceEvaluator(
 
     # Build Linear Algebra
     J = Gx.J
-    _linear_solver = isnothing(linear_solver) ? LS.DirectSolver(J) : linear_solver
+    _linear_solver = isnothing(linear_solver) ? LS.DirectSolver(J; nbatch=nbatch_hessian) : linear_solver
     redop = if nbatch_hessian > 1
         BatchReduction(model, _linear_solver.factorization, nbatch_hessian)
     else

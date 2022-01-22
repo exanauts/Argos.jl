@@ -1,23 +1,25 @@
+import CUDA.CUSPARSE: CuSparseMatrixCSR
+import LinearAlgebra: mul!
 
-struct RF{T} <: LinearAlgebra.Factorization
-    rf::RfLU{T}
+struct RF{Tv} <: LinearAlgebra.Factorization{Tv}
+    rf::RfLU
     n::Int
     # M = L + U
-    M::CuSparseMatrixCSR{T, Int32}
+    M::CuSparseMatrixCSR{Tv, Int32}
     # Permutation matrices
-    P::CuSparseMatrixCSR{T, Int32}
-    Q::CuSparseMatrixCSR{T, Int32}
+    P::CuSparseMatrixCSR{Tv, Int32}
+    Q::CuSparseMatrixCSR{Tv, Int32}
     # buffers
-    r::CuVector{T}
-    T::CuMatrix{T}
+    r::CuVector{Tv}
+    T::CuMatrix{Tv}
 end
 
 Base.size(rf::RF) = size(rf.M)
 Base.size(rf::RF, dim::Integer) = size(rf.M, dim)
 
-adjoint(rf::RF) = Adjoint(rf)
+LinearAlgebra.adjoint(rf::RF) = LinearAlgebra.Adjoint(rf)
 
-function RF(J::CuSparseMatrixCSR{T}; nbatch=1) where T <: Float64
+function RF(J::CuSparseMatrixCSR{Tv}; nbatch=1) where Tv <: Float64
     rf = CUSOLVERRF.rflu(J)
     n = size(J, 1)
 
@@ -31,8 +33,8 @@ function RF(J::CuSparseMatrixCSR{T}; nbatch=1) where T <: Float64
     P = CuSparseMatrixCSR(P_cpu)
     Q = CuSparseMatrixCSR(Q_cpu)
 
-    r = CuVector{Float64}(undef, n)
-    T = CuMatrix{Float64}(undef, n, nbatch)
+    r = CuVector{Tv}(undef, n)
+    T = CuMatrix{Tv}(undef, n, nbatch)
 
     return RF(rf, n, M, P, Q, r, T)
 end
@@ -55,31 +57,56 @@ function LinearAlgebra.ldiv!(
 )
     @assert size(Y, 2) == size(X, 2) == size(rf.T, 2)
     Z = rf.T
-    mul!(Z, P, X)
-    CUSPARSE.sm2!('N', 'L', 'U', 1.0, M, Z, 'O')
-    CUSPARSE.sm2!('N', 'U', 'N', 1.0, M, Z, 'O')
-    mul!(Y, Q, Z)
+    mul!(Z, rf.P, X)
+    CUSPARSE.sm2!('N', 'N', 'L', 'U', 1.0, rf.M, Z, 'O')
+    CUSPARSE.sm2!('N', 'N', 'U', 'N', 1.0, rf.M, Z, 'O')
+    mul!(Y, rf.Q, Z)
+end
+
+function LinearAlgebra.ldiv!(
+    rf::RF, X::AbstractMatrix,
+)
+    @assert size(X, 2) == size(rf.T, 2)
+    Z = rf.T
+    mul!(Z, rf.P, X)
+    CUSPARSE.sm2!('N', 'N', 'L', 'U', 1.0, rf.M, Z, 'O')
+    CUSPARSE.sm2!('N', 'N', 'U', 'N', 1.0, rf.M, Z, 'O')
+    mul!(X, rf.Q, Z)
 end
 
 # Backward solve
 function LinearAlgebra.ldiv!(
-    y::AbstractVector{T}, rf::Adjoint{T, RF{T}}, x::AbstractVector{T},
+    y::AbstractVector{T}, arf::LinearAlgebra.Adjoint{T, RF{T}}, x::AbstractVector{T},
 ) where T
+    rf = arf.parent
     z = rf.r
-    mul!(z, Q', x)
-    CUSPARSE.sv2!('T', 'U', 'N', 1.0, M, z, 'O')
-    CUSPARSE.sv2!('T', 'L', 'U', 1.0, M, z, 'O')
-    mul!(y, P', z)
+    mul!(z, rf.Q', x)
+    CUSPARSE.sv2!('T', 'U', 'N', 1.0, rf.M, z, 'O')
+    CUSPARSE.sv2!('T', 'L', 'U', 1.0, rf.M, z, 'O')
+    mul!(y, rf.P', z)
 end
 
 function LinearAlgebra.ldiv!(
-    Y::AbstractMatrix{T}, rf::Adjoint{T, RF{T}}, X::AbstractMatrix{T},
+    Y::AbstractMatrix{T}, arf::LinearAlgebra.Adjoint{T, RF{T}}, X::AbstractMatrix{T},
 ) where T
+    rf = arf.parent
     @assert size(Y, 2) == size(X, 2) == size(rf.T, 2)
     Z = rf.T
-    mul!(Z, Q', X)
-    CUSPARSE.sm2!('T', 'U', 'N', 1.0, M, Z, 'O')
-    CUSPARSE.sm2!('T', 'L', 'U', 1.0, M, Z, 'O')
-    mul!(Y, P', Z)
+    mul!(Z, rf.Q', X)
+    CUSPARSE.sm2!('T', 'N', 'U', 'N', 1.0, rf.M, Z, 'O')
+    CUSPARSE.sm2!('T', 'N', 'L', 'U', 1.0, rf.M, Z, 'O')
+    mul!(Y, rf.P', Z)
+end
+
+function LinearAlgebra.ldiv!(
+    arf::LinearAlgebra.Adjoint{T, RF{T}}, X::AbstractMatrix{T},
+) where T
+    rf = arf.parent
+    @assert size(X, 2) == size(rf.T, 2)
+    Z = rf.T
+    mul!(Z, rf.Q', X)
+    CUSPARSE.sm2!('T', 'N', 'U', 'N', 1.0, rf.M, Z, 'O')
+    CUSPARSE.sm2!('T', 'N', 'L', 'U', 1.0, rf.M, Z, 'O')
+    mul!(X, rf.P', Z)
 end
 

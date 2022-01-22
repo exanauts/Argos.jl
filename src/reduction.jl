@@ -117,7 +117,6 @@ struct BatchReduction{MT} <: AbstractReduction
 end
 
 function BatchReduction(polar::PolarForm{T, VI, VT, MT}, lujac, nbatch) where {T, VI, VT, MT}
-    lu1, lu2 = batch_factorization(J, nbatch)
     nx, nu = ExaPF.number(polar, ExaPF.State()), ExaPF.number(polar, ExaPF.Control())
     z   = MT(undef, nx, nbatch)
     ψ   = MT(undef, nx, nbatch)
