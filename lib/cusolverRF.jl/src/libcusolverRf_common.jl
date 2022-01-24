@@ -51,3 +51,23 @@ const csrcholInfoHost = Cvoid
 const csrcholInfoHost_t = Ptr{csrcholInfoHost}
 const csrcholInfo = Cvoid
 const csrcholInfo_t = Ptr{csrcholInfo}
+
+@cenum cusparseSpSVAlg_t::UInt32 begin
+    CUSPARSE_SPSV_ALG_DEFAULT = 0
+end
+
+const cusparseSpSVDescr = Cvoid
+const cusparseSpSVDescr_t = Ptr{cusparseSpSVDescr}
+
+@cenum cusparseSpSMAlg_t::UInt32 begin
+    CUSPARSE_SPSM_ALG_DEFAULT = 0
+end
+
+const cusparseSpSMDescr = Cvoid
+const cusparseSpSMDescr_t = Ptr{cusparseSpSMDescr}
+
+@cenum cusparseSpMatAttribute_t::UInt32 begin
+    CUSPARSE_SPMAT_FILL_MODE = 0
+    CUSPARSE_SPMAT_DIAG_TYPE = 1
+end
+

@@ -1,20 +1,3 @@
-module CUSOLVERRF
-
-import LinearAlgebra
-using SparseArrays
-
-import KLU
-
-import CUDA
-import CUDA: CuPtr, CuVector, CuMatrix, CuArray
-import CUDA.CUSPARSE
-import CUDA.CUSOLVER
-import CUDA.CUBLAS: unsafe_batch, unsafe_strided_batch
-
-# Headers
-include("libcusolverRf_common.jl")
-include("libcusolverRf_api.jl")
-include("utils.jl")
 
 function cusolverRfCreate()
     handle_ref = Ref{cusolverRfHandle_t}()
@@ -327,7 +310,7 @@ function rf_extract_factors_host(rflu::RfLU, n)
     pMj = Ptr{Cint}[Ptr{Cint}(0)]
     pMx = Ptr{Float64}[Ptr{Float64}(0)]
     pnnzM = Ref{Cint}(0)
-    CUSOLVERRF.cusolverRfExtractBundledFactorsHost(
+    cusolverRfExtractBundledFactorsHost(
         rflu.rf, pnnzMM, pMp, pMj, pMx
     )
     nnzM = pnnzMM[]
@@ -345,7 +328,7 @@ function rf_extract_factors(rflu::RfLU, n)
     pMj = CuPtr{Cint}[CuPtr{Cint}(0)]
     pMx = CuPtr{Float64}[CuPtr{Float64}(0)]
     pnnzM = Ref{Cint}(0)
-    CUSOLVERRF.cusolverRfAccessBundledFactorsDevice(
+    cusolverRfAccessBundledFactorsDevice(
         rflu.rf, pnnzM, pMp, pMj, pMx
     )
     nnzM = Int(pnnzM[])
@@ -587,7 +570,3 @@ function RfBatchLU(
 end
 
 RfBatchLU(A::SparseMatrixCSC{Float64, Int}, nbatch; kwargs...) = RfBatchLU(SparseMatrixCSC{Float64, Int32}(A), nbatch; kwargs...)
-
-include("interface.jl")
-
-end

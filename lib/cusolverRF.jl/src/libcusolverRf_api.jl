@@ -3,7 +3,8 @@
 
 import CUDA: cuComplex, cuDoubleComplex
 import CUDA.CUSOLVER: cusolverStatus_t, libcusolver
-import CUDA.CUSPARSE: cusparseMatDescr_t
+import CUDA.CUSPARSE: libcusparse
+import CUDA.CUSPARSE: cusparseMatDescr_t, cusparseStatus_t, cusparseHandle_t, cusparseOperation_t, cusparseSpMatDescr_t, cusparseDnVecDescr_t, cusparseDnMatDescr_t
 import CUDA: @check
 import CUDA.APIUtils: @checked
 
@@ -72,7 +73,7 @@ end
 end
 
 @checked function cusolverRfAccessBundledFactorsDevice(handle, nnzM, Mp, Mi, Mx)
-    ccall((:cusolverRfAccessBundledFactorsDevice, libcusolver()), cusolverStatus_t, (cusolverRfHandle_t, Ptr{Cint}, Ptr{Ptr{Cint}}, Ptr{Ptr{Cint}}, Ptr{Ptr{Cdouble}}), handle, nnzM, Mp, Mi, Mx)
+    ccall((:cusolverRfAccessBundledFactorsDevice, libcusolver()), cusolverStatus_t, (cusolverRfHandle_t, Ptr{Cint}, Ptr{CuPtr{Cint}}, Ptr{CuPtr{Cint}}, Ptr{CuPtr{Cdouble}}), handle, nnzM, Mp, Mi, Mx)
 end
 
 @checked function cusolverRfExtractBundledFactorsHost(handle, h_nnzM, h_Mp, h_Mi, h_Mx)
@@ -554,3 +555,64 @@ end
 @checked function cusolverSpZcsrcholDiag(handle, info, diag)
     ccall((:cusolverSpZcsrcholDiag, libcusolver()), cusolverStatus_t, (cusolverSpHandle_t, csrcholInfo_t, Ptr{Cdouble}), handle, info, diag)
 end
+
+@checked function cusparseSpSV_createDescr(descr)
+    CUDA.initialize_context()
+    ccall((:cusparseSpSV_createDescr, libcusparse), cusparseStatus_t, (Ptr{cusparseSpSVDescr_t},), descr)
+end
+
+@checked function cusparseSpSV_destroyDescr(descr)
+    CUDA.initialize_context()
+    ccall((:cusparseSpSV_destroyDescr, libcusparse), cusparseStatus_t, (cusparseSpSVDescr_t,), descr)
+end
+
+@checked function cusparseSpSV_bufferSize(handle, opA, alpha, matA, vecX, vecY, computeType, alg, spsvDescr, bufferSize)
+    CUDA.initialize_context()
+    ccall((:cusparseSpSV_bufferSize, libcusparse), cusparseStatus_t, (cusparseHandle_t, cusparseOperation_t, Ptr{Cvoid}, cusparseSpMatDescr_t, cusparseDnVecDescr_t, cusparseDnVecDescr_t, Cint, cusparseSpSVAlg_t, cusparseSpSVDescr_t, Ptr{Csize_t}), handle, opA, alpha, matA, vecX, vecY, computeType, alg, spsvDescr, bufferSize)
+end
+
+@checked function cusparseSpSV_analysis(handle, opA, alpha, matA, vecX, vecY, computeType, alg, spsvDescr, externalBuffer)
+    CUDA.initialize_context()
+    ccall((:cusparseSpSV_analysis, libcusparse), cusparseStatus_t, (cusparseHandle_t, cusparseOperation_t, Ptr{Cvoid}, cusparseSpMatDescr_t, cusparseDnVecDescr_t, cusparseDnVecDescr_t, Cint, cusparseSpSVAlg_t, cusparseSpSVDescr_t, Ptr{Cvoid}), handle, opA, alpha, matA, vecX, vecY, computeType, alg, spsvDescr, externalBuffer)
+end
+
+@checked function cusparseSpSV_solve(handle, opA, alpha, matA, vecX, vecY, computeType, alg, spsvDescr)
+    CUDA.initialize_context()
+    ccall((:cusparseSpSV_solve, libcusparse), cusparseStatus_t, (cusparseHandle_t, cusparseOperation_t, Ptr{Cvoid}, cusparseSpMatDescr_t, cusparseDnVecDescr_t, cusparseDnVecDescr_t, Cint, cusparseSpSVAlg_t, cusparseSpSVDescr_t), handle, opA, alpha, matA, vecX, vecY, computeType, alg, spsvDescr)
+end
+
+@checked function cusparseSpSM_createDescr(descr)
+    CUDA.initialize_context()
+    ccall((:cusparseSpSM_createDescr, libcusparse), cusparseStatus_t, (Ptr{cusparseSpSMDescr_t},), descr)
+end
+
+@checked function cusparseSpSM_destroyDescr(descr)
+    CUDA.initialize_context()
+    ccall((:cusparseSpSM_destroyDescr, libcusparse), cusparseStatus_t, (cusparseSpSMDescr_t,), descr)
+end
+
+@checked function cusparseSpSM_bufferSize(handle, opA, opB, alpha, matA, matB, matC, computeType, alg, spsmDescr, bufferSize)
+    CUDA.initialize_context()
+    ccall((:cusparseSpSM_bufferSize, libcusparse), cusparseStatus_t, (cusparseHandle_t, cusparseOperation_t, cusparseOperation_t, Ptr{Cvoid}, cusparseSpMatDescr_t, cusparseDnMatDescr_t, cusparseDnMatDescr_t, Cint, cusparseSpSMAlg_t, cusparseSpSMDescr_t, Ptr{Csize_t}), handle, opA, opB, alpha, matA, matB, matC, computeType, alg, spsmDescr, bufferSize)
+end
+
+@checked function cusparseSpSM_analysis(handle, opA, opB, alpha, matA, matB, matC, computeType, alg, spsmDescr, externalBuffer)
+    CUDA.initialize_context()
+    ccall((:cusparseSpSM_analysis, libcusparse), cusparseStatus_t, (cusparseHandle_t, cusparseOperation_t, cusparseOperation_t, Ptr{Cvoid}, cusparseSpMatDescr_t, cusparseDnMatDescr_t, cusparseDnMatDescr_t, Cint, cusparseSpSMAlg_t, cusparseSpSMDescr_t, Ptr{Cvoid}), handle, opA, opB, alpha, matA, matB, matC, computeType, alg, spsmDescr, externalBuffer)
+end
+
+@checked function cusparseSpSM_solve(handle, opA, opB, alpha, matA, matB, matC, computeType, alg, spsmDescr)
+    CUDA.initialize_context()
+    ccall((:cusparseSpSM_solve, libcusparse), cusparseStatus_t, (cusparseHandle_t, cusparseOperation_t, cusparseOperation_t, Ptr{Cvoid}, cusparseSpMatDescr_t, cusparseDnMatDescr_t, cusparseDnMatDescr_t, Cint, cusparseSpSMAlg_t, cusparseSpSMDescr_t), handle, opA, opB, alpha, matA, matB, matC, computeType, alg, spsmDescr)
+end
+
+@checked function cusparseSpMatGetAttribute(spMatDescr, attribute, data, dataSize)
+    CUDA.initialize_context()
+    ccall((:cusparseSpMatGetAttribute, libcusparse), cusparseStatus_t, (cusparseSpMatDescr_t, cusparseSpMatAttribute_t, Ptr{Cvoid}, Csize_t), spMatDescr, attribute, data, dataSize)
+end
+
+@checked function cusparseSpMatSetAttribute(spMatDescr, attribute, data, dataSize)
+    CUDA.initialize_context()
+    ccall((:cusparseSpMatSetAttribute, libcusparse), cusparseStatus_t, (cusparseSpMatDescr_t, cusparseSpMatAttribute_t, Ptr{Cvoid}, Csize_t), spMatDescr, attribute, data, dataSize)
+end
+
