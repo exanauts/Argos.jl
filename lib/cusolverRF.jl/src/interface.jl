@@ -13,6 +13,9 @@ struct RF{Tv} <: LinearAlgebra.Factorization{Tv}
     # buffers
     r::CuVector{Tv}
     T::CuMatrix{Tv}
+    tsv::CuSparseBackSV
+    dsm::CuSparseBackSM
+    tsm::CuSparseBackSM
 end
 
 Base.size(rf::RF) = size(rf.M)
@@ -36,8 +39,13 @@ function RF(J::CuSparseMatrixCSR{Tv}; nbatch=1) where Tv <: Float64
 
     r = CuVector{Tv}(undef, n)
     T = CuMatrix{Tv}(undef, n, nbatch)
+    fill!(T, 0)
 
-    return RF(rf, n, M, P, Q, r, T)
+    tsv = CuSparseBackSV(M, 'T')
+    dsm = CuSparseBackSM(M, 'N', T)
+    tsm = CuSparseBackSM(M, 'T', T)
+
+    return RF(rf, n, M, P, Q, r, T, tsv, dsm, tsm)
 end
 
 # Refactoring
@@ -49,13 +57,8 @@ end
 function LinearAlgebra.ldiv!(
     y::AbstractVector, rf::RF, x::AbstractVector,
 )
-    # copyto!(y, x)
-    # rf_solve!(rf.rf, y)
-    bs = CuSparseBackSV(rf.M, 'N')
-    z = rf.r
-    mul!(z, rf.P, x)
-    backsolve!(bs, rf.M, z)
-    mul!(y, rf.Q, z)
+    copyto!(y, x)
+    rf_solve!(rf.rf, y)
 end
 
 function LinearAlgebra.ldiv!(
@@ -64,8 +67,7 @@ function LinearAlgebra.ldiv!(
     @assert size(Y, 2) == size(X, 2) == size(rf.T, 2)
     Z = rf.T
     mul!(Z, rf.P, X)
-    CUSPARSE.sm2!('N', 'N', 'L', 'U', 1.0, rf.M, Z, 'O')
-    CUSPARSE.sm2!('N', 'N', 'U', 'N', 1.0, rf.M, Z, 'O')
+    backsolve!(rf.dsm, rf.M, Z)
     mul!(Y, rf.Q, Z)
 end
 
@@ -75,8 +77,7 @@ function LinearAlgebra.ldiv!(
     @assert size(X, 2) == size(rf.T, 2)
     Z = rf.T
     mul!(Z, rf.P, X)
-    CUDA.@time CUSPARSE.sm2!('N', 'N', 'L', 'U', 1.0, rf.M, Z, 'O')
-    CUDA.@time CUSPARSE.sm2!('N', 'N', 'U', 'N', 1.0, rf.M, Z, 'O')
+    backsolve!(rf.dsm, rf.M, Z)
     mul!(X, rf.Q, Z)
 end
 
@@ -87,8 +88,7 @@ function LinearAlgebra.ldiv!(
     rf = arf.parent
     z = rf.r
     mul!(z, rf.Q', x)
-    CUDA.@time CUSPARSE.sv2!('T', 'U', 'N', 1.0, rf.M, z, 'O')
-    CUDA.@time CUSPARSE.sv2!('T', 'L', 'U', 1.0, rf.M, z, 'O')
+    backsolve!(rf.tsv, rf.M, z)
     mul!(y, rf.P', z)
 end
 
@@ -99,8 +99,7 @@ function LinearAlgebra.ldiv!(
     @assert size(Y, 2) == size(X, 2) == size(rf.T, 2)
     Z = rf.T
     mul!(Z, rf.Q', X)
-    CUSPARSE.sm2!('T', 'N', 'U', 'N', 1.0, rf.M, Z, 'O')
-    CUSPARSE.sm2!('T', 'N', 'L', 'U', 1.0, rf.M, Z, 'O')
+    backsolve!(rf.tsm, rf.M, Z)
     mul!(Y, rf.P', Z)
 end
 
@@ -111,8 +110,7 @@ function LinearAlgebra.ldiv!(
     @assert size(X, 2) == size(rf.T, 2)
     Z = rf.T
     mul!(Z, rf.Q', X)
-    CUDA.@time CUSPARSE.sm2!('T', 'N', 'U', 'N', 1.0, rf.M, Z, 'O')
-    CUDA.@time CUSPARSE.sm2!('T', 'N', 'L', 'U', 1.0, rf.M, Z, 'O')
+    backsolve!(rf.tsm, rf.M, Z)
     mul!(X, rf.P', Z)
 end
 

@@ -14,7 +14,7 @@ const LS = LinearSolvers
 # include("../lib/cusolverRF/cusolverRF.jl")
 
 # Plug cusolverRF in ExaPF.LinearSolvers
-LS.DirectSolver(J::CuSparseMatrixCSR; kwargs...) = LS.DirectSolver(CUSOLVERRF.RF(J; kwargs...))
+LS.DirectSolver(J::CuSparseMatrixCSR; kwargs...) = LS.DirectSolver(cusolverRF.RF(J; kwargs...))
 
 function LS.update!(s::LS.DirectSolver{Fac}, J::CuSparseMatrixCSR) where {Fac <: Factorization}
     lu!(s.factorization, J)
