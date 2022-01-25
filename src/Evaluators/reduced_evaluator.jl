@@ -164,9 +164,9 @@ function ReducedSpaceEvaluator(
     g_max = min.(g_max, 1e5)
 
     # Jacobians
-    Gx = ExaPF.MyJacobian(model, powerflow ∘ basis, mapx)
-    Gu = ExaPF.MyJacobian(model, powerflow ∘ basis, mapu)
-    jac = ExaPF.MyJacobian(model, constraints ∘ basis, mapxu)
+    Gx = ExaPF.Jacobian(model, powerflow ∘ basis, mapx)
+    Gu = ExaPF.Jacobian(model, powerflow ∘ basis, mapu)
+    jac = ExaPF.Jacobian(model, constraints ∘ basis, mapxu)
     # Hessian of Lagrangian
     lagrangian_expr = [costs; powerflow; constraints_expr]
     lagrangian = ExaPF.MultiExpressions(lagrangian_expr)
