@@ -88,6 +88,19 @@ function CuSparseBackSV(
     n_bytes = outL[]::Cint
     buffer = CUDA.zeros(UInt8, n_bytes)
 
+    for (desc, info) in [(descL, infoL), (descU, infoU)]
+        CUSPARSE.cusparseDcsrsv2_analysis(
+            CUSPARSE.handle(), transa, m, nnz(A),
+            desc, nonzeros(A), A.rowPtr, A.colVal, info[1],
+            CUSPARSE.CUSPARSE_SOLVE_POLICY_USE_LEVEL, buffer,
+        )
+        posit = Ref{Cint}(1)
+        CUSPARSE.cusparseXcsrsv2_zeroPivot(CUSPARSE.handle(), info[1], posit)
+        if posit[] >= 0
+            error("Structural/numerical zero in A at ($(posit[]),$(posit[])))")
+        end
+    end
+
     return CuSparseBackSV(transa, descL, descU, infoL, infoU, buffer)
 end
 
@@ -102,18 +115,6 @@ function backsolve!(s::CuSparseBackSV, A::CUSPARSE.CuSparseMatrixCSR, X::CuVecto
     end
 
     for (desc, info) in operations
-        CUSPARSE.cusparseDcsrsv2_analysis(
-            CUSPARSE.handle(), s.transa, m, nnz(A),
-            desc, nonzeros(A), A.rowPtr, A.colVal, info[1],
-            CUSPARSE.CUSPARSE_SOLVE_POLICY_USE_LEVEL, s.buffer,
-        )
-        posit = Ref{Cint}(1)
-        CUSPARSE.cusparseXcsrsv2_zeroPivot(CUSPARSE.handle(), info[1], posit)
-
-        if posit[] >= 0
-            error("Structural/numerical zero in A at ($(posit[]),$(posit[])))")
-        end
-
         CUSPARSE.cusparseDcsrsv2_solve(CUSPARSE.handle(), s.transa, m,
                 nnz(A), alpha, desc, nonzeros(A), A.rowPtr,
                 A.colVal, info[1], X, X,
@@ -168,6 +169,20 @@ function CuSparseBackSM(
     n_bytes = outL[]::UInt64
     buffer = CUDA.zeros(UInt8, n_bytes)
 
+    for (desc, info) in [(descL, infoL), (descU, infoU)]
+        CUSPARSE.cusparseDcsrsm2_analysis(
+            CUSPARSE.handle(), 0, transa, transxy, m, nX, nnz(A), alpha,
+            desc, nonzeros(A), A.rowPtr, A.colVal, X, ldx, info[1],
+            CUSPARSE.CUSPARSE_SOLVE_POLICY_USE_LEVEL, buffer,
+        )
+        posit = Ref{Cint}(1)
+        CUSPARSE.cusparseXcsrsm2_zeroPivot(CUSPARSE.handle(), info[1], posit)
+
+        if posit[] >= 0
+            error("Structural/numerical zero in A at ($(posit[]),$(posit[])))")
+        end
+    end
+
     return CuSparseBackSM(transa, descL, descU, infoL, infoU, buffer)
 end
 
@@ -185,19 +200,6 @@ function backsolve!(s::CuSparseBackSM, A::CUSPARSE.CuSparseMatrixCSR, X::CuMatri
     end
 
     for (desc, info) in operations
-        # / L
-        CUSPARSE.cusparseDcsrsm2_analysis(
-            CUSPARSE.handle(), 0, s.transa, transxy, m, nX, nnz(A), alpha,
-            desc, nonzeros(A), A.rowPtr, A.colVal, X, ldx, info[1],
-            CUSPARSE.CUSPARSE_SOLVE_POLICY_USE_LEVEL, s.buffer,
-        )
-        posit = Ref{Cint}(1)
-        CUSPARSE.cusparseXcsrsm2_zeroPivot(CUSPARSE.handle(), info[1], posit)
-
-        if posit[] >= 0
-            error("Structural/numerical zero in A at ($(posit[]),$(posit[])))")
-        end
-
         CUSPARSE.cusparseDcsrsm2_solve(
             CUSPARSE.handle(), 0, s.transa, transxy, m, nX, nnz(A), alpha,
             desc, nonzeros(A), A.rowPtr, A.colVal, X, ldx, info[1],
