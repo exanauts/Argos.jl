@@ -70,9 +70,9 @@ mutable struct ReducedSpaceEvaluator{T, VI, VT, MT, Jacx, Jacu, JacCons, Hess, M
     mapxu::VI
 
     # Expressions
-    basis::ExaPF.AbstractExpression
-    costs::ExaPF.AbstractExpression
-    constraints::ExaPF.AbstractExpression
+    basis::AutoDiff.AbstractExpression
+    costs::AutoDiff.AbstractExpression
+    constraints::AutoDiff.AbstractExpression
 
     # Buffers
     obj::T
@@ -205,8 +205,11 @@ inner_evaluator(nlp::ReducedSpaceEvaluator) = nlp
 n_variables(nlp::ReducedSpaceEvaluator) = nlp.nu
 n_constraints(nlp::ReducedSpaceEvaluator) = length(nlp.g_min)
 
+constraints_type(::ReducedSpaceEvaluator) = :inequality
 has_hessian(nlp::ReducedSpaceEvaluator) = true
 has_hessian_lagrangian(nlp::ReducedSpaceEvaluator) = true
+
+number_batches(nlp::ReducedSpaceEvaluator) = n_batches(nlp.reduction)
 
 function get_hessian_buffer(nlp::ReducedSpaceEvaluator)
     if !haskey(nlp.etc,:hess)
@@ -439,80 +442,34 @@ function hessian_lagrangian_prod!(
 end
 
 function hessian_lagrangian_penalty_prod!(
-    nlp::ReducedSpaceEvaluator, hessvec, u, y, σ, D, w,
+    nlp::ReducedSpaceEvaluator, hessvec, u, λ, σ, D, w,
 )
-    @assert nlp.hesslag != nothing
-
-    nbatch = size(w, 2)
-    nx = ExaPF.get(nlp.model, ExaPF.NumberOfState())
-    nu = ExaPF.get(nlp.model, ExaPF.NumberOfControl())
-    # TODO: remove
-    nbus = ExaPF.get(nlp.model, ExaPF.PowerSystem.NumberOfBuses())
-    buffer = nlp.buffer
-    H = nlp.hesslag
-    ∇gᵤ = nlp.state_jacobian.u.J
-
-    fill!(hessvec, 0.0)
-
-    z = H.z
-    ψ = H.ψ
-    ∇gᵤ = nlp.state_jacobian.u.J
-    mul!(z, ∇gᵤ, w, -1.0, 0.0)
-    LinearAlgebra.ldiv!(H.lu, z)
-
-    # Two vector products
-    μ = H.y
-    tgt = H.tmp_tgt
-    hv = H.tmp_hv
-
-    # First-order adjoint
-    λ = nlp.μ
-
-    # Init tangent with z and w
-    _init_tangent!(tgt, z, w, nx, nu, nbatch)
-
-    ## OBJECTIVE HESSIAN
-    fill!(μ, 0.0)
-    μ[1:nx] .-= λ  # / power balance
-    μ[2*nbus+1:2*nbus+1] .= σ         # / objective
-    # / constraints
-    shift_m = nx
-    shift_y = ExaPF.size_constraint(nlp.model, ExaPF.voltage_magnitude_constraints)
-    for cons in [ExaPF.active_power_constraints, ExaPF.reactive_power_constraints]
-        m = ExaPF.size_constraint(nlp.model, cons)::Int
-        μ[shift_m+1:m+shift_m] .= view(y, shift_y+1:shift_y+m)
-        shift_m += m
-        shift_y += m
+    nx, nu = nlp.nx, nlp.nu
+    m = length(nlp.constraints)
+    if true #!nlp.is_adjoint_lagrangian_updated
+        g = nlp.wu
+        ojtprod!(nlp, g, u, σ, λ)
     end
-    if nlp.constraints[end] == ExaPF.flow_constraints
-        m = ExaPF.size_constraint(nlp.model, ExaPF.flow_constraints)::Int
-        μ[2*nbus+2:2*nbus+1+m] .= view(y, shift_y+1:shift_y+m)
+    y = nlp.multipliers
+    # Init adjoint
+    fill!(y, 0.0)
+    y[1:1] .= σ           # / objective
+    y[2:nx+1] .-= nlp.μ       # / power balance
+    y[nx+2:nx+1+m] .= λ       # / constraints
+    # Update Hessian
+    if true #!nlp.is_hessian_lagrangian_updated
+        ExaPF.hessian!(nlp.hess, nlp.stack, y)
+        ExaPF.jacobian!(nlp.jac, nlp.stack)
+        nlp.is_hessian_lagrangian_updated = true
+        nlp.is_hessian_objective_updated = false
     end
+    # Get sparse matrices
+    H = nlp.hess.H
+    Gu = nlp.Gu.J
+    J = nlp.jac.J
+    W = H + J' * Diagonal(D) * J
 
-    ∇²Lx, ∇²Lu = full_hessprod!(nlp, hv, μ, tgt)
-
-    # Add Hessian of quadratic penalty
-    m = length(y)
-    diagjac = H._w1
-    _update_full_jacobian_constraints!(nlp)
-    Jx = nlp.constraint_jacobians.Jx
-    Ju = nlp.constraint_jacobians.Ju
-    # ∇²Lx .+= Jx' * (D * (Jx * z)) .+ Jx' * (D * (Ju * w))
-    # ∇²Lu .+= Ju' * (D * (Jx * z)) .+ Ju' * (D * (Ju * w))
-    mul!(diagjac, Jx, z)
-    mul!(diagjac, Ju, w, 1.0, 1.0)
-    diagjac .*= D
-    mul!(∇²Lx, Jx', diagjac, 1.0, 1.0)
-    mul!(∇²Lu, Ju', diagjac, 1.0, 1.0)
-
-    # Second order adjoint
-    copyto!(ψ, ∇²Lx)
-    LinearAlgebra.ldiv!(H.adjlu, ψ)
-
-    hessvec .+= ∇²Lu
-    mul!(hessvec, transpose(∇gᵤ), ψ, -1.0, 1.0)
-
-    return
+    adjoint_adjoint_reduction!(nlp.reduction, hessvec, W, Gu, w)
 end
 
 # Batch Hessian

@@ -6,9 +6,9 @@ mutable struct FullSpaceEvaluator{T, VI, VT, MT, JacCons, HessLag} <: AbstractNL
     mapxu::VI
 
     # Expressions
-    basis::ExaPF.AbstractExpression
-    costs::ExaPF.AbstractExpression
-    constraints::ExaPF.AbstractExpression
+    basis::AutoDiff.AbstractExpression
+    costs::AutoDiff.AbstractExpression
+    constraints::AutoDiff.AbstractExpression
 
     _obj::T
     _cons::VT
@@ -65,7 +65,7 @@ function FullSpaceEvaluator(
     # Remove bounds below a given threshold
     g_max = min.(g_max, 1e5)
 
-    jac = ExaPF.MyJacobian(model, constraints ∘ basis, mapxu)
+    jac = ExaPF.Jacobian(model, constraints ∘ basis, mapxu)
     lagrangian_expr = [costs; constraints_expr]
     lagrangian = ExaPF.MultiExpressions(lagrangian_expr)
     hess = ExaPF.FullHessian(model, lagrangian ∘ basis, mapxu)
@@ -106,7 +106,6 @@ Base.get(nlp::FullSpaceEvaluator, ::PS.ActivePower) = nlp.stack.pgen
 function Base.get(nlp::FullSpaceEvaluator, attr::PS.AbstractNetworkAttribute)
     return ExaPF.get(nlp.model, attr)
 end
-get_nnzh(nlp::FullSpaceEvaluator) = length(nlp.hesslag.h_V)
 
 # Initial position
 function initial(nlp::FullSpaceEvaluator{T,VI,VT,MT}) where {T,VI,VT,MT}
@@ -148,13 +147,14 @@ function jprod!(nlp::FullSpaceEvaluator, jv, x, v)
     ExaPF.jacobian!(nlp.jac, nlp.stack)
     vx = view(v, 1:nlp.nx)
     vu = view(v, nlp.nx+1:nlp.nx+nlp.nu)
-    mul!(jv, jac.J, v)
+    mul!(jv, nlp.jac.J, v)
     return
 end
 
 function jtprod!(nlp::FullSpaceEvaluator, jv, x, v)
     ExaPF.jacobian!(nlp.jac, nlp.stack)
-    mul!(jv, Jx', v)
+    J = nlp.jac.J
+    mul!(jv, J', v)
     return
 end
 

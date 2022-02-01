@@ -45,6 +45,7 @@ println()
     tic = time()
     include("Algorithms/reduced_gradient.jl")
     include("Algorithms/MOI_wrapper.jl")
+    include("Algorithms/MadNLP_wrapper.jl")
     println("Took $(round(time() - tic; digits=1)) seconds.")
 end
 println("\nTOTAL RUNNING TIME: $(round(time() - init_time; digits=1)) seconds.")
