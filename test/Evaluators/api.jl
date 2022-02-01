@@ -9,7 +9,6 @@ function test_evaluator_api(nlp, device, M)
 
     u_min, u_max = Argos.bounds(nlp, Argos.Variables())
     g_min, g_max = Argos.bounds(nlp, Argos.Constraints())
-    buffer = get(nlp, ExaPF.PhysicalState())
 
     # Test consistence
     @test n == length(u)
@@ -21,20 +20,10 @@ function test_evaluator_api(nlp, device, M)
     end
 
     # Test API
-    @test isa(get(nlp, State()), AbstractVector)
-    @test isa(get(nlp, Argos.Constraints()), Array{Function})
-    @test isa(get(nlp, State()), AbstractVector)
-    @test isa(buffer, ExaPF.AbstractBuffer)
     @test Argos.constraints_type(nlp) in [:bound, :equality, :inequality]
 
     @test isa(Argos.has_hessian(nlp), Bool)
     @test isa(Argos.has_hessian_lagrangian(nlp), Bool)
-
-    # setters
-    nbus = get(nlp, PS.NumberOfBuses())
-    loads = similar(u, nbus) ; fill!(loads, 1)
-    Argos.setvalues!(nlp, PS.ActiveLoad(), loads)
-    Argos.setvalues!(nlp, PS.ReactiveLoad(), loads)
 
     Argos.reset!(nlp)
 end
@@ -108,6 +97,8 @@ function test_evaluator_callbacks(nlp, device, M; rtol=1e-6)
 end
 
 function test_evaluator_hessian(nlp, device, M; rtol=1e-6)
+    Argos.reset!(nlp)
+
     n = Argos.n_variables(nlp)
     @test Argos.has_hessian(nlp)
     function reduced_cost(u_)
@@ -116,7 +107,6 @@ function test_evaluator_hessian(nlp, device, M; rtol=1e-6)
     end
     u = Argos.initial(nlp)
     Argos.update!(nlp, u)
-    Argos.gradient(nlp, u) # compute the gradient to update the adjoint internally
 
     # 1/ Hessian-vector product
     hv = similar(u) ; fill!(hv, 0)
@@ -137,6 +127,8 @@ function test_evaluator_hessian(nlp, device, M; rtol=1e-6)
 end
 
 function test_evaluator_hessian_lagrangian(nlp, device, M; rtol=1e-6)
+    Argos.reset!(nlp)
+
     n, m = Argos.n_variables(nlp), Argos.n_constraints(nlp)
     @test Argos.has_hessian(nlp)
     u = Argos.initial(nlp)
@@ -163,6 +155,8 @@ function test_evaluator_hessian_lagrangian(nlp, device, M; rtol=1e-6)
 end
 
 function test_evaluator_jacobian(nlp, device, M; rtol=1e-6)
+    Argos.reset!(nlp)
+
     n, m = Argos.n_variables(nlp), Argos.n_constraints(nlp)
     @test Argos.has_hessian(nlp)
     u = Argos.initial(nlp)
@@ -185,8 +179,10 @@ function test_evaluator_jacobian(nlp, device, M; rtol=1e-6)
 end
 
 function test_evaluator_batch_hessian(nlp, device, M; rtol=1e-6)
+    Argos.reset!(nlp)
+
     n = Argos.n_variables(nlp)
-    nbatch = Argos.number_batches_hessian(nlp)
+    nbatch = Argos.number_batches(nlp)
     @test Argos.has_hessian(nlp)
     @test nbatch > 1
     function reduced_cost(u_)
@@ -228,7 +224,7 @@ function test_evaluator_batch_hessian(nlp, device, M; rtol=1e-6)
         end
         J_fd = FiniteDiff.finite_difference_jacobian(reduced_cons, u)
         # TODO: check why we can't relax the tolerance here
-        @test J ≈ J_fd rtol=1e-5
+        @test J ≈ J_fd rtol=1e-4
     end
 end
 
@@ -248,11 +244,12 @@ function test_evaluator_sparse_callbacks(nlp, device, M; rtol=1e-6)
     Argos.hessian_lagrangian!(nlp, H_d, u, y, σ)
 
     # 2/ Sparse Hessian
-    nnzh = Argos.get_nnzh(nlp)
+    I, J = Argos.hessian_structure(nlp)
+    @test length(I) == length(J)
+    nnzh = length(I)
     h_V = similar(u, nnzh) ; fill!(h_V, 0)
     Argos.hessian_lagrangian_coo!(nlp, h_V, u, y, σ)
 
-    I, J = Argos.hessian_structure(nlp)
     H_s = sparse(I, J, h_V, n, n)
     @test H_s ≈ LowerTriangular(H_d) rtol=rtol
     #
@@ -262,6 +259,7 @@ function test_evaluator_sparse_callbacks(nlp, device, M; rtol=1e-6)
 
     # 4/ Sparse Jacobian
     j_I, j_J = Argos.jacobian_structure(nlp)
+    @test length(j_I) == length(j_J)
     j_V = similar(u, length(j_I))
     Argos.jacobian_coo!(nlp, j_V, u)
 
