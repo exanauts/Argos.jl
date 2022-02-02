@@ -103,6 +103,19 @@ function Reduction(polar::PolarForm{T, VI, VT, MT}, lujac::Factorization) where 
 end
 n_batches(hlag::Reduction) = 1
 
+function reduce!(red::Reduction{VT}, dest, W, Gu) where VT
+    nu = red.nu
+    v_cpu = zeros(nu)
+    v = VT(undef, nu)
+    @inbounds for i in 1:nu
+        fill!(v_cpu, 0)
+        v_cpu[i] = 1.0
+        copyto!(v, v_cpu)
+        hv = @view dest[:, i]
+        adjoint_adjoint_reduction!(red, hv, W, Gu, v)
+    end
+end
+
 
 struct BatchReduction{MT} <: AbstractReduction
     nx::Int
