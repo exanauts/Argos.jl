@@ -450,7 +450,7 @@ end
 
 # KLU
 function RfLU(
-    A::SparseMatrixCSC{Float64, Int32}; fast_mode=false,
+    A::SparseMatrixCSC{Float64, Int32}; fast_mode=true,
     factorization_algo=CUSOLVERRF_FACTORIZATION_ALG2,
     triangular_algo=CUSOLVERRF_TRIANGULAR_SOLVE_ALG2,
 )

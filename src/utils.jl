@@ -2,6 +2,18 @@
 # Counters
 abstract type AbstractCounter end
 
+mutable struct NLPTimers
+    update_time::Float64
+    obj_time::Float64
+    cons_time::Float64
+    grad_time::Float64
+    jacobian_time::Float64
+    jacprod_time::Float64
+    hessian_time::Float64
+    hessprod_time::Float64
+end
+NLPTimers() = NLPTimers(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0)
+
 mutable struct NLPCounter <: AbstractCounter
     objective::Int
     gradient::Int
@@ -12,10 +24,18 @@ mutable struct NLPCounter <: AbstractCounter
 end
 NLPCounter() = NLPCounter(0, 0, 0, 0, 0, 0)
 
-function Base.empty!(c::NLPCounter)
-    for attr in fieldnames(NLPCounter)
+function Base.empty!(c::NT) where {NT <: Union{NLPTimers,NLPCounter}}
+    for attr in fieldnames(NT)
         setfield!(c, attr, 0)
     end
+end
+
+function Base.sum(c::NLPTimers)
+    acc = 0.0
+    for attr in fieldnames(NLPTimers)
+        acc += getfield(c, attr)
+    end
+    return acc
 end
 
 # Tracker
@@ -66,3 +86,4 @@ function transfer_auglag_hessian!(
     Hᵥᵥ[ind] .= ρ
     return
 end
+

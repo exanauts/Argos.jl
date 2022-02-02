@@ -1,26 +1,33 @@
 
-struct BieglerKKTSystem{T, VI, VT, MT} <: MadNLP.AbstractReducedKKTSystem{T, MT}
-    # Sparse Hessian in COO format
+struct BieglerKKTSystem{T, VI, VT, MT, SMT} <: MadNLP.AbstractReducedKKTSystem{T, MT}
+    K::HJDJ{VI,VT,SMT}
+    W::SMT
+    J::SMT
+    A::SMT
+    Gx::SMT
+    Gu::SMT
+    mapA::VI
+    mapGx::VI
+    mapGu::VI
+    # Hessian nzval
     h_V::VT
-    h_I::VI
-    h_J::VI
-    # Sparse Jacobian in COO format
+    # Jacobian nzval
     j_V::VT
-    j_I::VI
-    j_J::VI
     # Regularization terms
     pr_diag::VT
     du_diag::VT
     # Reduced KKT system
     aug_com::MT
-    # Raw Hessian
-    hess_raw::MT
-    # Jacobian
-    jac_raw::MT
-    # Sensitivities
-    S::MT
+    reduction::AbstractReduction
     # Pivot
     G_fac::LinearAlgebra.Factorization
+    # Buffers
+    _wxu1::VT
+    _wxu2::VT
+    _wxu3::VT
+    _wx1::VT
+    _wx2::VT
+    _wj1::VT
     # Dimension
     nx::Int
     nu::Int
@@ -29,51 +36,71 @@ struct BieglerKKTSystem{T, VI, VT, MT} <: MadNLP.AbstractReducedKKTSystem{T, MT}
     ind_fixed::Vector{Int}
     con_scale::VT
     jacobian_scaling::VT
+    etc::Dict{Symbol,Any}
 end
 
-function BieglerKKTSystem{T, VI, VT, MT}(nlp::ExaNLPModel, ind_cons=MadNLP.get_index_constraints(nlp)) where {T, VI, VT, MT}
+function BieglerKKTSystem{T, VI, VT, MT}(nlp::ExaNLPModel, ind_cons=MadNLP.get_index_constraints(nlp); nbatches=1) where {T, VI, VT, MT}
     n_slack = length(ind_cons.ind_ineq)
     n = NLPModels.get_nvar(nlp)
     m = NLPModels.get_ncon(nlp)
+    # Structure
+    nx = nlp.nlp.nx
+    nu = nlp.nlp.nu
     # Evaluate sparsity pattern
     nnzj = NLPModels.get_nnzj(nlp)
     nnzh = NLPModels.get_nnzh(nlp)
 
+    evaluator = nlp.nlp
+    W = evaluator.hess.H
+    SMT = typeof(W)
     h_V = VT(undef, nnzh) ; fill!(h_V, zero(T))
-    h_I = VT(undef, nnzh)
-    h_J = VT(undef, nnzh)
-    NLPModels.hess_structure!(nlp, h_I, h_J)
 
+    J = copy(evaluator.jac.J)
     j_V = VT(undef, nnzj) ; fill!(j_V, zero(T))
-    j_I = VT(undef, nnzj)
-    j_J = VT(undef, nnzj)
-    NLPModels.jac_structure!(nlp, j_I, j_J)
+
+    # Instantiate on host
+    J_h = SparseMatrixCSC(J)
+    W_h = SparseMatrixCSC(W)
+
+    # Decompose J
+    Gx_h = J_h[1:nx, 1:nx]
+    Gu_h = J_h[1:nx, nx+1:nx+nu]
+    A_h = J_h[nx+1:end, :]
+    # Associated mappings
+    mapA, mapGx, mapGu = split_jacobian(J, nx, nu)
+
+    # Transfer to device
+    Gx = Gx_h |> SMT
+    Gu = Gu_h |> SMT
+    A = A_h |> SMT
+
+    # Condensed matrix
+    K = HJDJ(W, A)
 
     pr_diag = VT(undef, n + n_slack) ; fill!(pr_diag, zero(T))
     du_diag = VT(undef, m) ; fill!(du_diag, zero(T))
 
-    # Reduction
-    nx = nlp.nlp.nx
-    nu = nlp.nlp.nu
-
-    n_kkt = nu + n_slack + m - nx
-
-    # Sensitivities
-    S = MT(undef, nx, nu) ; fill!(S, 0.0)
-    # Initial factorization
     # Evaluate Jacobian
     x = initial(nlp.nlp)
-    NLPModels.jac_coord!(nlp, x, j_V)
-    J = sparse(j_I, j_J, j_V)
-    Gx = J[1:nx, 1:nx]
-    Gxi = lu(Gx)
 
-    # Wᵤᵤ
-    hess_raw = MT(undef, nu, nu)      ; fill!(hess_raw, zero(T))
-    # Jᵤ
-    jac_raw = MT(undef, m - nx, nu)   ; fill!(jac_raw, zero(T))
+    linear_solver = LS.DirectSolver(Gx; nbatch=nbatches)
+    Gxi = linear_solver.factorization
+    reduction = if nbatches > 1
+        BatchReduction(evaluator.model, Gxi, nbatches)
+    else
+        Reduction(evaluator.model, Gxi)
+    end
+
     # W
-    aug_com = MT(undef, n_kkt, n_kkt) ; fill!(aug_com, zero(T))
+    aug_com = MT(undef, nu, nu) ; fill!(aug_com, zero(T))
+
+    # Buffers
+    _wxu1 = VT(undef, nx+nu)
+    _wxu2 = VT(undef, nx+nu)
+    _wxu3 = VT(undef, nx+nu)
+    _wx1 = VT(undef, nx)
+    _wx2 = VT(undef, nx)
+    _wj1 = VT(undef, m-nx)
 
     # Scaling
     con_scale = VT(undef, m)           ; fill!(con_scale, one(T))
@@ -81,55 +108,97 @@ function BieglerKKTSystem{T, VI, VT, MT}(nlp::ExaNLPModel, ind_cons=MadNLP.get_i
 
     ind_fixed = ind_cons.ind_fixed .- nx
 
-    return BieglerKKTSystem{T, VI, VT, MT}(
-        h_V, h_I, h_J,
-        j_V, j_I, j_J,
+    etc = Dict{Symbol, Any}()
+
+    return BieglerKKTSystem{T, VI, VT, MT, SMT}(
+        K, W, J, A, Gx, Gu, mapA, mapGx, mapGu,
+        h_V, j_V,
         pr_diag, du_diag,
-        aug_com, hess_raw, jac_raw, S, Gxi,
+        aug_com, reduction, Gxi,
+        _wxu1, _wxu2, _wxu3, _wx1, _wx2, _wj1,
         nx, nu,
         ind_cons.ind_ineq, ind_fixed, con_scale, jacobian_scaling,
+        etc,
     )
 end
 
-MadNLP.num_variables(kkt::BieglerKKTSystem) = kkt.nu + length(kkt.ind_ineq)
+MadNLP.num_variables(kkt::BieglerKKTSystem) = kkt.nu
 MadNLP.get_hessian(kkt::BieglerKKTSystem) = kkt.h_V
-MadNLP.get_jacobian(kkt::BieglerKKTSystem) = kkt.j_V
+MadNLP.get_jacobian(kkt::BieglerKKTSystem) = nonzeros(kkt.J)
 MadNLP.is_reduced(::BieglerKKTSystem) = true
 
 # Return SparseMatrixCOO to MadNLP
 function MadNLP.get_raw_jacobian(kkt::BieglerKKTSystem)
-    n, m = kkt.nx + kkt.nu, size(kkt.jac_raw, 1)
-    return MadNLP.SparseMatrixCOO(n, m, kkt.j_I, kkt.j_J, kkt.j_V)
+    n, m = kkt.nx + kkt.nu, size(kkt.A, 1)
+    i, j, v = findnz(kkt.J)
+    return MadNLP.SparseMatrixCOO(n, m, i, j, v)
 end
 
 function MadNLP.initialize!(kkt::BieglerKKTSystem)
     fill!(kkt.pr_diag, 1.0)
     fill!(kkt.du_diag, 0.0)
-    fill!(kkt.hess_raw, 0.0)
+end
+
+function MadNLP.set_jacobian_scaling!(kkt::BieglerKKTSystem{T,VI,VT,MT}, constraint_scaling::AbstractVector) where {T,VI,VT,MT}
+    copyto!(kkt.con_scale, constraint_scaling)
+    nnzJ = length(kkt.j_V)::Int
+    Ji, _, _ = findnz(kkt.J)
+    jscale = zeros(nnzJ)
+    @inbounds for i in 1:nnzJ
+        index = Ji[i]
+        jscale[i] = constraint_scaling[index]
+    end
+    copyto!(kkt.jacobian_scaling, jscale)
+end
+
+function _load_buffer(kkt::BieglerKKTSystem{T,VI,VT,MT}, x::AbstractVector, key::Symbol) where {T,VI,VT,MT}
+    haskey(kkt.etc, key) || (kkt.etc[key] = VT(undef, length(x)))
+    xb = kkt.etc[key]::VT
+    _copyto!(xb, 1, x, 1, length(x))
+    return xb
+end
+function _load_buffer(kkt::BieglerKKTSystem{T,VI,VT,MT}, x::VT, key::Symbol) where {T,VI,VT,MT}
+    return x
 end
 
 # Use for inertia-free regularization (require full-space multiplication)
-# TODO: rewrite
-function _mul_expanded!(y, kkt::BieglerKKTSystem, x)
+function _mul_expanded!(y_h, kkt::BieglerKKTSystem{T, VI, VT, MT}, x_h) where {T, VI, VT, MT}
+    x = _load_buffer(kkt, x_h, :hess_x)::VT
+    y = _load_buffer(kkt, y_h, :hess_y)::VT
     # Build full-space KKT system
     n = kkt.nx + kkt.nu
     m = length(kkt.con_scale)
     ns = length(kkt.ind_ineq)
-    W = sparse(kkt.h_I, kkt.h_J, kkt.h_V)
-    Σₓ = spdiagm(kkt.pr_diag[1:n])
-    Σₛ = spdiagm(kkt.pr_diag[n+1:n+ns])
+    W = kkt.W
+    Σₓ = kkt.pr_diag[1:n]
+    Σₛ = kkt.pr_diag[n+1:n+ns]
     # Jacobian
-    Jx = sparse(kkt.j_I, kkt.j_J, kkt.j_V)
-    Js = sparse(kkt.ind_ineq, 1:ns, -kkt.con_scale[kkt.ind_ineq], m, ns)
-    Σᵤ = spdiagm(kkt.du_diag)
+    Jx = kkt.J
+    Js = view(kkt.con_scale, kkt.nx+1:m)
+    Σᵤ = kkt.du_diag
 
-    Z = spzeros(n, ns)
-    K = [
-        W+Σₓ Z  Jx'
-        Z'   Σₛ Js'
-        Jx   Js Σᵤ
-    ]::SparseMatrixCSC{Float64, Int}
-    mul!(y, K, x)
+    # Decompose x
+    xx = view(x, 1:n)
+    xs = view(x, n+1:n+ns)
+    xz = view(x, n+ns+1:n+ns+m)
+    # Decompose y
+    yx = view(y, 1:n)
+    ys = view(y, n+1:n+ns)
+    yz = view(y, n+ns+1:n+ns+m)
+
+    # / x (variable)
+    yx .= Σₓ .* xx
+    mul!(yx, W, xx, 1.0, 1.0)
+    mul!(yx, Jx', xz, 1.0, 1.0)
+    # / s (slack)
+    ys .= Σₛ .* xs
+    ys .-= Js .* xz[kkt.nx+1:m]
+    # / z (multipliers)
+    yz .= Σᵤ .* xz
+    yz[kkt.nx+1:m] .-= Js .* xs
+    mul!(yz, Jx, xx, 1.0, 1.0)
+
+    copyto!(y_h, y)
 end
 
 function MadNLP.mul!(y::AbstractVector, kkt::BieglerKKTSystem, x::AbstractVector)
@@ -140,173 +209,183 @@ function MadNLP.mul!(y::AbstractVector, kkt::BieglerKKTSystem, x::AbstractVector
     end
 end
 
-function MadNLP.jtprod!(y::AbstractVector, kkt::BieglerKKTSystem, x::AbstractVector)
+function MadNLP.jtprod!(
+    y_h::AbstractVector,
+    kkt::BieglerKKTSystem{T, VI, VT, MT},
+    x_h::AbstractVector,
+) where {T, VI, VT, MT}
+    x = _load_buffer(kkt, x_h, :jacx)::VT
+    y = _load_buffer(kkt, y_h, :jacy)::VT
     n = kkt.nx + kkt.nu
-    nv = length(y)
-    J = sparse(kkt.j_I, kkt.j_J, kkt.j_V)
+    ns = length(kkt.ind_ineq)
+    m = length(x)
     yx = view(y, 1:n)
-    mul!(yx, J', x)
-    ys = view(y, n+1:nv)
-    ys .= -x[kkt.ind_ineq] .* kkt.con_scale[kkt.ind_ineq]
+    mul!(yx, kkt.J', x)
+    ys = view(y, n+1:n+ns)
+    xs = view(x, kkt.nx+1:m)
+    αs = view(kkt.con_scale, kkt.nx+1:m)
+    ys .= .-xs .* αs
+
+    copyto!(y_h, y)
 end
 
-MadNLP.nnz_jacobian(kkt::BieglerKKTSystem) = size(kkt.jac_raw, 1) * size(kkt.jac_raw, 2)
+MadNLP.nnz_jacobian(kkt::BieglerKKTSystem) = size(kkt.A, 1) * size(kkt.A, 2)
 
 function MadNLP.compress_jacobian!(kkt::BieglerKKTSystem)
     nx, nu = kkt.nx, kkt.nu
-    kkt.j_V .*= kkt.jacobian_scaling
+    Jv = nonzeros(kkt.J)
+    Jv .*= kkt.jacobian_scaling
     # Build Jacobian
-    S = kkt.S
-    J = sparse(kkt.j_I, kkt.j_J, kkt.j_V)
-    Gx = J[1:nx, 1:nx]
-    Gu = J[1:nx, 1+nx:nx+nu]
-    Ax = J[nx+1:end, 1:nx]
-    Au = J[nx+1:end, 1+nx:nx+nu]
+    copy_index!(nonzeros(kkt.Gx), Jv, kkt.mapGx)
+    copy_index!(nonzeros(kkt.Gu), Jv, kkt.mapGu)
+    copy_index!(nonzeros(kkt.A), Jv, kkt.mapA)
 
     Gxi = kkt.G_fac
-    lu!(Gxi, Gx)
-    # update sensitivity matrix
-    LinearAlgebra.ldiv!(kkt.S, Gxi, Gu)
-    # Reduced Jacobian
-    kkt.jac_raw .= Au - Ax * S
+    lu!(Gxi, kkt.Gx)
     return
 end
 
 # Build reduced Hessian
 MadNLP.compress_hessian!(kkt::BieglerKKTSystem) = nothing
 
-function _build_dense_kkt_system!(dest, hess, jac, pr_diag, du_diag, con_scale, ind_ineq, nu, nx, m, ns)
-    # Transfer Hessian
-    for i in 1:nu, j in 1:i
-        if i == j
-            dest[i, i] = hess[i, i]
-        else
-            dest[i, j] = hess[i, j]
-            dest[j, i] = hess[j, i]
-        end
+# Custom wrapper for sparse Hessian
+function MadNLP.eval_lag_hess_wrapper!(ipp::MadNLP.InteriorPointSolver, kkt::BieglerKKTSystem, x::Vector{Float64},l::Vector{Float64};is_resto=false)
+    nlp = ipp.nlp
+    cnt = ipp.cnt
+    MadNLP.@trace(ipp.logger,"Evaluating Lagrangian Hessian.")
+    ipp._w1l .= l.*ipp.con_scale
+
+    σ = is_resto ? 0.0 : ipp.obj_scale[]
+    y = nlp.d_c
+    # Load to device
+    _copyto!(y, 1, ipp._w1l, 1, NLPModels.get_ncon(nlp))
+    evaluator = nlp.nlp
+    n = n_variables(evaluator)::Int
+    m = n_constraints(evaluator)
+    evaluator._multipliers[1:1] .= σ
+    copyto!(evaluator._multipliers, 2, y, 1, m)
+    # Update Hessian
+    htime = @elapsed begin
+        ExaPF.hessian!(evaluator.hess, evaluator.stack, evaluator._multipliers)
     end
-    # Transfer slack diagonal
-    for i in 1:ns
-        dest[i+nu, i+nu] = pr_diag[i+nu + nx]
-    end
-    # Transfer Jacobian
-    for i in 1:m, j in 1:nu
-        dest[i + nu + ns, j] = jac[i, j]
-        dest[j, i + nu + ns] = jac[i, j]
-    end
-    # Transfer slack Jacobian
-    for i in 1:ns
-        is = ind_ineq[i] - nx
-        dest[is + nu + ns, is + nu] = - con_scale[ind_ineq[i]]
-        dest[is + nu, is + nu + ns] = - con_scale[ind_ineq[i]]
-    end
-    # Transfer dual regularization
-    for i in 1:m
-        dest[i + nu + ns, i + nu + ns] = du_diag[i]
-    end
+    cnt.eval_function_time += htime
+    nlp.timers.hessian_time += htime
+
+    MadNLP.compress_hessian!(kkt)
+    cnt.lag_hess_cnt+=1
+    return hess
+end
+
+function assemble_condensed_matrix!(kkt::BieglerKKTSystem, K::HJDJ)
+    nx, nu = kkt.nx, kkt.nu
+    m = size(kkt.J, 1)
+    ns = size(kkt.A, 1)
+    D = kkt._wj1
+    α   = @view kkt.con_scale[nx+1:m]
+    prx = @view kkt.pr_diag[1:nx+nu]
+    prs = @view kkt.pr_diag[nx+nu+1:nx+nu+ns]
+    # Matrices
+    A = kkt.A
+    D .= prs ./ α.^2
+    update!(K, A, D, prx)
 end
 
 function MadNLP.build_kkt!(kkt::BieglerKKTSystem{T, VI, VT, MT}) where {T, VI, VT, MT}
-    # Assemble reduced Hessian
-    nx, nu = kkt.nx, kkt.nu
-    S = kkt.S
-    W = sparse(kkt.h_I, kkt.h_J, kkt.h_V)
-    Wxx = Symmetric(W[1:nx, 1:nx], :L)
-    Wux = W[1+nx:nx+nu, 1:nx]
-    Wuu = Symmetric(W[1+nx:nx+nu, 1+nx:nx+nu], :L)
-
-    Σₓ = spdiagm(kkt.pr_diag[1:nx])
-    Σᵤ = spdiagm(kkt.pr_diag[1+nx:nx+nu])
-
-    kkt.hess_raw .= Wuu + Σᵤ - S' * Wux' - Wux * S + S' * (Wxx + Σₓ) * S
-
-    m = size(kkt.jac_raw, 1)
-    ns = length(kkt.ind_ineq)
-    # Assemble final matrix used in factorization
+    assemble_condensed_matrix!(kkt, kkt.K)
     fill!(kkt.aug_com, 0.0)
-    _build_dense_kkt_system!(kkt.aug_com, kkt.hess_raw, kkt.jac_raw,
-                             kkt.pr_diag, kkt.du_diag, kkt.con_scale, kkt.ind_ineq, nu, nx, m, ns)
-
+    reduce!(kkt.reduction, kkt.aug_com, kkt.K, kkt.Gu)
     MadNLP.treat_fixed_variable!(kkt)
 end
 
-function MadNLP.set_jacobian_scaling!(kkt::BieglerKKTSystem, constraint_scaling::AbstractVector)
-    copyto!(kkt.con_scale, constraint_scaling)
-    nnzJ = length(kkt.j_V)::Int
-    @inbounds for i in 1:nnzJ
-        index = kkt.j_I[i]
-        kkt.jacobian_scaling[i] = constraint_scaling[index]
-    end
-end
-
-function MadNLP.solve_refine_wrapper!(ips::MadNLP.InteriorPointSolver{<:BieglerKKTSystem}, x, b)
+function MadNLP.solve_refine_wrapper!(
+    ips::MadNLP.InteriorPointSolver{<:BieglerKKTSystem{T,VI,VT,MT}},
+    x_h, b_h,
+) where {T, VI, VT, MT}
     kkt = ips.kkt
+    x = _load_buffer(kkt, x_h, :kkt_x)::VT
+    b = _load_buffer(kkt, b_h, :kkt_b)::VT
     MadNLP.fixed_variable_treatment_vec!(b, ips.ind_fixed)
     m = ips.m # constraints
-    ns = length(ips.ind_ineq) # slack
     nx, nu = kkt.nx, kkt.nu
-
+    ns = m - nx
     @assert length(b) == length(x) == ips.n + m
 
-    dx = view(x, 1:nx)
-    du = view(x, 1+nx:nx+nu)
-    ds = view(x, 1+nx+nu:ips.n)
-    dλ = view(x, ips.n+1:ips.n+nx)
-    dy = view(x, ips.n+nx+1:ips.n+m)
 
-    W = sparse(kkt.h_I, kkt.h_J, kkt.h_V)
-    Wxx = Symmetric(W[1:nx, 1:nx], :L)
-    Wux = W[1+nx:nx+nu, 1:nx]
+    # Buffers
+    jv = kkt._wxu1
+    tx = view(jv, 1:nx)
+    tu = view(jv, nx+1:nx+nu)
+    vj = kkt._wj1
+    sx1 = kkt._wx1
+    sx2 = kkt._wx2
+    # Views for Hessian-vector multiplication
+    kv = kkt._wxu2
+    kh = kkt._wxu3
+    kvx = view(kv, 1:nx)
+    kvu = view(kv, nx+1:nx+nu)
+    khx = view(kh, 1:nx)
+    khu = view(kh, nx+1:nx+nu)
 
+    # Gₓ⁻¹
     Gxi = kkt.G_fac
-    S = kkt.S
-    prₓ = view(kkt.pr_diag, 1:nx)
-    Σₓ = spdiagm(prₓ)
+    Gx = kkt.Gx
+    Gu = kkt.Gu
+    K = kkt.K
+    Σₛ = view(kkt.pr_diag, nx+nu+1:nx+nu+ns)
+    α = view(kkt.con_scale, nx+1:m)
 
-    # Jacobian
-    J = sparse(kkt.j_I, kkt.j_J, kkt.j_V)
-    Gx = J[1:nx, 1:nx]
-    Gu = J[1:nx, 1+nx:nx+nu]
-    Ax = J[nx+1:m, 1:nx]
-    Au = J[nx+1:m, 1+nx:nx+nu]
+    # RHS
+    r₁₂ = view(b, 1:nx+nu)
+    r₁ = view(b, 1:nx)                   # / state
+    r₂ = view(b, 1+nx:nx+nu)             # / control
+    r₃ = view(b, 1+nx+nu:ips.n)          # / slack
+    r₄ = view(b, ips.n+1:ips.n+nx)       # / equality cons
+    r₅ = view(b, ips.n+nx+1:ips.n+m)     # / inequality cons
+    # LHS
+    dxu = view(x, 1:nx+nu)
+    dx = view(x, 1:nx)                   # / state
+    du = view(x, 1+nx:nx+nu)             # / control
+    ds = view(x, 1+nx+nu:ips.n)          # / slack
+    dλ = view(x, ips.n+1:ips.n+nx)       # / equality cons
+    dy = view(x, ips.n+nx+1:ips.n+m)     # / inequality cons
 
-    r = -b
-    # Build RHS
-    r₁ = view(r, 1:nx)               # / state
-    r₂ = view(r, 1+nx:nx+nu)         # / control
-    r₃ = view(r, 1+nx+nu:ips.n)      # / slack
-    r₄ = view(r, ips.n+1:ips.n+nx)   # / equality cons
-    r₅ = view(r, ips.n+nx+1:ips.n+m) # / inequality cons
 
-    # (du, ds, dy)
-    gr = zeros(nx)
-    ldiv!(gr, Gxi, r₄)
-    xr = zeros(nu + ns + m - nx)
-    br = zeros(nu + ns + m - nx)
-    # Init RHS
-    br[1:nu] .= -r₂ + S' * r₁ + Wux * gr - S' * (Wxx + Σₓ) * gr
-    # Second order correction
-    br[1+nu:nu+ns] .= -r₃            # / slack
-    br[1+nu+ns:end] .= -r₅ + Ax * gr # / constraint
+    # Reduction (1) --- Condensed
+    vj .= (Σₛ .* r₅ .+ α .* r₃) ./ α.^2   # v = (α Σₛ⁻¹ α)⁻¹ * (r₅ + α Σₛ⁻¹ r₃)
+    mul!(jv, kkt.A', vj)                  # jᵥ = Aᵀ v
+    jv .+= r₁₂                            # r₁₂ - Aᵀv
+    # Reduction (2) --- Biegler
+    sx1 .= r₄                             # r₄
+    ldiv!(Gxi, sx1)                       # Gₓ⁻¹ r₄
+    sx2 .= tx                             # tx = jv[1:nx]
+    kvx .= sx1 ; kvu .= 0.0
+    mul!(kh, K, kv)                       # [Kₓₓ Gₓ⁻¹ r₄ ; Kᵤₓ Gₓ⁻¹ r₄ ]
+    sx2 .= khx .- tx                      # sₓ = Kₓₓ Gₓ⁻¹ r₄ - tₓ
+    ldiv!(Gxi', sx2)                      # Gₓ⁻ᵀ sₓ
+    mul!(tu, Gu', sx2, 1.0, 1.0)          # tᵤ = tᵤ + Gᵤᵀ Gₓ⁻ᵀ sₓ
+    axpy!(-1.0, khu, tu)                  # tᵤ = tᵤ - Kᵤₓ Gₓ⁻¹ r₄
 
-    # Linear solver
-    ips.cnt.linear_solver_time += @elapsed (result = MadNLP.solve_refine!(xr, ips.iterator, br))
-    solve_status = (result == :Solved)
+    du .= tu
+    ips.cnt.linear_solver_time += @elapsed begin
+        MadNLP.solve!(ips.linear_solver, du)
+    end
+    solve_status = true
 
-    # Get solution
-    du .= xr[1:nu]
-    ds .= xr[1+nu:nu+ns]
-    dy .= xr[1+nu+ns:end]
-
-    # State descent direction
-    rhs = -r₄ - Gu * du
-    ldiv!(dx, Gxi, rhs)
-
-    # Adjoint descent direction
-    rhs2 = -(r₁ + Ax' * dy + Wux' * du + (Wxx + Σₓ) * dx)
-    ldiv!(dλ, Gxi', rhs2)
+    # (1) Extract Biegler
+    dx .= r₄                              # r₄
+    mul!(dx, Gu, du, -1.0, 1.0)           # r₄ - Gᵤ dᵤ
+    ldiv!(Gxi, dx)                        # dₓ = Gₓ⁻¹ (r₄ - Gᵤ dᵤ)
+    dλ .= tx                              # tₓ
+    mul!(kh, K, dxu)                      # Kₓₓ dₓ + Kₓᵤ dᵤ
+    axpy!(-1.0, khx, dλ)                  # tₓ - Kₓₓ dₓ + Kₓᵤ dᵤ
+    ldiv!(Gxi', dλ)                       # dₗ = Gₓ⁻ᵀ(tₓ - Kₓₓ dₓ + Kₓᵤ dᵤ)
+    # (2) Extract Condensed
+    mul!(vj, kkt.A, dxu)                  # Aₓ dₓ + Aᵤ dᵤ
+    dy .= Σₛ .* (vj .- r₅) ./ α.^2 .- r₃ ./ α
+    ds .= (r₃ .+ α .* dy) ./ Σₛ
 
     MadNLP.fixed_variable_treatment_vec!(x, ips.ind_fixed)
+    copyto!(x_h, x)
     return solve_status
 end
 

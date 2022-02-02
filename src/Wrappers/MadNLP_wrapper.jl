@@ -1,6 +1,7 @@
 struct ExaNLPModel{VT,Evaluator} <: NLPModels.AbstractNLPModel{Float64,Vector{Float64}}
     meta::NLPModels.NLPModelMeta{Float64, Vector{Float64}}
     counters::NLPModels.Counters
+    timers::NLPTimers
     nlp::Evaluator
     hash_x::Vector{UInt64}
     # Sparsity pattern
@@ -50,27 +51,11 @@ function ExaNLPModel(nlp::AbstractNLPEvaluator)
             minimize = true
         ),
         NLPModels.Counters(),
+        NLPTimers(),
         nlp, UInt64[0],
         hrows, hcols, jrows, jcols,
         d_x, d_g, d_c,
     )
-end
-
-function _update!(m::ExaNLPModel, x::AbstractVector)
-    hx = hash(x)
-    if hx != m.hash_x[1]
-        xp = parent(x)
-        n = length(m.d_x)
-        copyto!(m.d_x, 1, xp, 1, n)
-        update!(m.nlp, m.d_x)
-        m.hash_x[1] = hx
-    end
-end
-
-# Objective
-function NLPModels.obj(m::ExaNLPModel,x)
-    _update!(m, x)
-    return objective(m.nlp, m.d_x)
 end
 
 function NLPModels.jac_structure!(m::ExaNLPModel, rows, cols)
@@ -85,10 +70,34 @@ function NLPModels.hess_structure!(m::ExaNLPModel, rows, cols)
     return rows, cols
 end
 
+function _update!(m::ExaNLPModel, x::AbstractVector)
+    hx = hash(x)
+    if hx != m.hash_x[1]
+        xp = parent(x)
+        n = length(m.d_x)
+        copyto!(m.d_x, 1, xp, 1, n)
+        m.timers.update_time += @elapsed begin
+            update!(m.nlp, m.d_x)
+        end
+        m.hash_x[1] = hx
+    end
+end
+
+# Objective
+function NLPModels.obj(m::ExaNLPModel,x)
+    _update!(m, x)
+    m.timers.obj_time += @elapsed begin
+        obj = objective(m.nlp, m.d_x)
+    end
+    return obj
+end
+
 # Gradient
 function NLPModels.grad!(m::ExaNLPModel,x,g)
     _update!(m, x)
-    gradient!(m.nlp, m.d_g, m.d_x)
+    m.timers.grad_time += @elapsed begin
+        gradient!(m.nlp, m.d_g, m.d_x)
+    end
     gp = parent(g)
     n = NLPModels.get_nvar(m)
     copyto!(gp, 1, m.d_g, 1, n)
@@ -98,7 +107,9 @@ end
 # Constraints
 function NLPModels.cons!(m::ExaNLPModel,x,c)
     _update!(m, x)
-    constraint!(m.nlp, m.d_c, m.d_x)
+    m.timers.cons_time += @elapsed begin
+        constraint!(m.nlp, m.d_c, m.d_x)
+    end
     cp = parent(c)
     _m = NLPModels.get_ncon(m)
     copyto!(cp, 1, m.d_c, 1, _m)
@@ -110,23 +121,25 @@ function NLPModels.jac_coord!(m::ExaNLPModel, x, jac::AbstractArray)
     _update!(m, x)
     nnzj = NLPModels.get_nnzj(m)
     jv = view(jac, 1:nnzj)
-    jacobian_coo!(m.nlp, jv, m.d_x)
+    m.timers.jacobian_time += @elapsed begin
+        jacobian_coo!(m.nlp, jv, m.d_x)
+    end
 end
 
 # Jacobian: dense callback
 function MadNLP.jac_dense!(m::ExaNLPModel, x, J::AbstractMatrix)
     _update!(m, x)
-    jacobian!(m.nlp, J, m.d_x)
+    m.timers.jacobian_time += @elapsed begin
+        jacobian!(m.nlp, J, m.d_x)
+    end
 end
 
-# Hessian: sparse callback (work only on CPU)
-function NLPModels.hess_coord!(m::ExaNLPModel,x, l, hess::AbstractVector; obj_weight=1.0)
-    hessian_lagrangian_coo!(m.nlp, hess, x, l, obj_weight)
-end
 
 # Hessian-vector products
 function NLPModels.hprod!(m::ExaNLPModel, x, l, v, hv::AbstractVector; obj_weight=1.0)
-    hessian_lagrangian_prod!(m.nlp, hv, x, l, obj_weight, v)
+    m.timers.hessprod_time += @elapsed begin
+        hessian_lagrangian_prod!(m.nlp, hv, x, l, obj_weight, v)
+    end
 end
 
 function _copyto!(dest::AbstractArray, off1, src::Array, off2, n)
@@ -137,10 +150,20 @@ function _copyto!(dest::AbstractArray, off1, src::SubArray, off2, n)
     copyto!(dest, off1, p_src, off2 + src.offset1, n)
 end
 
+# Hessian: sparse callback
+function NLPModels.hess_coord!(m::ExaNLPModel,x, l, hess::AbstractVector; obj_weight=1.0)
+    _copyto!(m.d_c, 1, l, 1, NLPModels.get_ncon(m))
+    m.timers.hessian_time += @elapsed begin
+        hessian_lagrangian_coo!(m.nlp, hess, x, m.d_c, obj_weight)
+    end
+end
+
 # Hessian: dense callback
 function MadNLP.hess_dense!(m::ExaNLPModel, x, l, hess::AbstractMatrix; obj_weight=1.0)
     _update!(m, x)
     _copyto!(m.d_c, 1, l, 1, NLPModels.get_ncon(m))
     # Evaluate full reduced Hessian in the preallocated buffer.
-    hessian_lagrangian!(m.nlp, hess, m.d_x, m.d_c, obj_weight)
+    m.timers.hessian_time += @elapsed begin
+        hessian_lagrangian!(m.nlp, hess, m.d_x, m.d_c, obj_weight)
+    end
 end
