@@ -70,6 +70,8 @@ function FullSpaceEvaluator(
     lagrangian = ExaPF.MultiExpressions(lagrangian_expr)
     hess = ExaPF.FullHessian(model, lagrangian ∘ basis, mapxu)
 
+    mapxu = mapxu |> VI
+
     return FullSpaceEvaluator(
         model, nx, nu, mapxu,
         basis, costs, constraints,
@@ -167,7 +169,7 @@ end
 function jacobian_coo!(nlp::FullSpaceEvaluator, jacval::AbstractVector, x)
     ExaPF.jacobian!(nlp.jac, nlp.stack)
     J = nlp.jac.J
-    copyto!(jacval, J.nzval)
+    copyto!(jacval, nonzeros(J.nzval))
     return
 end
 

@@ -160,3 +160,17 @@ function Argos.tgtmul!(yx::AbstractArray, yu::AbstractArray, A::CuSparseMatrixCS
     wait(ev)
 end
 
+
+@kernel function _copy_index_kernel!(dest, src, idx)
+    i = @index(Global, Linear)
+    @inbounds dest[i] = src[idx[i]]
+end
+
+function Argos.copy_index!(dest::CuVector{T}, src::CuVector{T}, idx) where T
+    @assert length(dest) == length(idx)
+    ndrange = (length(dest),)
+    idx_d = CuVector(idx)
+    ev = _copy_index_kernel!(CUDADevice())(dest, src, idx_d; ndrange=ndrange)
+    wait(ev)
+end
+

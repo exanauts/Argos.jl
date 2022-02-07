@@ -63,9 +63,9 @@ function BieglerKKTSystem{T, VI, VT, MT}(nlp::ExaNLPModel, ind_cons=MadNLP.get_i
     W_h = SparseMatrixCSC(W)
 
     # Decompose J
-    Gx_h = J[1:nx, 1:nx]
-    Gu_h = J[1:nx, nx+1:nx+nu]
-    A_h = J[nx+1:end, :]
+    Gx_h = J_h[1:nx, 1:nx]
+    Gu_h = J_h[1:nx, nx+1:nx+nu]
+    A_h = J_h[nx+1:end, :]
     # Associated mappings
     mapA, mapGx, mapGu = split_jacobian(J_h, nx, nu)
     # Condensed matrix
@@ -82,7 +82,9 @@ function BieglerKKTSystem{T, VI, VT, MT}(nlp::ExaNLPModel, ind_cons=MadNLP.get_i
 
     # Evaluate Jacobian
     x = initial(nlp.nlp)
-    Gxi = lu(Gx)
+
+    linear_solver = LS.DirectSolver(Gx)
+    Gxi = linear_solver.factorization
     reduction = if nbatches > 1
         BatchReduction(evaluator.model, Gxi, nbatches)
     else
@@ -137,14 +139,16 @@ function MadNLP.initialize!(kkt::BieglerKKTSystem)
     fill!(kkt.du_diag, 0.0)
 end
 
-function MadNLP.set_jacobian_scaling!(kkt::BieglerKKTSystem, constraint_scaling::AbstractVector)
+function MadNLP.set_jacobian_scaling!(kkt::BieglerKKTSystem{T,VI,VT,MT}, constraint_scaling::AbstractVector) where {T,VI,VT,MT}
     copyto!(kkt.con_scale, constraint_scaling)
     nnzJ = length(kkt.j_V)::Int
     Ji, _, _ = findnz(kkt.J)
+    jscale = zeros(nnzJ)
     @inbounds for i in 1:nnzJ
         index = Ji[i]
-        kkt.jacobian_scaling[i] = constraint_scaling[index]
+        jscale[i] = constraint_scaling[index]
     end
+    copyto!(kkt.jacobian_scaling, jscale)
 end
 
 # Use for inertia-free regularization (require full-space multiplication)
@@ -207,12 +211,12 @@ MadNLP.nnz_jacobian(kkt::BieglerKKTSystem) = size(kkt.A, 1) * size(kkt.A, 2)
 
 function MadNLP.compress_jacobian!(kkt::BieglerKKTSystem)
     nx, nu = kkt.nx, kkt.nu
-    kkt.J.nzval .*= kkt.jacobian_scaling
+    Jv = nonzeros(kkt.J)
+    Jv .*= kkt.jacobian_scaling
     # Build Jacobian
-    J = kkt.J
-    copy_index!(kkt.Gx.nzval, J.nzval, kkt.mapGx)
-    copy_index!(kkt.Gu.nzval, J.nzval, kkt.mapGu)
-    copy_index!(kkt.A.nzval, J.nzval, kkt.mapA)
+    copy_index!(nonzeros(kkt.Gx), Jv, kkt.mapGx)
+    copy_index!(nonzeros(kkt.Gu), Jv, kkt.mapGu)
+    copy_index!(nonzeros(kkt.A), Jv, kkt.mapA)
 
     Gxi = kkt.G_fac
     lu!(Gxi, kkt.Gx)
