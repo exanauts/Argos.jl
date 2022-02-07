@@ -1,4 +1,11 @@
 
+function copy_index!(dest, src, idx)
+    @assert length(dest) == length(idx)
+    for i in eachindex(idx)
+        dest[i] = src[idx[i]]
+    end
+end
+
 # Split Jacobian in three parts Gx, Gu, A and return mapping
 function _split_jacobian_csc(Ai, Ap, n, nx, nu)
     m = nx + nu # number of columns
@@ -44,3 +51,10 @@ function _split_jacobian_csc(Ai, Ap, n, nx, nu)
 
     return mapA, mapGx, mapGu
 end
+
+function split_jacobian(J::SparseMatrixCSC, nx, nu)
+    n, m = size(J)
+    @assert m == nx + nu
+    return _split_jacobian_csc(J.rowval, J.colptr, n, nx, nu)
+end
+

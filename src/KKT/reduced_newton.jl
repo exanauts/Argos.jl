@@ -9,14 +9,10 @@ struct BieglerKKTSystem{T, VI, VT, MT, SMT} <: MadNLP.AbstractReducedKKTSystem{T
     mapA::Vector{Int}
     mapGx::Vector{Int}
     mapGu::Vector{Int}
-    # Sparse Hessian in COO format
+    # Hessian nzval
     h_V::VT
-    h_I::VI
-    h_J::VI
-    # Sparse Jacobian in COO format
+    # Jacobian nzval
     j_V::VT
-    j_I::VI
-    j_J::VI
     # Regularization terms
     pr_diag::VT
     du_diag::VT
@@ -40,9 +36,10 @@ struct BieglerKKTSystem{T, VI, VT, MT, SMT} <: MadNLP.AbstractReducedKKTSystem{T
     ind_fixed::Vector{Int}
     con_scale::VT
     jacobian_scaling::VT
+    etc::Dict{Symbol,Any}
 end
 
-function BieglerKKTSystem{T, VI, VT, MT}(nlp::ExaNLPModel, ind_cons=MadNLP.get_index_constraints(nlp)) where {T, VI, VT, MT}
+function BieglerKKTSystem{T, VI, VT, MT}(nlp::ExaNLPModel, ind_cons=MadNLP.get_index_constraints(nlp); nbatches=1) where {T, VI, VT, MT}
     n_slack = length(ind_cons.ind_ineq)
     n = NLPModels.get_nvar(nlp)
     m = NLPModels.get_ncon(nlp)
@@ -55,34 +52,42 @@ function BieglerKKTSystem{T, VI, VT, MT}(nlp::ExaNLPModel, ind_cons=MadNLP.get_i
 
     evaluator = nlp.nlp
     W = evaluator.hess.H
+    SMT = typeof(W)
     h_V = VT(undef, nnzh) ; fill!(h_V, zero(T))
-    h_I = VT(undef, nnzh)
-    h_J = VT(undef, nnzh)
-    NLPModels.hess_structure!(nlp, h_I, h_J)
 
     J = copy(evaluator.jac.J)
     j_V = VT(undef, nnzj) ; fill!(j_V, zero(T))
-    j_I = VT(undef, nnzj)
-    j_J = VT(undef, nnzj)
-    NLPModels.jac_structure!(nlp, j_I, j_J)
+
+    # Instantiate on host
+    J_h = SparseMatrixCSC(J)
+    W_h = SparseMatrixCSC(W)
 
     # Decompose J
-    Gx = J[1:nx, 1:nx]
-    Gu = J[1:nx, nx+1:nx+nu]
-    A = J[nx+1:end, :]
+    Gx_h = J[1:nx, 1:nx]
+    Gu_h = J[1:nx, nx+1:nx+nu]
+    A_h = J[nx+1:end, :]
+    # Associated mappings
+    mapA, mapGx, mapGu = split_jacobian(J_h, nx, nu)
+    # Condensed matrix
+    K_h = W_h + A_h' * A_h
 
-    K = W + A' * A
-
-    mapA, mapGx, mapGu = _split_jacobian_csc(J.rowval, J.colptr, m, nx, nu)
+    # Transfer to device
+    Gx = Gx_h |> SMT
+    Gu = Gu_h |> SMT
+    A = A_h |> SMT
+    K = K_h |> SMT
 
     pr_diag = VT(undef, n + n_slack) ; fill!(pr_diag, zero(T))
     du_diag = VT(undef, m) ; fill!(du_diag, zero(T))
 
     # Evaluate Jacobian
     x = initial(nlp.nlp)
-    NLPModels.jac_coord!(nlp, x, j_V)
     Gxi = lu(Gx)
-    reduction = Reduction(evaluator.model, Gxi)
+    reduction = if nbatches > 1
+        BatchReduction(evaluator.model, Gxi, nbatches)
+    else
+        Reduction(evaluator.model, Gxi)
+    end
 
     # W
     aug_com = MT(undef, nu, nu) ; fill!(aug_com, zero(T))
@@ -101,15 +106,17 @@ function BieglerKKTSystem{T, VI, VT, MT}(nlp::ExaNLPModel, ind_cons=MadNLP.get_i
 
     ind_fixed = ind_cons.ind_fixed .- nx
 
-    return BieglerKKTSystem{T, VI, VT, MT, typeof(W)}(
+    etc = Dict{Symbol, Any}()
+
+    return BieglerKKTSystem{T, VI, VT, MT, SMT}(
         K, W, J, A, Gx, Gu, mapA, mapGx, mapGu,
-        h_V, h_I, h_J,
-        j_V, j_I, j_J,
+        h_V, j_V,
         pr_diag, du_diag,
         aug_com, reduction, Gxi,
         _wxu1, _wxu2, _wxu3, _wx1, _wx2, _wj1,
         nx, nu,
         ind_cons.ind_ineq, ind_fixed, con_scale, jacobian_scaling,
+        etc,
     )
 end
 
@@ -121,7 +128,8 @@ MadNLP.is_reduced(::BieglerKKTSystem) = true
 # Return SparseMatrixCOO to MadNLP
 function MadNLP.get_raw_jacobian(kkt::BieglerKKTSystem)
     n, m = kkt.nx + kkt.nu, size(kkt.A, 1)
-    return MadNLP.SparseMatrixCOO(n, m, kkt.j_I, kkt.j_J, kkt.j_V)
+    i, j, v = findnz(kkt.J)
+    return MadNLP.SparseMatrixCOO(n, m, i, j, v)
 end
 
 function MadNLP.initialize!(kkt::BieglerKKTSystem)
@@ -132,14 +140,14 @@ end
 function MadNLP.set_jacobian_scaling!(kkt::BieglerKKTSystem, constraint_scaling::AbstractVector)
     copyto!(kkt.con_scale, constraint_scaling)
     nnzJ = length(kkt.j_V)::Int
+    Ji, _, _ = findnz(kkt.J)
     @inbounds for i in 1:nnzJ
-        index = kkt.j_I[i]
+        index = Ji[i]
         kkt.jacobian_scaling[i] = constraint_scaling[index]
     end
 end
 
 # Use for inertia-free regularization (require full-space multiplication)
-# TODO: rewrite
 function _mul_expanded!(y, kkt::BieglerKKTSystem, x)
     # Build full-space KKT system
     n = kkt.nx + kkt.nu
@@ -202,9 +210,9 @@ function MadNLP.compress_jacobian!(kkt::BieglerKKTSystem)
     kkt.J.nzval .*= kkt.jacobian_scaling
     # Build Jacobian
     J = kkt.J
-    kkt.Gx.nzval .= J.nzval[kkt.mapGx]
-    kkt.Gu.nzval .= J.nzval[kkt.mapGu]
-    kkt.A.nzval .= J.nzval[kkt.mapA]
+    copy_index!(kkt.Gx.nzval, J.nzval, kkt.mapGx)
+    copy_index!(kkt.Gu.nzval, J.nzval, kkt.mapGu)
+    copy_index!(kkt.A.nzval, J.nzval, kkt.mapA)
 
     Gxi = kkt.G_fac
     lu!(Gxi, kkt.Gx)

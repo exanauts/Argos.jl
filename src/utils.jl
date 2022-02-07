@@ -66,3 +66,4 @@ function transfer_auglag_hessian!(
     Hᵥᵥ[ind] .= ρ
     return
 end
+
