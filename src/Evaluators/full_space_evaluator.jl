@@ -169,7 +169,7 @@ end
 function jacobian_coo!(nlp::FullSpaceEvaluator, jacval::AbstractVector, x)
     ExaPF.jacobian!(nlp.jac, nlp.stack)
     J = nlp.jac.J
-    copyto!(jacval, nonzeros(J.nzval))
+    copyto!(jacval, nonzeros(J))
     return
 end
 

@@ -112,49 +112,54 @@ end
 end
 
 
-@kernel function _tgtmul_2_kernel!(yx, yu, A_rowPtr, A_colVal, A_nzVal, z, w, nx, nu)
+@kernel function _tgtmul_2_kernel!(yx, yu, A_rowPtr, A_colVal, A_nzVal, z, w, alpha, nx, nu)
     i, k = @index(Global, NTuple)
     @inbounds for c in A_rowPtr[i]:A_rowPtr[i+1]-1
         j = A_colVal[c]
         if (i <= nx) && (j <= nx)
-            @inbounds yx[i, k] += A_nzVal[c] * z[j, k]
+            @inbounds yx[i, k] += alpha * A_nzVal[c] * z[j, k]
         elseif (i <= nx) && (j <= nx + nu)
-            @inbounds yx[i, k] += A_nzVal[c] * w[j - nx, k]
+            @inbounds yx[i, k] += alpha * A_nzVal[c] * w[j - nx, k]
         elseif (i <= nx + nu) && (j <= nx)
-            @inbounds yu[i - nx, k] += A_nzVal[c] * z[j, k]
+            @inbounds yu[i - nx, k] += alpha * A_nzVal[c] * z[j, k]
         elseif (i <= nx + nu) && (j <= nx + nu)
-            @inbounds yu[i - nx, k] += A_nzVal[c] * w[j - nx, k]
+            @inbounds yu[i - nx, k] += alpha * A_nzVal[c] * w[j - nx, k]
         end
     end
 end
 
-function Argos.tgtmul!(y::AbstractArray, A::CuSparseMatrixCSR, z::AbstractArray, w::AbstractArray)
-
+function Argos.tgtmul!(
+    y::AbstractArray, A::CuSparseMatrixCSR, z::AbstractArray, w::AbstractArray,
+    alpha::Number, beta::Number,
+)
     n, m = size(A)
     nz, nw = size(z, 1), size(w, 1)
     @assert m == nz + nw
     @assert size(z, 2) == size(w, 2) == size(y, 2)
     k = size(z, 2)
     ndrange = (n, k)
-    fill!(y, 0)
+    y .*= beta
     ev = _tgtmul_1_kernel!(CUDADevice())(
-        y, A.rowPtr, A.colVal, A.nzVal, z, w, nz, nw;
+        y, A.rowPtr, A.colVal, A.nzVal, z, w, alpha, nz, nw;
         ndrange=ndrange, dependencies=Event(CUDADevice()),
     )
     wait(ev)
 end
 
-function Argos.tgtmul!(yx::AbstractArray, yu::AbstractArray, A::CuSparseMatrixCSR, z::AbstractArray, w::AbstractArray)
+function Argos.tgtmul!(
+    yx::AbstractArray, yu::AbstractArray, A::CuSparseMatrixCSR, z::AbstractArray, w::AbstractArray,
+    alpha::Number, beta::Number,
+)
     n, m = size(A)
     nz, nw = size(z, 1), size(w, 1)
     @assert m == nz + nw
     @assert size(z, 2) == size(w, 2) == size(yx, 2) == size(yu, 2)
     k = size(z, 2)
     ndrange = (n, k)
-    fill!(yx, 0)
-    fill!(yu, 0)
+    yx .*= beta
+    yu .*= beta
     ev = _tgtmul_2_kernel!(CUDADevice())(
-        yx, yu, A.rowPtr, A.colVal, A.nzVal, z, w, nz, nw;
+        yx, yu, A.rowPtr, A.colVal, A.nzVal, z, w, alpha, nz, nw;
         ndrange=ndrange, dependencies=Event(CUDADevice()),
     )
     wait(ev)

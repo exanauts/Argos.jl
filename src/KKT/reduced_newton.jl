@@ -1,14 +1,14 @@
 
 struct BieglerKKTSystem{T, VI, VT, MT, SMT} <: MadNLP.AbstractReducedKKTSystem{T, MT}
-    K::SMT
+    K::HJDJ{VT,SMT}
     W::SMT
     J::SMT
     A::SMT
     Gx::SMT
     Gu::SMT
-    mapA::Vector{Int}
-    mapGx::Vector{Int}
-    mapGu::Vector{Int}
+    mapA::VI
+    mapGx::VI
+    mapGu::VI
     # Hessian nzval
     h_V::VT
     # Jacobian nzval
@@ -68,14 +68,14 @@ function BieglerKKTSystem{T, VI, VT, MT}(nlp::ExaNLPModel, ind_cons=MadNLP.get_i
     A_h = J_h[nx+1:end, :]
     # Associated mappings
     mapA, mapGx, mapGu = split_jacobian(J_h, nx, nu)
-    # Condensed matrix
-    K_h = W_h + A_h' * A_h
 
     # Transfer to device
     Gx = Gx_h |> SMT
     Gu = Gu_h |> SMT
     A = A_h |> SMT
-    K = K_h |> SMT
+
+    # Condensed matrix
+    K = HJDJ(W, A)
 
     pr_diag = VT(undef, n + n_slack) ; fill!(pr_diag, zero(T))
     du_diag = VT(undef, m) ; fill!(du_diag, zero(T))
@@ -226,23 +226,20 @@ end
 # Build reduced Hessian
 MadNLP.compress_hessian!(kkt::BieglerKKTSystem) = nothing
 
-function assemble_condensed_matrix!(kkt::BieglerKKTSystem)
+function assemble_condensed_matrix!(kkt::BieglerKKTSystem, K::HJDJ)
     nx, nu = kkt.nx, kkt.nu
     m = size(kkt.J, 1)
     α   = @view kkt.con_scale[nx+1:m]
     prx = @view kkt.pr_diag[1:nx+nu]
     prs = @view kkt.pr_diag[nx+nu+1:end]
-    Σₓ = spdiagm(prx)
     # Matrices
-    W = kkt.W
     A = kkt.A
-    D = Diagonal(prs ./ α.^2)
-    # Build HJDJ
-    kkt.K .= W + A' * D * A + Σₓ
+    D = prs ./ α.^2
+    update!(K, A, D, prx)
 end
 
 function MadNLP.build_kkt!(kkt::BieglerKKTSystem{T, VI, VT, MT}) where {T, VI, VT, MT}
-    assemble_condensed_matrix!(kkt)
+    assemble_condensed_matrix!(kkt, kkt.K)
     reduce!(kkt.reduction, kkt.aug_com, kkt.K, kkt.Gu)
     MadNLP.treat_fixed_variable!(kkt)
 end
