@@ -10,8 +10,7 @@ import ExaPF: LinearSolvers
 
 const LS = LinearSolvers
 
-# cusolverRF wrapper
-# include("../lib/cusolverRF/cusolverRF.jl")
+include("spgemm.jl")
 
 # Plug cusolverRF in ExaPF.LinearSolvers
 LS.DirectSolver(J::CuSparseMatrixCSR; kwargs...) = LS.DirectSolver(cusolverRF.RF(J; kwargs...))
@@ -19,7 +18,6 @@ LS.DirectSolver(J::CuSparseMatrixCSR; kwargs...) = LS.DirectSolver(cusolverRF.RF
 function LS.update!(s::LS.DirectSolver{Fac}, J::CuSparseMatrixCSR) where {Fac <: Factorization}
     lu!(s.factorization, J)
 end
-
 
 #=
     Argos.transfer_auglag_hessian
@@ -177,5 +175,51 @@ function Argos.copy_index!(dest::CuVector{T}, src::CuVector{T}, idx) where T
     idx_d = CuVector(idx)
     ev = _copy_index_kernel!(CUDADevice())(dest, src, idx_d; ndrange=ndrange)
     wait(ev)
+end
+
+#=
+    CondensedKKT
+=#
+function Argos.HJDJ(W::CuSparseMatrixCSR, J::CuSparseMatrixCSR)
+    n = size(W, 1)
+
+    # Perform initial computation on the CPU
+    J_h = SparseMatrixCSC(J)
+    Jt_h = SparseMatrixCSC(Jh')
+    JtJ_h = Jt_h * Jh
+
+    # Compute tranpose and associated permutation
+    Jt = CuSparseMatrixCSR(Jt_h)
+    i, j, _ = findnz(J)
+    transperm = sortperm(i) |> CuVector{Int}
+
+    # JDJ
+    JtJ = CuSparseMatrixCSR(JtJ_h)
+
+    constants = similar(nonzeros(W), n) ; fill!(constants, 0)
+    return HJDJ(W, Jt, JtJ, constants, transperm)
+end
+
+
+@kernel function _scale_transpose_kernel!(
+    Jtz, Jp, Jj, Jz, D, tperm,
+)
+    i = @index(Global, Linear)
+
+    for c in Jp[i]:Jp[i+1]-1
+        j = Jj[c]
+        Jtz[tperm[c]] = D[i] * Jz[c]
+    end
+end
+
+function update!(K::Argos.HJDJ, A, D, Σ)
+    m = size(A, 1)
+    ev = _scale_transpose_kernel!(CUDADevice())(
+        K.Jt.nzVal, K.J.rowPtr, K.J.colVal, K.J.nzVal, D, K.transperm,
+        ndrange=(m, 1),
+    )
+    wait(ev)
+    spgemm!('N', 'N', 1.0, K.Jt, K.J, 1.0, K.JtJ, 'O')
+    K.Σ .= Σ
 end
 

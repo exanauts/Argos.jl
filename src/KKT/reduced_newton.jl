@@ -1,6 +1,6 @@
 
 struct BieglerKKTSystem{T, VI, VT, MT, SMT} <: MadNLP.AbstractReducedKKTSystem{T, MT}
-    K::HJDJ{VT,SMT}
+    K::HJDJ{VI,VT,SMT}
     W::SMT
     J::SMT
     A::SMT
