@@ -6,7 +6,10 @@ using KernelAbstractions
 using CUDA
 using CUDA.CUSPARSE
 using ExaPF
+using MadNLP
+using SparseArrays
 import ExaPF: LinearSolvers
+using cusolverRF
 
 const LS = LinearSolvers
 

@@ -39,7 +39,7 @@ struct BieglerKKTSystem{T, VI, VT, MT, SMT} <: MadNLP.AbstractReducedKKTSystem{T
     etc::Dict{Symbol,Any}
 end
 
-function BieglerKKTSystem{T, VI, VT, MT}(nlp::ExaNLPModel, ind_cons=MadNLP.get_index_constraints(nlp); nbatches=1) where {T, VI, VT, MT}
+function BieglerKKTSystem{T, VI, VT, MT}(nlp::ExaNLPModel, ind_cons=MadNLP.get_index_constraints(nlp); nbatches=107) where {T, VI, VT, MT}
     n_slack = length(ind_cons.ind_ineq)
     n = NLPModels.get_nvar(nlp)
     m = NLPModels.get_ncon(nlp)
@@ -151,10 +151,20 @@ function MadNLP.set_jacobian_scaling!(kkt::BieglerKKTSystem{T,VI,VT,MT}, constra
     copyto!(kkt.jacobian_scaling, jscale)
 end
 
+function _load_buffer(kkt::BieglerKKTSystem{T,VI,VT,MT}, x::AbstractVector, key::Symbol) where {T,VI,VT,MT}
+    haskey(kkt.etc, key) || (kkt.etc[key] = VT(undef, length(x)))
+    xb = kkt.etc[key]::VT
+    _copyto!(xb, 1, x, 1, length(x))
+    return xb
+end
+function _load_buffer(kkt::BieglerKKTSystem{T,VI,VT,MT}, x::VT, key::Symbol) where {T,VI,VT,MT}
+    return x
+end
+
 # Use for inertia-free regularization (require full-space multiplication)
 function _mul_expanded!(y_h, kkt::BieglerKKTSystem{T, VI, VT, MT}, x_h) where {T, VI, VT, MT}
-    x = x_h |> VT
-    y = y_h |> VT
+    x = _load_buffer(kkt, x_h, :hess_x)::VT
+    y = _load_buffer(kkt, y_h, :hess_y)::VT
     # Build full-space KKT system
     n = kkt.nx + kkt.nu
     m = length(kkt.con_scale)
@@ -204,9 +214,8 @@ function MadNLP.jtprod!(
     kkt::BieglerKKTSystem{T, VI, VT, MT},
     x_h::AbstractVector,
 ) where {T, VI, VT, MT}
-
-    x = x_h |> VT
-    y = y_h |> VT
+    x = _load_buffer(kkt, x_h, :jacx)::VT
+    y = _load_buffer(kkt, y_h, :jacy)::VT
     n = kkt.nx + kkt.nu
     ns = length(kkt.ind_ineq)
     m = length(x)
@@ -242,10 +251,11 @@ MadNLP.compress_hessian!(kkt::BieglerKKTSystem) = nothing
 function assemble_condensed_matrix!(kkt::BieglerKKTSystem, K::HJDJ)
     nx, nu = kkt.nx, kkt.nu
     m = size(kkt.J, 1)
+    ns = size(kkt.A, 1)
     D = kkt._wj1
     α   = @view kkt.con_scale[nx+1:m]
     prx = @view kkt.pr_diag[1:nx+nu]
-    prs = @view kkt.pr_diag[nx+nu+1:end]
+    prs = @view kkt.pr_diag[nx+nu+1:nx+nu+ns]
     # Matrices
     A = kkt.A
     D .= prs ./ α.^2
@@ -264,8 +274,8 @@ function MadNLP.solve_refine_wrapper!(
     x_h, b_h,
 ) where {T, VI, VT, MT}
     kkt = ips.kkt
-    x = x_h |> VT
-    b = b_h |> VT
+    x = _load_buffer(kkt, x_h, :kkt_x)::VT
+    b = _load_buffer(kkt, b_h, :kkt_b)::VT
     MadNLP.fixed_variable_treatment_vec!(b, ips.ind_fixed)
     m = ips.m # constraints
     nx, nu = kkt.nx, kkt.nu

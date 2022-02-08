@@ -64,6 +64,14 @@ function FullSpaceEvaluator(
     g_min, g_max = ExaPF.bounds(model, constraints)
     # Remove bounds below a given threshold
     g_max = min.(g_max, 1e5)
+    # Remove equalities
+    ggl = @view g_min[nx+1:end]
+    ggu = @view g_max[nx+1:end]
+    idx_eq = findall(ggl .== ggu)
+    if length(idx_eq) > 0
+        println("eq found")
+        ggu[idx_eq] .+= 1e-6
+    end
 
     jac = ExaPF.Jacobian(model, constraints ∘ basis, mapxu)
     lagrangian_expr = [costs; constraints_expr]
