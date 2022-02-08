@@ -139,13 +139,12 @@ end
 n_batches(hlag::BatchReduction) = hlag.nbatch
 
 function reduce!(red::BatchReduction, dest, W, Gu)
-    @assert has_hessian(nlp)
-    @assert n_batches(reduction) > 1
-    n = n_variables(nlp)
-    nbatch = n_batches(reduction)
+    @assert n_batches(red) > 1
+    n = red.nu
+    nbatch = n_batches(red)
 
     # Allocate memory for tangents
-    v = reduction.tangents
+    v = red.tangents
 
     N = div(n, nbatch, RoundDown)
     for i in 1:N

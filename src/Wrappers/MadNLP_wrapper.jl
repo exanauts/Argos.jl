@@ -119,10 +119,6 @@ function MadNLP.jac_dense!(m::ExaNLPModel, x, J::AbstractMatrix)
     jacobian!(m.nlp, J, m.d_x)
 end
 
-# Hessian: sparse callback (work only on CPU)
-function NLPModels.hess_coord!(m::ExaNLPModel,x, l, hess::AbstractVector; obj_weight=1.0)
-    hessian_lagrangian_coo!(m.nlp, hess, x, l, obj_weight)
-end
 
 # Hessian-vector products
 function NLPModels.hprod!(m::ExaNLPModel, x, l, v, hv::AbstractVector; obj_weight=1.0)
@@ -135,6 +131,12 @@ end
 function _copyto!(dest::AbstractArray, off1, src::SubArray, off2, n)
     p_src = parent(src)
     copyto!(dest, off1, p_src, off2 + src.offset1, n)
+end
+
+# Hessian: sparse callback
+function NLPModels.hess_coord!(m::ExaNLPModel,x, l, hess::AbstractVector; obj_weight=1.0)
+    _copyto!(m.d_c, 1, l, 1, NLPModels.get_ncon(m))
+    hessian_lagrangian_coo!(m.nlp, hess, x, m.d_c, obj_weight)
 end
 
 # Hessian: dense callback

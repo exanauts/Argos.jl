@@ -24,7 +24,7 @@ Base.size(rf::RF, dim::Integer) = size(rf.M, dim)
 LinearAlgebra.adjoint(rf::RF) = LinearAlgebra.Adjoint(rf)
 
 function RF(J::CuSparseMatrixCSR{Tv}; nbatch=1) where Tv <: Float64
-    rf = rflu(J)
+    rf = RfLU(SparseMatrixCSC(J))
     n = size(J, 1)
 
     # Bundled factors M = L + U
@@ -55,6 +55,11 @@ end
 
 # Direct solve
 function LinearAlgebra.ldiv!(
+    rf::RF, x::AbstractVector,
+)
+    rf_solve!(rf.rf, x)
+end
+function LinearAlgebra.ldiv!(
     y::AbstractVector, rf::RF, x::AbstractVector,
 )
     copyto!(y, x)
@@ -82,6 +87,15 @@ function LinearAlgebra.ldiv!(
 end
 
 # Backward solve
+function LinearAlgebra.ldiv!(
+    arf::LinearAlgebra.Adjoint{T, RF{T}}, x::AbstractVector{T},
+) where T
+    rf = arf.parent
+    z = rf.r
+    mul!(z, rf.Q', x)
+    backsolve!(rf.tsv, rf.M, z)
+    mul!(x, rf.P', z)
+end
 function LinearAlgebra.ldiv!(
     y::AbstractVector{T}, arf::LinearAlgebra.Adjoint{T, RF{T}}, x::AbstractVector{T},
 ) where T

@@ -97,14 +97,14 @@ function test_batch_tangents!(seeds::Matrix, offset, n, n_batches)
     return
 end
 
-@kernel function _tgtmul_1_kernel!(y, A_rowPtr, A_colVal, A_nzVal, z, w, nx, nu)
+@kernel function _tgtmul_1_kernel3!(y, A_rowPtr, A_colVal, A_nzVal, z, w, alpha, nx, nu)
     i, k = @index(Global, NTuple)
     @inbounds for c in A_rowPtr[i]:A_rowPtr[i+1]-1
         j = A_colVal[c]
         if j <= nx
-            @inbounds y[i, k] += A_nzVal[c] * z[j, k]
+            @inbounds y[i, k] += alpha * A_nzVal[c] * z[j, k]
         else
-            @inbounds y[i, k] += A_nzVal[c] * w[j - nx, k]
+            @inbounds y[i, k] += alpha * A_nzVal[c] * w[j - nx, k]
         end
     end
 end
@@ -137,7 +137,7 @@ function Argos.tgtmul!(
     k = size(z, 2)
     ndrange = (n, k)
     y .*= beta
-    ev = _tgtmul_1_kernel!(CUDADevice())(
+    ev = _tgtmul_1_kernel3!(CUDADevice())(
         y, A.rowPtr, A.colVal, A.nzVal, z, w, alpha, nz, nw;
         ndrange=ndrange, dependencies=Event(CUDADevice()),
     )
@@ -185,19 +185,19 @@ function Argos.HJDJ(W::CuSparseMatrixCSR, J::CuSparseMatrixCSR)
 
     # Perform initial computation on the CPU
     J_h = SparseMatrixCSC(J)
-    Jt_h = SparseMatrixCSC(Jh')
-    JtJ_h = Jt_h * Jh
+    Jt_h = SparseMatrixCSC(J_h')
+    JtJ_h = Jt_h * J_h
 
-    # Compute tranpose and associated permutation
-    Jt = CuSparseMatrixCSR(Jt_h)
-    i, j, _ = findnz(J)
+    # Compute tranpose and associated permutation with CSC matrix
+    i, j, _ = findnz(J_h)
     transperm = sortperm(i) |> CuVector{Int}
-
+    # Initial transpose on GPU
+    Jt = CuSparseMatrixCSR(Jt_h)
     # JDJ
     JtJ = CuSparseMatrixCSR(JtJ_h)
 
     constants = similar(nonzeros(W), n) ; fill!(constants, 0)
-    return HJDJ(W, Jt, JtJ, constants, transperm)
+    return Argos.HJDJ{CuVector{Int}, CuVector{Float64}, typeof(W)}(W, Jt, JtJ, constants, transperm)
 end
 
 
@@ -212,14 +212,48 @@ end
     end
 end
 
-function update!(K::Argos.HJDJ, A, D, Σ)
+function Argos.update!(K::Argos.HJDJ, A, D, Σ)
     m = size(A, 1)
     ev = _scale_transpose_kernel!(CUDADevice())(
-        K.Jt.nzVal, K.J.rowPtr, K.J.colVal, K.J.nzVal, D, K.transperm,
+        K.Jt.nzVal, A.rowPtr, A.colVal, A.nzVal, D, K.transperm,
         ndrange=(m, 1),
     )
     wait(ev)
-    spgemm!('N', 'N', 1.0, K.Jt, K.J, 1.0, K.JtJ, 'O')
+    spgemm!('N', 'N', 1.0, K.Jt, A, 0.0, K.JtJ, 'O')
     K.Σ .= Σ
+end
+
+function MadNLP.set_aug_diagonal!(kkt::Argos.BieglerKKTSystem{T, VI, VT, MT}, ips::MadNLP.InteriorPointSolver) where {T, VI<:CuVector{Int}, VT<:CuVector{T}, MT<:CuMatrix{T}}
+    haskey(kkt.etc, :pr_diag_host) || (kkt.etc[:pr_diag_host] = Vector{T}(undef, length(kkt.pr_diag)))
+    pr_diag_h = kkt.etc[:pr_diag_host]::Vector{T}
+    # Broadcast is not working as MadNLP array are allocated on the CPU,
+    # whereas pr_diag is allocated on the GPU
+    pr_diag_h .= ips.zl./(ips.x.-ips.xl) .+ ips.zu./(ips.xu.-ips.x)
+    copyto!(kkt.pr_diag, pr_diag_h)
+    fill!(kkt.du_diag, 0.0)
+end
+
+function Argos.split_jacobian(J::CuSparseMatrixCSR, nx, nu)
+    n, m = size(J)
+    @assert m == nx + nu
+    Ap, Aj = Vector(J.rowPtr), Vector(J.colVal)
+    return Argos._split_jacobian_csr(Ap, Aj, n, nx, nu)
+end
+
+function SparseArrays.findnz(J::CuSparseMatrixCSR)
+    n, m = size(J)
+    Ap, Aj, Az = (J.rowPtr, J.colVal, J.nzVal) .|> Array
+    Bi, Bj = Int[], Int[]
+    Bz = Float64[]
+
+    for i in 1:n
+        for c in Ap[i]:Ap[i+1]-1
+            j = Aj[c]
+            push!(Bi, i)
+            push!(Bj, j)
+            push!(Bz, Az[c])
+        end
+    end
+    return Bi, Bj, Bz
 end
 

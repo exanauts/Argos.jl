@@ -52,6 +52,51 @@ function _split_jacobian_csc(Ai, Ap, n, nx, nu)
     return mapA, mapGx, mapGu
 end
 
+function _split_jacobian_csr(Ap, Aj, n, nx, nu)
+    m = nx + nu # number of columns
+    # First step: count
+    nnzGx = 0
+    nnzGu = 0
+    nnzA = 0
+    for i in 1:n
+        for c in Ap[i]:Ap[i+1]-1
+            j = Aj[c]
+            if i <= nx && j <= nx
+                nnzGx += 1
+            elseif i <= nx && nx + 1 <= j <= nx + nu
+                nnzGu += 1
+            elseif nx + 1 <= i <= n
+                nnzA += 1
+            end
+        end
+    end
+
+    mapGx = zeros(Int, nnzGx)
+    mapGu = zeros(Int, nnzGu)
+    mapA = zeros(Int, nnzA)
+
+    k = 1
+    lGx, lGu, lA = 1, 1, 1
+    for i in 1:n
+        for c in Ap[i]:Ap[i+1]-1
+            j = Aj[c]
+            if i <= nx && j <= nx
+                mapGx[lGx] = k
+                lGx += 1
+            elseif i <= nx && nx + 1 <= j <= nx + nu
+                mapGu[lGu] = k
+                lGu += 1
+            elseif nx + 1 <= i <= n
+                mapA[lA] = k
+                lA += 1
+            end
+            k += 1
+        end
+    end
+
+    return mapA, mapGx, mapGu
+end
+
 function split_jacobian(J::SparseMatrixCSC, nx, nu)
     n, m = size(J)
     @assert m == nx + nu
@@ -74,7 +119,7 @@ function HJDJ(W::SparseMatrixCSC, J::SparseMatrixCSC)
     return HJDJ(W, Jt, JtJ, constants, transperm)
 end
 
-function update!(K::HJDJ, A, D, Σ)
+function update!(K::HJDJ, A::SparseMatrixCSC, D::AbstractVector, Σ::AbstractVector)
     K.JtJ .= A' * Diagonal(D) * A
     K.Σ .= Σ
 end
@@ -86,7 +131,7 @@ function LinearAlgebra.mul!(y::AbstractArray, K::HJDJ, x::AbstractArray)
 end
 
 function tgtmul!(yx::AbstractArray, yu::AbstractArray, K::HJDJ, z::AbstractArray, w::AbstractArray, alpha::Number, beta::Number)
-    nx, nu = length(yx), length(yu)
+    nx, nu = size(yx, 1), size(yu, 1)
 
     sx = view(K.Σ, 1:nx)
     su = view(K.Σ, 1+nx:nx+nu)

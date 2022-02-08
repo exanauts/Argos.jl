@@ -67,7 +67,7 @@ function BieglerKKTSystem{T, VI, VT, MT}(nlp::ExaNLPModel, ind_cons=MadNLP.get_i
     Gu_h = J_h[1:nx, nx+1:nx+nu]
     A_h = J_h[nx+1:end, :]
     # Associated mappings
-    mapA, mapGx, mapGu = split_jacobian(J_h, nx, nu)
+    mapA, mapGx, mapGu = split_jacobian(J, nx, nu)
 
     # Transfer to device
     Gx = Gx_h |> SMT
@@ -83,7 +83,7 @@ function BieglerKKTSystem{T, VI, VT, MT}(nlp::ExaNLPModel, ind_cons=MadNLP.get_i
     # Evaluate Jacobian
     x = initial(nlp.nlp)
 
-    linear_solver = LS.DirectSolver(Gx)
+    linear_solver = LS.DirectSolver(Gx; nbatch=nbatches)
     Gxi = linear_solver.factorization
     reduction = if nbatches > 1
         BatchReduction(evaluator.model, Gxi, nbatches)
@@ -152,7 +152,9 @@ function MadNLP.set_jacobian_scaling!(kkt::BieglerKKTSystem{T,VI,VT,MT}, constra
 end
 
 # Use for inertia-free regularization (require full-space multiplication)
-function _mul_expanded!(y, kkt::BieglerKKTSystem, x)
+function _mul_expanded!(y_h, kkt::BieglerKKTSystem{T, VI, VT, MT}, x_h) where {T, VI, VT, MT}
+    x = x_h |> VT
+    y = y_h |> VT
     # Build full-space KKT system
     n = kkt.nx + kkt.nu
     m = length(kkt.con_scale)
@@ -162,7 +164,7 @@ function _mul_expanded!(y, kkt::BieglerKKTSystem, x)
     Σₛ = kkt.pr_diag[n+1:n+ns]
     # Jacobian
     Jx = kkt.J
-    Js = sparse(kkt.ind_ineq, 1:ns, -kkt.con_scale[kkt.ind_ineq], m, ns)
+    Js = view(kkt.con_scale, kkt.nx+1:m)
     Σᵤ = kkt.du_diag
 
     # Decompose x
@@ -180,11 +182,13 @@ function _mul_expanded!(y, kkt::BieglerKKTSystem, x)
     mul!(yx, Jx', xz, 1.0, 1.0)
     # / s (slack)
     ys .= Σₛ .* xs
-    mul!(ys, Js', xz, 1.0, 1.0)
+    ys .-= Js .* xz[kkt.nx+1:m]
     # / z (multipliers)
     yz .= Σᵤ .* xz
-    mul!(yz, Js, xs, 1.0, 1.0)
+    yz[kkt.nx+1:m] .-= Js .* xs
     mul!(yz, Jx, xx, 1.0, 1.0)
+
+    copyto!(y_h, y)
 end
 
 function MadNLP.mul!(y::AbstractVector, kkt::BieglerKKTSystem, x::AbstractVector)
@@ -195,7 +199,14 @@ function MadNLP.mul!(y::AbstractVector, kkt::BieglerKKTSystem, x::AbstractVector
     end
 end
 
-function MadNLP.jtprod!(y::AbstractVector, kkt::BieglerKKTSystem, x::AbstractVector)
+function MadNLP.jtprod!(
+    y_h::AbstractVector,
+    kkt::BieglerKKTSystem{T, VI, VT, MT},
+    x_h::AbstractVector,
+) where {T, VI, VT, MT}
+
+    x = x_h |> VT
+    y = y_h |> VT
     n = kkt.nx + kkt.nu
     ns = length(kkt.ind_ineq)
     m = length(x)
@@ -205,6 +216,8 @@ function MadNLP.jtprod!(y::AbstractVector, kkt::BieglerKKTSystem, x::AbstractVec
     xs = view(x, kkt.nx+1:m)
     αs = view(kkt.con_scale, kkt.nx+1:m)
     ys .= .-xs .* αs
+
+    copyto!(y_h, y)
 end
 
 MadNLP.nnz_jacobian(kkt::BieglerKKTSystem) = size(kkt.A, 1) * size(kkt.A, 2)
@@ -229,28 +242,36 @@ MadNLP.compress_hessian!(kkt::BieglerKKTSystem) = nothing
 function assemble_condensed_matrix!(kkt::BieglerKKTSystem, K::HJDJ)
     nx, nu = kkt.nx, kkt.nu
     m = size(kkt.J, 1)
+    D = kkt._wj1
     α   = @view kkt.con_scale[nx+1:m]
     prx = @view kkt.pr_diag[1:nx+nu]
     prs = @view kkt.pr_diag[nx+nu+1:end]
     # Matrices
     A = kkt.A
-    D = prs ./ α.^2
+    D .= prs ./ α.^2
     update!(K, A, D, prx)
 end
 
 function MadNLP.build_kkt!(kkt::BieglerKKTSystem{T, VI, VT, MT}) where {T, VI, VT, MT}
     assemble_condensed_matrix!(kkt, kkt.K)
+    fill!(kkt.aug_com, 0.0)
     reduce!(kkt.reduction, kkt.aug_com, kkt.K, kkt.Gu)
     MadNLP.treat_fixed_variable!(kkt)
 end
 
-function MadNLP.solve_refine_wrapper!(ips::MadNLP.InteriorPointSolver{<:BieglerKKTSystem}, x, b)
+function MadNLP.solve_refine_wrapper!(
+    ips::MadNLP.InteriorPointSolver{<:BieglerKKTSystem{T,VI,VT,MT}},
+    x_h, b_h,
+) where {T, VI, VT, MT}
     kkt = ips.kkt
+    x = x_h |> VT
+    b = b_h |> VT
     MadNLP.fixed_variable_treatment_vec!(b, ips.ind_fixed)
     m = ips.m # constraints
     nx, nu = kkt.nx, kkt.nu
     ns = m - nx
     @assert length(b) == length(x) == ips.n + m
+
 
     # Buffers
     jv = kkt._wxu1
@@ -306,9 +327,11 @@ function MadNLP.solve_refine_wrapper!(ips::MadNLP.InteriorPointSolver{<:BieglerK
     mul!(tu, Gu', sx2, 1.0, 1.0)          # tᵤ = tᵤ + Gᵤᵀ Gₓ⁻ᵀ sₓ
     axpy!(-1.0, khu, tu)                  # tᵤ = tᵤ - Kᵤₓ Gₓ⁻¹ r₄
 
-    # Linear solver
-    ips.cnt.linear_solver_time += @elapsed (result = MadNLP.solve_refine!(du, ips.iterator, tu))
-    solve_status = (result == :Solved)
+    du .= tu
+    ips.cnt.linear_solver_time += @elapsed begin
+        MadNLP.solve!(ips.linear_solver, du)
+    end
+    solve_status = true
 
     # (1) Extract Biegler
     dx .= r₄                              # r₄
@@ -324,6 +347,7 @@ function MadNLP.solve_refine_wrapper!(ips::MadNLP.InteriorPointSolver{<:BieglerK
     ds .= (r₃ .+ α .* dy) ./ Σₛ
 
     MadNLP.fixed_variable_treatment_vec!(x, ips.ind_fixed)
+    copyto!(x_h, x)
     return solve_status
 end
 

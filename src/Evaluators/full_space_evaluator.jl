@@ -69,6 +69,7 @@ function FullSpaceEvaluator(
     lagrangian_expr = [costs; constraints_expr]
     lagrangian = ExaPF.MultiExpressions(lagrangian_expr)
     hess = ExaPF.FullHessian(model, lagrangian ∘ basis, mapxu)
+    nonzeros(hess.H) .= 0.0
 
     mapxu = mapxu |> VI
 
@@ -126,7 +127,7 @@ function update!(nlp::FullSpaceEvaluator, x)
     copyto!(nlp.stack, nlp.mapxu, x)
     # Full forward pass
     nlp.basis(nlp.stack.ψ, nlp.stack)
-    nlp._obj = nlp.costs(nlp.stack)[1]
+    nlp._obj = sum(nlp.costs(nlp.stack))
     nlp.constraints(nlp._cons, nlp.stack)
     return true
 end
@@ -209,11 +210,11 @@ end
 function hessian_lagrangian_coo!(nlp::FullSpaceEvaluator, hess, x, y, σ)
     n = n_variables(nlp)::Int
     m = n_constraints(nlp)
-    nlp._multipliers[1] = σ
-    nlp._multipliers[2:m+1] .= y
+    nlp._multipliers[1:1] .= σ
+    copyto!(nlp._multipliers, 2, y, 1, m)
     ExaPF.hessian!(nlp.hess, nlp.stack, nlp._multipliers)
 
-    _transfer_csc2coo!(hess, nlp.hess.H)
+    # _transfer_csc2coo!(hess, nlp.hess.H)
     return
 end
 
@@ -243,6 +244,8 @@ function reset!(nlp::FullSpaceEvaluator)
     empty!(nlp.stack)
     empty!(nlp.∂stack)
     ExaPF.init!(nlp.model, nlp.stack)
+
+    fill!(nonzeros(nlp.hess.H), 0)
     return
 end
 
