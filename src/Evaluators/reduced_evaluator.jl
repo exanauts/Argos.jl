@@ -175,10 +175,11 @@ function ReducedSpaceEvaluator(
     # Build Linear Algebra
     J = Gx.J
     _linear_solver = isnothing(linear_solver) ? LS.DirectSolver(J; nbatch=nbatch_hessian) : linear_solver
+    S = ImplicitSensitivity(_linear_solver.factorization, Gu.J)
     redop = if nbatch_hessian > 1
-        BatchReduction(model, _linear_solver.factorization, nbatch_hessian)
+        BatchReduction(model, S, nbatch_hessian)
     else
-        Reduction(model, _linear_solver.factorization)
+        Reduction(model, S)
     end
 
     etc = Dict{Symbol, Any}()
@@ -293,6 +294,9 @@ function update!(nlp::ReducedSpaceEvaluator, u)
 
     # Evaluate Jacobian of power flow equation on current u
     ExaPF.jacobian!(nlp.Gu, nlp.stack)
+
+    # Update reduction
+    update!(nlp.reduction)
 
     nlp.is_jacobian_updated = false
     nlp.is_adjoint_lagrangian_updated = false
@@ -411,7 +415,7 @@ function hessprod!(nlp::ReducedSpaceEvaluator, hessvec, u, w)
     end
     H = nlp.hess.H
     Gu = nlp.Gu.J
-    adjoint_adjoint_reduction!(nlp.reduction, hessvec, H, Gu, w)
+    adjoint_adjoint_reduction!(nlp.reduction, hessvec, H, w)
 end
 
 function hessian_lagrangian_prod!(
@@ -438,7 +442,7 @@ function hessian_lagrangian_prod!(
     # Get sparse matrices
     H = nlp.hess.H
     Gu = nlp.Gu.J
-    adjoint_adjoint_reduction!(nlp.reduction, hessvec, H, Gu, w)
+    adjoint_adjoint_reduction!(nlp.reduction, hessvec, H, w)
 end
 
 function hessian_lagrangian_penalty_prod!(
@@ -469,7 +473,7 @@ function hessian_lagrangian_penalty_prod!(
     J = nlp.jac.J
     W = H + J' * Diagonal(D) * J
 
-    adjoint_adjoint_reduction!(nlp.reduction, hessvec, W, Gu, w)
+    adjoint_adjoint_reduction!(nlp.reduction, hessvec, W, w)
 end
 
 # Batch Hessian
