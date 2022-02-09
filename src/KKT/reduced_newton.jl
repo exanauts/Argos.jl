@@ -85,10 +85,11 @@ function BieglerKKTSystem{T, VI, VT, MT}(nlp::ExaNLPModel, ind_cons=MadNLP.get_i
 
     linear_solver = LS.DirectSolver(Gx; nbatch=nbatches)
     Gxi = linear_solver.factorization
+    S = DirectSensitivity(Gxi, Gu)
     reduction = if nbatches > 1
-        BatchReduction(evaluator.model, Gxi, nbatches)
+        BatchReduction(evaluator.model, S, nbatches)
     else
-        Reduction(evaluator.model, Gxi)
+        Reduction(evaluator.model, S)
     end
 
     # W
@@ -293,7 +294,8 @@ end
 function MadNLP.build_kkt!(kkt::BieglerKKTSystem{T, VI, VT, MT}) where {T, VI, VT, MT}
     assemble_condensed_matrix!(kkt, kkt.K)
     fill!(kkt.aug_com, 0.0)
-    reduce!(kkt.reduction, kkt.aug_com, kkt.K, kkt.Gu)
+    update!(kkt.reduction)
+    reduce!(kkt.reduction, kkt.aug_com, kkt.K)
     MadNLP.treat_fixed_variable!(kkt)
 end
 
