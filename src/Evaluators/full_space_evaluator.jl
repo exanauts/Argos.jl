@@ -222,7 +222,7 @@ function hessian_lagrangian_coo!(nlp::FullSpaceEvaluator, hess, x, y, σ)
     copyto!(nlp._multipliers, 2, y, 1, m)
     ExaPF.hessian!(nlp.hess, nlp.stack, nlp._multipliers)
 
-    # _transfer_csc2coo!(hess, nlp.hess.H)
+    _transfer_csc2coo!(hess, nlp.hess.H)
     return
 end
 
