@@ -124,3 +124,18 @@ function hessian_lagrangian_coo!(nlp::AbstractNLPEvaluator, hess, x, μ, σ)
     end
 end
 
+function transfer2coo!(hessvals::AbstractVector, H::SparseMatrixCSC)
+    n, m = size(H)
+    k = 1
+    @inbounds for j in 1:m
+        for c in H.colptr[j]:H.colptr[j+1]-1
+            i = H.rowval[c]
+            v = H.nzval[c]
+            if j <= i
+                hessvals[k] = v
+                k += 1
+            end
+        end
+    end
+end
+

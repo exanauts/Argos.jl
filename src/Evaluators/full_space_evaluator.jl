@@ -185,8 +185,6 @@ end
 ###
 # Second-order code
 ####
-#
-
 function hessian_lagrangian_prod!(
     nlp::FullSpaceEvaluator, hessvec, x, y, σ, w,
 )
@@ -200,21 +198,6 @@ function hessian_lagrangian_prod!(
     return
 end
 
-function _transfer_csc2coo!(hessvals::AbstractVector, H::SparseMatrixCSC)
-    n, m = size(H)
-    k = 1
-    @inbounds for j in 1:m
-        for c in H.colptr[j]:H.colptr[j+1]-1
-            i = H.rowval[c]
-            v = H.nzval[c]
-            if j <= i
-                hessvals[k] = v
-                k += 1
-            end
-        end
-    end
-end
-
 function hessian_lagrangian_coo!(nlp::FullSpaceEvaluator, hess, x, y, σ)
     n = n_variables(nlp)::Int
     m = n_constraints(nlp)
@@ -222,7 +205,7 @@ function hessian_lagrangian_coo!(nlp::FullSpaceEvaluator, hess, x, y, σ)
     copyto!(nlp._multipliers, 2, y, 1, m)
     ExaPF.hessian!(nlp.hess, nlp.stack, nlp._multipliers)
 
-    _transfer_csc2coo!(hess, nlp.hess.H)
+    transfer2coo!(hess, nlp.hess.H)
     return
 end
 

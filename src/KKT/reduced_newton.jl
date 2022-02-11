@@ -257,9 +257,9 @@ function MadNLP.eval_lag_hess_wrapper!(ipp::MadNLP.InteriorPointSolver, kkt::Bie
     ipp._w1l .= l.*ipp.con_scale
 
     σ = is_resto ? 0.0 : ipp.obj_scale[]
-    y = nlp.d_c
+    y = ipp._w1l #nlp.d_c # TODO
     # Load to device
-    _copyto!(y, 1, ipp._w1l, 1, NLPModels.get_ncon(nlp))
+    # _copyto!(y, 1, ipp._w1l, 1, NLPModels.get_ncon(nlp))
     evaluator = nlp.nlp
     n = n_variables(evaluator)::Int
     m = n_constraints(evaluator)

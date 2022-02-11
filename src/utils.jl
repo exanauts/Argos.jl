@@ -1,4 +1,16 @@
 
+function _copyto!(dest::AbstractArray, off1, src::AbstractArray, off2, n)
+    copyto!(dest, off1, src, off2, n)
+end
+function _copyto!(dest::AbstractArray, off1, src::SubArray, off2, n)
+    p_src = parent(src)
+    copyto!(dest, off1, p_src, off2 + src.offset1, n)
+end
+function _copyto!(dest::SubArray, off1, src::AbstractArray, off2, n)
+    p_dest = parent(dest)
+    copyto!(p_dest, off1 + dest.offset1, src, off2, n)
+end
+
 # Counters
 abstract type AbstractCounter end
 
