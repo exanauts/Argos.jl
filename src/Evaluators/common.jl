@@ -124,18 +124,24 @@ function hessian_lagrangian_coo!(nlp::AbstractNLPEvaluator, hess, x, μ, σ)
     end
 end
 
-function transfer2coo!(hessvals::AbstractVector, H::SparseMatrixCSC)
+function tril_mapping(H::SparseMatrixCSC)
     n, m = size(H)
+    csc2tril = Int[]
     k = 1
     @inbounds for j in 1:m
         for c in H.colptr[j]:H.colptr[j+1]-1
             i = H.rowval[c]
-            v = H.nzval[c]
             if j <= i
-                hessvals[k] = v
-                k += 1
+                push!(csc2tril, k)
             end
+            k += 1
         end
     end
+    return csc2tril
+end
+
+function transfer2tril!(hessvals::AbstractVector, H::SparseMatrixCSC, csc2tril)
+    Hz = nonzeros(H)
+    hessvals .= Hz[csc2tril]
 end
 

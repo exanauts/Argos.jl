@@ -99,8 +99,8 @@ function AugLagEvaluator(
 end
 
 has_hessian(nlp::AugLagEvaluator) = has_hessian(nlp.inner)
+model(nlp::AugLagEvaluator) = model(nlp.inner)
 backend(nlp::AugLagEvaluator) = backend(nlp.inner)
-inner_evaluator(nlp::AugLagEvaluator) = inner_evaluator(nlp.inner)
 
 get_hessian_buffer(nlp::AugLagEvaluator) = get_hessian_buffer(nlp.inner)
 

@@ -39,18 +39,18 @@ struct BieglerKKTSystem{T, VI, VT, MT, SMT} <: MadNLP.AbstractReducedKKTSystem{T
     etc::Dict{Symbol,Any}
 end
 
-function BieglerKKTSystem{T, VI, VT, MT}(nlp::ExaNLPModel, ind_cons=MadNLP.get_index_constraints(nlp); nbatches=1) where {T, VI, VT, MT}
+function BieglerKKTSystem{T, VI, VT, MT}(nlp::ExaNLPModel, ind_cons=MadNLP.get_index_constraints(nlp); max_batches=256) where {T, VI, VT, MT}
     n_slack = length(ind_cons.ind_ineq)
     n = NLPModels.get_nvar(nlp)
     m = NLPModels.get_ncon(nlp)
     # Structure
-    nx = nlp.nlp.nx
-    nu = nlp.nlp.nu
+    evaluator = backend(nlp)
+    nx = evaluator.nx
+    nu = evaluator.nu
     # Evaluate sparsity pattern
     nnzj = NLPModels.get_nnzj(nlp)
     nnzh = NLPModels.get_nnzh(nlp)
 
-    evaluator = nlp.nlp
     W = evaluator.hess.H
     SMT = typeof(W)
     h_V = VT(undef, nnzh) ; fill!(h_V, zero(T))
@@ -80,12 +80,10 @@ function BieglerKKTSystem{T, VI, VT, MT}(nlp::ExaNLPModel, ind_cons=MadNLP.get_i
     pr_diag = VT(undef, n + n_slack) ; fill!(pr_diag, zero(T))
     du_diag = VT(undef, m) ; fill!(du_diag, zero(T))
 
-    # Evaluate Jacobian
-    x = initial(nlp.nlp)
-
+    nbatches = min(max_batches, nu)
     linear_solver = LS.DirectSolver(Gx; nbatch=nbatches)
     Gxi = linear_solver.factorization
-    S = DirectSensitivity(Gxi, Gu)
+    S = ImplicitSensitivity(Gxi, Gu)
     reduction = if nbatches > 1
         BatchReduction(evaluator.model, S, nbatches)
     else
@@ -230,7 +228,7 @@ function MadNLP.jtprod!(
     copyto!(y_h, y)
 end
 
-MadNLP.nnz_jacobian(kkt::BieglerKKTSystem) = size(kkt.A, 1) * size(kkt.A, 2)
+MadNLP.nnz_jacobian(kkt::BieglerKKTSystem) = length(kkt.j_V)
 
 function MadNLP.compress_jacobian!(kkt::BieglerKKTSystem)
     nx, nu = kkt.nx, kkt.nu
@@ -248,34 +246,6 @@ end
 
 # Build reduced Hessian
 MadNLP.compress_hessian!(kkt::BieglerKKTSystem) = nothing
-
-# Custom wrapper for sparse Hessian
-function MadNLP.eval_lag_hess_wrapper!(ipp::MadNLP.InteriorPointSolver, kkt::BieglerKKTSystem, x::Vector{Float64},l::Vector{Float64};is_resto=false)
-    nlp = ipp.nlp
-    cnt = ipp.cnt
-    MadNLP.@trace(ipp.logger,"Evaluating Lagrangian Hessian.")
-    ipp._w1l .= l.*ipp.con_scale
-
-    σ = is_resto ? 0.0 : ipp.obj_scale[]
-    y = ipp._w1l #nlp.d_c # TODO
-    # Load to device
-    # _copyto!(y, 1, ipp._w1l, 1, NLPModels.get_ncon(nlp))
-    evaluator = nlp.nlp
-    n = n_variables(evaluator)::Int
-    m = n_constraints(evaluator)
-    evaluator._multipliers[1:1] .= σ
-    copyto!(evaluator._multipliers, 2, y, 1, m)
-    # Update Hessian
-    htime = @elapsed begin
-        ExaPF.hessian!(evaluator.hess, evaluator.stack, evaluator._multipliers)
-    end
-    cnt.eval_function_time += htime
-    nlp.timers.hessian_time += htime
-
-    MadNLP.compress_hessian!(kkt)
-    cnt.lag_hess_cnt+=1
-    return hess
-end
 
 function assemble_condensed_matrix!(kkt::BieglerKKTSystem, K::HJDJ)
     nx, nu = kkt.nx, kkt.nu

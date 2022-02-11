@@ -200,8 +200,8 @@ function ReducedSpaceEvaluator(datafile::String; device=ExaPF.CPU(), options...)
     return ReducedSpaceEvaluator(ExaPF.PolarForm(datafile, device); options...)
 end
 
-backend(nlp::ReducedSpaceEvaluator) = nlp.model
-inner_evaluator(nlp::ReducedSpaceEvaluator) = nlp
+model(nlp::ReducedSpaceEvaluator) = nlp.model
+backend(nlp::ReducedSpaceEvaluator) = nlp
 
 n_variables(nlp::ReducedSpaceEvaluator) = nlp.nu
 n_constraints(nlp::ReducedSpaceEvaluator) = length(nlp.g_min)
