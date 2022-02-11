@@ -260,3 +260,31 @@ function SparseArrays.findnz(J::CuSparseMatrixCSR)
     return Bi, Bj, Bz
 end
 
+function Argos.tril_mapping(H::CuSparseMatrixCSR)
+    n, m = size(H)
+    Ap, Aj = (H.rowPtr, H.colVal) .|> Vector
+    csr2tril = Int[]
+    k = 1
+    @inbounds for i in 1:n
+        for c in Ap[i]:Ap[i+1]-1
+            j = Aj[c]
+            if j <= i
+                push!(csr2tril, k)
+            end
+            k += 1
+        end
+    end
+    return csr2tril |> CuVector
+end
+
+@kernel function map2vec(dest, src, map)
+    i = @index(Linear)
+    dest[i] = src[map[i]]
+end
+
+function Argos.transfer2tril!(hessvals::AbstractVector, H::CuSparseMatrixCSR, csc2tril)
+    Hz = nonzeros(H)
+    ev = map2vec(CUDADevice())(hessvals, Hz, csc2tril)
+    wait(ev)
+end
+

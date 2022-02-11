@@ -25,6 +25,7 @@ mutable struct FullSpaceEvaluator{T, VI, VT, MT, JacCons, HessLag} <: AbstractNL
 
     jac::JacCons
     hess::HessLag
+    map2tril::VI
 end
 
 function FullSpaceEvaluator(
@@ -77,15 +78,16 @@ function FullSpaceEvaluator(
     lagrangian_expr = [costs; constraints_expr]
     lagrangian = ExaPF.MultiExpressions(lagrangian_expr)
     hess = ExaPF.FullHessian(model, lagrangian ∘ basis, mapxu)
-    nonzeros(hess.H) .= 0.0
+    nonzeros(hess.H) .= 0.0 # TODO: do we need it ?
 
     mapxu = mapxu |> VI
+    map2tril = tril_mapping(hess.H)
 
     return FullSpaceEvaluator(
         model, nx, nu, mapxu,
         basis, costs, constraints,
         obj, cons, y, x_min, x_max, g_min, g_max,
-        stack, ∂stack, jac, hess,
+        stack, ∂stack, jac, hess, map2tril,
     )
 end
 function FullSpaceEvaluator(datafile::String; device=ExaPF.CPU(), options...)
@@ -204,8 +206,8 @@ function hessian_lagrangian_coo!(nlp::FullSpaceEvaluator, hess, x, y, σ)
     nlp._multipliers[1:1] .= σ
     copyto!(nlp._multipliers, 2, y, 1, m)
     ExaPF.hessian!(nlp.hess, nlp.stack, nlp._multipliers)
-
-    transfer2coo!(hess, nlp.hess.H)
+    # Keep only lower-triangular part
+    transfer2tril!(hess, nlp.hess.H, nlp.map2tril)
     return
 end
 
