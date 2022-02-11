@@ -65,7 +65,7 @@ function bridge(nlp::FullSpaceEvaluator{T,VI,VT,MT}) where {T,VI,VT,MT}
     k, l = jacobian_structure(nlp)
     nnzj = length(k)
     # Deporting device
-    buffers = BridgeBuffers(
+    buffers = BridgeBuffers{VT,VT}(
         VT(undef, n),
         VT(undef, n),
         VT(undef, n),
@@ -96,7 +96,7 @@ objective(nlp::BridgeDeviceEvaluator, u) = objective(nlp.inner, nlp.buffers.u)
 
 function constraint!(nlp::BridgeDeviceEvaluator, cons, u)
     constraint!(nlp.inner, nlp.buffers.wc, nlp.buffers.u)
-    copyto!(cons, 1, nlp.buffers.wc, 1, length(nlp.buffers.wc))
+    _copyto!(cons, 1, nlp.buffers.wc, 1, length(nlp.buffers.wc))
     return
 end
 
@@ -146,7 +146,7 @@ function hessian!(nlp::BridgeDeviceEvaluator, H, u)
 end
 
 function hessian_lagrangian!(nlp::BridgeDeviceEvaluator, H, u, y, σ)
-    copyto!(nlp.buffers.wc, y)
+    _copyto!(nlp.buffers.wc, 1, y, 1, length(nlp.buffers.wc))
     hessian_lagrangian!(nlp.inner, nlp.buffers.H, nlp.buffers.u, nlp.buffers.wc, σ)
     copyto!(H, nlp.buffers.H)
     return
@@ -154,7 +154,7 @@ end
 
 function hessian_lagrangian_coo!(nlp::BridgeDeviceEvaluator, hess, u, y, σ)
     @assert isa(nlp.buffers.H, AbstractVector)
-    copyto!(nlp.buffers.wc, y)
+    _copyto!(nlp.buffers.wc, 1, y, 1, length(nlp.buffers.wc))
     hessian_lagrangian_coo!(nlp.inner, nlp.buffers.H, nlp.buffers.u, nlp.buffers.wc, σ)
     _copyto!(hess, 1, nlp.buffers.H, 1, length(nlp.buffers.H))
 end

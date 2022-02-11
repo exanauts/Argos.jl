@@ -278,13 +278,14 @@ function Argos.tril_mapping(H::CuSparseMatrixCSR)
 end
 
 @kernel function map2vec(dest, src, map)
-    i = @index(Linear)
+    i = @index(Global, Linear)
     dest[i] = src[map[i]]
 end
 
 function Argos.transfer2tril!(hessvals::AbstractVector, H::CuSparseMatrixCSR, csc2tril)
     Hz = nonzeros(H)
-    ev = map2vec(CUDADevice())(hessvals, Hz, csc2tril)
+    ndrange = (length(hessvals),)
+    ev = map2vec(CUDADevice())(hessvals, Hz, csc2tril; ndrange=ndrange)
     wait(ev)
 end
 
