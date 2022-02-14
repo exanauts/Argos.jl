@@ -94,8 +94,8 @@ function FullSpaceEvaluator(datafile::String; device=ExaPF.CPU(), options...)
     return FullSpaceEvaluator(ExaPF.PolarForm(datafile, device); options...)
 end
 
-backend(nlp::FullSpaceEvaluator) = nlp.model
-inner_evaluator(nlp::FullSpaceEvaluator) = nlp
+model(nlp::FullSpaceEvaluator) = nlp.model
+backend(nlp::FullSpaceEvaluator) = nlp
 
 n_variables(nlp::FullSpaceEvaluator) = nlp.nx + nlp.nu
 n_constraints(nlp::FullSpaceEvaluator) = length(nlp.g_min)

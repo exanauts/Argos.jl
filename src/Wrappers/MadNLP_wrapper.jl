@@ -48,6 +48,8 @@ function ExaNLPModel(nlp::AbstractNLPEvaluator)
     )
 end
 
+backend(m::ExaNLPModel) = backend(m.nlp)
+
 function NLPModels.jac_structure!(m::ExaNLPModel, rows, cols)
     copyto!(rows, m.jrows)
     copyto!(cols, m.jcols)
