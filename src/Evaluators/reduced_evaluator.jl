@@ -162,6 +162,12 @@ function ReducedSpaceEvaluator(
     g_min, g_max = ExaPF.bounds(model, constraints)
     # Remove bounds below a given threshold
     g_max = min.(g_max, 1e5)
+    # Remove equalities
+    idx_eq = findall(g_min .== g_max)
+    if length(idx_eq) > 0
+        println("eq found")
+        g_max[idx_eq] .+= 1e-6
+    end
 
     # Jacobians
     Gx = ExaPF.Jacobian(model, powerflow ∘ basis, mapx)
@@ -173,16 +179,22 @@ function ReducedSpaceEvaluator(
     hess = ExaPF.FullHessian(model, lagrangian ∘ basis, mapxu)
 
     # Build Linear Algebra
+    nbatch_hessian = min(nbatch_hessian, nu)
     J = Gx.J
     _linear_solver = isnothing(linear_solver) ? LS.DirectSolver(J; nbatch=nbatch_hessian) : linear_solver
     S = ImplicitSensitivity(_linear_solver.factorization, Gu.J)
+
     redop = if nbatch_hessian > 1
         BatchReduction(model, S, nbatch_hessian)
     else
         Reduction(model, S)
     end
 
-    etc = Dict{Symbol, Any}()
+    # Set timers
+    etc = Dict{Symbol, Any}(
+        :reduction_time=>0.0,
+        :powerflow_time=>0.0,
+    )
 
     return ReducedSpaceEvaluator{T,VI,VT,MT,typeof(Gx),typeof(Gu),typeof(jac),typeof(hess),typeof(redop)}(
         model, nx, nu, mapx, mapu, mapxu,
@@ -275,13 +287,15 @@ function update!(nlp::ReducedSpaceEvaluator, u)
     copyto!(nlp.stack, nlp.mapu, u)
 
     # Get corresponding point on the manifold
-    conv = ExaPF.nlsolve!(
-        nlp.powerflow_solver,
-        nlp.Gx,
-        nlp.stack;
-        linear_solver=nlp.linear_solver,
-        nl_buffer=nlp.pf_buffer,
-    )
+    nlp.etc[:powerflow_time] += @elapsed begin
+        conv = ExaPF.nlsolve!(
+            nlp.powerflow_solver,
+            nlp.Gx,
+            nlp.stack;
+            linear_solver=nlp.linear_solver,
+            nl_buffer=nlp.pf_buffer,
+        )
+    end
     if !conv.has_converged
         println("Newton-Raphson algorithm failed to converge ($(conv.norm_residuals))")
         return conv
@@ -405,7 +419,7 @@ function hessprod!(nlp::ReducedSpaceEvaluator, hessvec, u, w)
     y = nlp.multipliers
     # Init adjoint
     fill!(y, 0.0)
-    y[1] = 1.0         # / objective
+    y[1:1] .= 1.0         # / objective
     y[2:nx+1] .-= nlp.λ       # / power balance
     # Update Hessian
     if !nlp.is_hessian_objective_updated
@@ -442,7 +456,9 @@ function hessian_lagrangian_prod!(
     # Get sparse matrices
     H = nlp.hess.H
     Gu = nlp.Gu.J
-    adjoint_adjoint_reduction!(nlp.reduction, hessvec, H, w)
+    nlp.etc[:reduction_time] += @elapsed begin
+        adjoint_adjoint_reduction!(nlp.reduction, hessvec, H, w)
+    end
 end
 
 function hessian_lagrangian_penalty_prod!(

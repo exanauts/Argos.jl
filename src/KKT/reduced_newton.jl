@@ -107,7 +107,7 @@ function BieglerKKTSystem{T, VI, VT, MT}(nlp::ExaNLPModel, ind_cons=MadNLP.get_i
 
     ind_fixed = ind_cons.ind_fixed .- nx
 
-    etc = Dict{Symbol, Any}()
+    etc = Dict{Symbol, Any}(:reduction_time=>0.0)
 
     return BieglerKKTSystem{T, VI, VT, MT, SMT}(
         K, W, J, A, Gx, Gu, mapA, mapGx, mapGu,
@@ -258,14 +258,17 @@ function assemble_condensed_matrix!(kkt::BieglerKKTSystem, K::HJDJ)
     # Matrices
     A = kkt.A
     D .= prs ./ α.^2
-    update!(K, A, D, prx)
+    update!(K, A, D, prx, kkt.ind_fixed)
 end
 
 function MadNLP.build_kkt!(kkt::BieglerKKTSystem{T, VI, VT, MT}) where {T, VI, VT, MT}
     assemble_condensed_matrix!(kkt, kkt.K)
     fill!(kkt.aug_com, 0.0)
     update!(kkt.reduction)
-    reduce!(kkt.reduction, kkt.aug_com, kkt.K)
+    timed = CUDA.@timed begin
+        reduce!(kkt.reduction, kkt.aug_com, kkt.K)
+    end
+    kkt.etc[:reduction_time] += timed.time
     MadNLP.treat_fixed_variable!(kkt)
 end
 
@@ -361,3 +364,7 @@ function MadNLP.solve_refine_wrapper!(
     return solve_status
 end
 
+function MadNLP.set_aug_RR!(kkt::BieglerKKTSystem, ips::MadNLP.InteriorPointSolver, RR::MadNLP.RobustRestorer)
+    copyto!(kkt.pr_diag, ips.zl./(ips.x.-ips.xl) .+ ips.zu./(ips.xu.-ips.x) .+ RR.zeta.*RR.D_R.^2)
+    copyto!(kkt.du_diag, .-RR.pp./RR.zp .- RR.nn./RR.zn)
+end
