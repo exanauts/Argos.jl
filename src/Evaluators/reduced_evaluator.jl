@@ -182,7 +182,11 @@ function ReducedSpaceEvaluator(
         Reduction(model, S)
     end
 
-    etc = Dict{Symbol, Any}()
+    # Set timers
+    etc = Dict{Symbol, Any}(
+        :reduction_time=>0.0,
+        :powerflow_time=>0.0,
+    )
 
     return ReducedSpaceEvaluator{T,VI,VT,MT,typeof(Gx),typeof(Gu),typeof(jac),typeof(hess),typeof(redop)}(
         model, nx, nu, mapx, mapu, mapxu,
@@ -275,13 +279,15 @@ function update!(nlp::ReducedSpaceEvaluator, u)
     copyto!(nlp.stack, nlp.mapu, u)
 
     # Get corresponding point on the manifold
-    conv = ExaPF.nlsolve!(
-        nlp.powerflow_solver,
-        nlp.Gx,
-        nlp.stack;
-        linear_solver=nlp.linear_solver,
-        nl_buffer=nlp.pf_buffer,
-    )
+    nlp.etc[:powerflow_time] += @elapsed begin
+        conv = ExaPF.nlsolve!(
+            nlp.powerflow_solver,
+            nlp.Gx,
+            nlp.stack;
+            linear_solver=nlp.linear_solver,
+            nl_buffer=nlp.pf_buffer,
+        )
+    end
     if !conv.has_converged
         println("Newton-Raphson algorithm failed to converge ($(conv.norm_residuals))")
         return conv
@@ -442,7 +448,9 @@ function hessian_lagrangian_prod!(
     # Get sparse matrices
     H = nlp.hess.H
     Gu = nlp.Gu.J
-    adjoint_adjoint_reduction!(nlp.reduction, hessvec, H, w)
+    nlp.etc[:reduction_time] += @elapsed begin
+        adjoint_adjoint_reduction!(nlp.reduction, hessvec, H, w)
+    end
 end
 
 function hessian_lagrangian_penalty_prod!(

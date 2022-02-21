@@ -107,7 +107,7 @@ function BieglerKKTSystem{T, VI, VT, MT}(nlp::ExaNLPModel, ind_cons=MadNLP.get_i
 
     ind_fixed = ind_cons.ind_fixed .- nx
 
-    etc = Dict{Symbol, Any}()
+    etc = Dict{Symbol, Any}(:reduction_time=>0.0)
 
     return BieglerKKTSystem{T, VI, VT, MT, SMT}(
         K, W, J, A, Gx, Gu, mapA, mapGx, mapGu,
@@ -265,7 +265,9 @@ function MadNLP.build_kkt!(kkt::BieglerKKTSystem{T, VI, VT, MT}) where {T, VI, V
     assemble_condensed_matrix!(kkt, kkt.K)
     fill!(kkt.aug_com, 0.0)
     update!(kkt.reduction)
-    reduce!(kkt.reduction, kkt.aug_com, kkt.K)
+    kkt.etc[:reduction_time] += @elapsed begin
+        reduce!(kkt.reduction, kkt.aug_com, kkt.K)
+    end
     MadNLP.treat_fixed_variable!(kkt)
 end
 
