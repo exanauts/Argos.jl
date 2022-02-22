@@ -162,6 +162,12 @@ function ReducedSpaceEvaluator(
     g_min, g_max = ExaPF.bounds(model, constraints)
     # Remove bounds below a given threshold
     g_max = min.(g_max, 1e5)
+    # Remove equalities
+    idx_eq = findall(g_min .== g_max)
+    if length(idx_eq) > 0
+        println("eq found")
+        g_max[idx_eq] .+= 1e-6
+    end
 
     # Jacobians
     Gx = ExaPF.Jacobian(model, powerflow ∘ basis, mapx)
@@ -173,9 +179,11 @@ function ReducedSpaceEvaluator(
     hess = ExaPF.FullHessian(model, lagrangian ∘ basis, mapxu)
 
     # Build Linear Algebra
+    nbatch_hessian = min(nbatch_hessian, nu)
     J = Gx.J
     _linear_solver = isnothing(linear_solver) ? LS.DirectSolver(J; nbatch=nbatch_hessian) : linear_solver
     S = ImplicitSensitivity(_linear_solver.factorization, Gu.J)
+
     redop = if nbatch_hessian > 1
         BatchReduction(model, S, nbatch_hessian)
     else
@@ -411,7 +419,7 @@ function hessprod!(nlp::ReducedSpaceEvaluator, hessvec, u, w)
     y = nlp.multipliers
     # Init adjoint
     fill!(y, 0.0)
-    y[1] = 1.0         # / objective
+    y[1:1] .= 1.0         # / objective
     y[2:nx+1] .-= nlp.λ       # / power balance
     # Update Hessian
     if !nlp.is_hessian_objective_updated

@@ -50,15 +50,15 @@ get(nlp::BridgeDeviceEvaluator, attr::PS.AbstractNetworkAttribute) = get(nlp.inn
 function bridge(nlp::ReducedSpaceEvaluator{T,VI,VT,MT}) where {T,VI,VT,MT}
     n, m = n_variables(nlp), n_constraints(nlp)
     # Deporting device
-    buffers = BridgeBuffers(
+    buffers = BridgeBuffers{VT, VT}(
         VT(undef, n),
         VT(undef, n),
         VT(undef, n),
         VT(undef, m),
-        MT(undef, m, n),
-        MT(undef, n, n),
+        VT(undef, m),
+        VT(undef, n),
     )
-    return BridgeDeviceEvaluator{typeof(nlp), VT, MT}(nlp, buffers)
+    return BridgeDeviceEvaluator{typeof(nlp), VT, VT}(nlp, buffers)
 end
 function bridge(nlp::FullSpaceEvaluator{T,VI,VT,MT}) where {T,VI,VT,MT}
     n, m = n_variables(nlp), n_constraints(nlp)
@@ -123,8 +123,8 @@ function ojtprod!(nlp::BridgeDeviceEvaluator, jv, u, σ, v)
 end
 
 function jacobian!(nlp::BridgeDeviceEvaluator, jac, w)
-    jacobian!(nlp.inner, nlp.buffers.J, nlp.buffers.u)
-    copyto!(jac, nlp.buffers.J)
+    jacobian!(nlp.inner, jac, nlp.buffers.u)
+    # copyto!(jac, nlp.buffers.J)
     return
 end
 
@@ -142,15 +142,15 @@ function hessprod!(nlp::BridgeDeviceEvaluator, hv, u, v)
 end
 
 function hessian!(nlp::BridgeDeviceEvaluator, H, u)
-    hessian!(nlp.inner, nlp.buffers.H, nlp.buffers.u)
+    hessian!(nlp.inner, H, nlp.buffers.u)
     copyto!(H, nlp.buffers.H)
     return
 end
 
 function hessian_lagrangian!(nlp::BridgeDeviceEvaluator, H, u, y, σ)
     _copyto!(nlp.buffers.wc, 1, y, 1, length(nlp.buffers.wc))
-    hessian_lagrangian!(nlp.inner, nlp.buffers.H, nlp.buffers.u, nlp.buffers.wc, σ)
-    copyto!(H, nlp.buffers.H)
+    hessian_lagrangian!(nlp.inner, H, nlp.buffers.u, nlp.buffers.wc, σ)
+    # copyto!(H, nlp.buffers.H)
     return
 end
 

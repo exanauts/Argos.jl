@@ -64,5 +64,7 @@ function spgemm!(transa::CUSPARSE.SparseChar, transb::CUSPARSE.SparseChar, alpha
     CUSPARSE.cusparseCsrSetPointers(descC, C.rowPtr, C.colVal, C.nzVal)
     CUDA.@sync CUSPARSE.cusparseSpGEMM_copy(CUSPARSE.handle(), transa, transb, Ref{T}(alpha), descA, descB,
                         Ref{T}(beta), descC, T, CUSPARSE.CUSPARSE_SPGEMM_DEFAULT, spgemm_Desc)
+    CUDA.unsafe_free!(buffer1Size)
+    CUDA.unsafe_free!(buffer2Size)
     return C
 end

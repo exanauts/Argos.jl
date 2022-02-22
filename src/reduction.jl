@@ -126,6 +126,7 @@ end
 #=
     Adjoint-adjoint reduction
 =#
+using CUDA
 function adjoint_adjoint_reduction!(red::AbstractReduction, hessvec, H, w)
     @assert size(w, 2) == n_batches(red)
     # Load variables
@@ -133,10 +134,10 @@ function adjoint_adjoint_reduction!(red::AbstractReduction, hessvec, H, w)
     z = red.z
     ψ = red.ψ
 
-    mul!(z, red.S, w, 1.0, 0.0)
-    tgtmul!(ψ, hessvec, H, z, w, 1.0, 0.0)
-    tmul!(hessvec, red.S, ψ, 1.0, 1.0)
-    return
+    t1 = CUDA.@timed mul!(z, red.S, w, 1.0, 0.0)
+    t2 = CUDA.@timed tgtmul!(ψ, hessvec, H, z, w, 1.0, 0.0)
+    t3 = CUDA.@timed tmul!(hessvec, red.S, ψ, 1.0, 1.0)
+    return (t1.time, t2.time, t3.time)
 end
 
 struct Reduction{VT,Op} <: AbstractReduction

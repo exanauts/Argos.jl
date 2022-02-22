@@ -138,7 +138,7 @@ function tgtmul!(yx::AbstractArray, yu::AbstractArray, K::HJDJ, z::AbstractArray
     yx .= sx .* z
     yu .= su .* w
 
-    tgtmul!(yx, yu, K.W, z, w, 1.0, 1.0)
     tgtmul!(yx, yu, K.JtJ, z, w, 1.0, 1.0)
+    tgtmul!(yx, yu, K.W, z, w, 1.0, 1.0)
 end
 

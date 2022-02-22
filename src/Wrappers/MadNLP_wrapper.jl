@@ -16,11 +16,14 @@ function ExaNLPModel(nlp::AbstractNLPEvaluator)
     m = n_constraints(nlp)
 
     # Initial variable
-    x0  = initial(nlp)
     y0 = zeros(m)
     # Bounds
     xl, xu = bounds(nlp, Variables())
     gl, gu = bounds(nlp, Constraints())
+    x0  = initial(nlp)
+    # x0  = 0.5 .* (xl .+ xu)
+    # x0[isinf.(x0)] .= 0.0
+    # x0[isnan.(x0)] .= 0.0
     # Sparsity
     hrows, hcols = hessian_structure(nlp)
     jrows, jcols = jacobian_structure(nlp)
