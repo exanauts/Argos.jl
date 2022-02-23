@@ -77,7 +77,8 @@ end
         ips = _madnlp_default(flp; options...)
         @test ips.status == MadNLP.SOLVE_SUCCEEDED
         ipb = _madnlp_biegler_kkt(flp; options...)
-        _test_results_match(ips, ipb)
+        _test_results_match(ips, ipb; atol=1e-8)
+        @test ipb.kkt.Wref === flp.hess.H
     end
 end
 

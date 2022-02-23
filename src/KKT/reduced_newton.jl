@@ -1,6 +1,7 @@
 
 struct BieglerKKTSystem{T, VI, VT, MT, SMT} <: MadNLP.AbstractReducedKKTSystem{T, MT}
     K::HJDJ{VI,VT,SMT}
+    Wref::SMT
     W::SMT
     J::SMT
     A::SMT
@@ -34,6 +35,10 @@ struct BieglerKKTSystem{T, VI, VT, MT, SMT} <: MadNLP.AbstractReducedKKTSystem{T
     # Info
     ind_ineq::Vector{Int}
     ind_fixed::Vector{Int}
+    ind_Gu_fixed::VI
+    ind_A_fixed::VI
+    ind_W_fixed_diag::VI
+    ind_W_fixed::VI
     con_scale::VT
     jacobian_scaling::VT
     etc::Dict{Symbol,Any}
@@ -51,7 +56,8 @@ function BieglerKKTSystem{T, VI, VT, MT}(nlp::ExaNLPModel, ind_cons=MadNLP.get_i
     nnzj = NLPModels.get_nnzj(nlp)
     nnzh = NLPModels.get_nnzh(nlp)
 
-    W = evaluator.hess.H
+    Wref = evaluator.hess.H
+    W = copy(Wref)
     SMT = typeof(W)
     h_V = VT(undef, nnzh) ; fill!(h_V, zero(T))
 
@@ -105,18 +111,30 @@ function BieglerKKTSystem{T, VI, VT, MT}(nlp::ExaNLPModel, ind_cons=MadNLP.get_i
     con_scale = VT(undef, m)           ; fill!(con_scale, one(T))
     jacobian_scaling = VT(undef, nnzj) ; fill!(jacobian_scaling, one(T))
 
-    ind_fixed = ind_cons.ind_fixed .- nx
+    ind_fixed = ind_cons.ind_fixed
+    # The states are not supposed to be fixed
+    # Assume ind_fixed is sorted
+    if (length(ind_fixed) > 0) && (ind_fixed[1] <= nx)
+        error("Found a fixed state variable. Currently not supported as the Jacobian Gₓ becomes non-invertible.")
+    end
+    # Get fixed views
+    ind_A_fixed, _ = get_fixed_nnz(A, ind_fixed, false)
+    ind_Gu_fixed, _ = get_fixed_nnz(Gu, ind_fixed .- nx, false)
+    ind_W_fixed, ind_W_fixed_diag = get_fixed_nnz(W, ind_fixed, true)
 
+    # Buffers
     etc = Dict{Symbol, Any}(:reduction_time=>0.0)
 
     return BieglerKKTSystem{T, VI, VT, MT, SMT}(
-        K, W, J, A, Gx, Gu, mapA, mapGx, mapGu,
+        K, Wref, W, J, A, Gx, Gu, mapA, mapGx, mapGu,
         h_V, j_V,
         pr_diag, du_diag,
         aug_com, reduction, Gxi,
         _wxu1, _wxu2, _wxu3, _wx1, _wx2, _wj1,
         nx, nu,
-        ind_cons.ind_ineq, ind_fixed, con_scale, jacobian_scaling,
+        ind_cons.ind_ineq, ind_fixed,
+        ind_Gu_fixed, ind_A_fixed, ind_W_fixed_diag, ind_W_fixed,
+        con_scale, jacobian_scaling,
         etc,
     )
 end
@@ -136,6 +154,7 @@ end
 function MadNLP.initialize!(kkt::BieglerKKTSystem)
     fill!(kkt.pr_diag, 1.0)
     fill!(kkt.du_diag, 0.0)
+    fill!(nonzeros(kkt.W), 0.0)
 end
 
 function MadNLP.set_jacobian_scaling!(kkt::BieglerKKTSystem{T,VI,VT,MT}, constraint_scaling::AbstractVector) where {T,VI,VT,MT}
@@ -241,11 +260,16 @@ function MadNLP.compress_jacobian!(kkt::BieglerKKTSystem)
 
     Gxi = kkt.G_fac
     lu!(Gxi, kkt.Gx)
+
+    fixed!(nonzeros(kkt.Gu), kkt.ind_Gu_fixed, 0.0)
+    fixed!(nonzeros(kkt.A), kkt.ind_A_fixed, 0.0)
     return
 end
 
 # Build reduced Hessian
-MadNLP.compress_hessian!(kkt::BieglerKKTSystem) = nothing
+function MadNLP.compress_hessian!(kkt::BieglerKKTSystem)
+    copyto!(nonzeros(kkt.W), nonzeros(kkt.Wref))
+end
 
 function assemble_condensed_matrix!(kkt::BieglerKKTSystem, K::HJDJ)
     nx, nu = kkt.nx, kkt.nu
@@ -258,18 +282,25 @@ function assemble_condensed_matrix!(kkt::BieglerKKTSystem, K::HJDJ)
     # Matrices
     A = kkt.A
     D .= prs ./ α.^2
-    update!(K, A, D, prx, kkt.ind_fixed)
+    fixed!(prx, kkt.ind_fixed, 0.0)
+    update!(K, A, D, prx)
 end
 
 function MadNLP.build_kkt!(kkt::BieglerKKTSystem{T, VI, VT, MT}) where {T, VI, VT, MT}
+    nx = kkt.nx
+    fixed!(nonzeros(kkt.W), kkt.ind_W_fixed, 0.0)
+    fixed!(nonzeros(kkt.W), kkt.ind_W_fixed_diag, 1.0)
+
     assemble_condensed_matrix!(kkt, kkt.K)
     fill!(kkt.aug_com, 0.0)
     update!(kkt.reduction)
-    timed = CUDA.@timed begin
+    timed = @elapsed begin
         reduce!(kkt.reduction, kkt.aug_com, kkt.K)
     end
-    kkt.etc[:reduction_time] += timed.time
-    MadNLP.treat_fixed_variable!(kkt)
+    kkt.etc[:reduction_time] += timed
+
+    # Regularize final reduced matrix to ensure it is full-rank
+    fixed_diag!(kkt.aug_com, kkt.ind_fixed .- nx, 1.0)
 end
 
 function MadNLP.solve_refine_wrapper!(
@@ -284,7 +315,6 @@ function MadNLP.solve_refine_wrapper!(
     nx, nu = kkt.nx, kkt.nu
     ns = m - nx
     @assert length(b) == length(x) == ips.n + m
-
 
     # Buffers
     jv = kkt._wxu1
@@ -323,7 +353,6 @@ function MadNLP.solve_refine_wrapper!(
     ds = view(x, 1+nx+nu:ips.n)          # / slack
     dλ = view(x, ips.n+1:ips.n+nx)       # / equality cons
     dy = view(x, ips.n+nx+1:ips.n+m)     # / inequality cons
-
 
     # Reduction (1) --- Condensed
     vj .= (Σₛ .* r₅ .+ α .* r₃) ./ α.^2   # v = (α Σₛ⁻¹ α)⁻¹ * (r₅ + α Σₛ⁻¹ r₃)

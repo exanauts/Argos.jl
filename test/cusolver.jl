@@ -289,3 +289,32 @@ function Argos.transfer2tril!(hessvals::AbstractVector, H::CuSparseMatrixCSR, cs
     wait(ev)
 end
 
+@kernel function _fixed_kernel2!(dest, fixed, val)
+    i = @index(Global, Linear)
+    dest[fixed[i]] = val
+end
+function Argos.fixed!(dest::CuVector, ind_fixed, val::Number)
+    length(ind_fixed) == 0 && return
+    g_ind_fixed = ind_fixed |> CuArray
+    ev = _fixed_kernel2!(CUDADevice())(dest, g_ind_fixed, val; ndrange=length(ind_fixed))
+    wait(ev)
+end
+
+@kernel function _fixed_diag_kernel2!(dest, fixed, val)
+    i = @index(Global, Linear)
+    k = fixed[i]
+    dest[k, k] = val
+end
+function Argos.fixed_diag!(dest::CuMatrix, ind_fixed, val::Number)
+    length(ind_fixed) == 0 && return
+    g_ind_fixed = ind_fixed |> CuArray
+    ev = _fixed_diag_kernel2!(CUDADevice())(dest, g_ind_fixed, val; ndrange=length(ind_fixed))
+    wait(ev)
+end
+
+function Argos.get_fixed_nnz(J::CuSparseMatrixCSR, ind_fixed, diag_ind)
+    n, m = size(J)
+    Jp, Jj = Vector(J.rowPtr), Vector(J.colVal)
+    return Argos._get_fixed_index_csr(n, m, Jp, Jj, ind_fixed, diag_ind)
+end
+

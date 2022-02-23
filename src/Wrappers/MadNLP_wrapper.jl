@@ -141,3 +141,26 @@ function MadNLP.hess_dense!(m::ExaNLPModel, x, l, hess::AbstractMatrix; obj_weig
     end
 end
 
+# Scaling
+function MadNLP.scale_objective(m::ExaNLPModel{Ev}, g::AbstractVector, x::AbstractVector; max_scaling=1e-8) where {Ev<:ReducedSpaceEvaluator}
+    return min(1.0, max_scaling / norm(m.nlp.grad, Inf))
+end
+
+function MadNLP.scale_constraints!(
+    m::ExaNLPModel{Ev},
+    con_scale::AbstractVector,
+    jac::AbstractMatrix,
+    x::AbstractVector;
+    max_scaling=1e-8,
+) where {Ev<:ReducedSpaceEvaluator}
+    J = convert(SparseMatrixCSC, m.nlp.jac.J)
+    m, n = size(J)
+    for j in 1:n
+        for c in J.colptr[j]:J.colptr[j+1]-1
+            i = J.rowval[c]
+            con_scale[i] = max(con_scale[i], abs(J.nzval[c]))
+        end
+    end
+    con_scale .= min.(1.0, max_scaling ./ con_scale)
+end
+
