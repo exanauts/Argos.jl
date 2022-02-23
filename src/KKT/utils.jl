@@ -103,6 +103,46 @@ function split_jacobian(J::SparseMatrixCSC, nx, nu)
     return _split_jacobian_csc(J.rowval, J.colptr, n, nx, nu)
 end
 
+function _get_fixed_index_csc(n, m, Jp, Ji, ind_fixed, diag_ind)
+    nnz_fixed = Int[]
+    diag_ind_fixed = Int[]
+    for j in ind_fixed
+        for c in Jp[j]:Jp[j+1]-1
+            if diag_ind && (Ji[c] == j)
+                push!(diag_ind_fixed, c)
+            else
+                push!(nnz_fixed, c)
+            end
+        end
+    end
+    return nnz_fixed, diag_ind_fixed
+end
+
+function _get_fixed_index_csr(n, m, Jp, Jj, ind_fixed, diag_ind)
+    nnz_fixed = Int[]
+    diag_ind_fixed = Int[]
+    for i in 1:n
+        for c in Jp[i]:Jp[i+1]-1
+            is_fixed = (Jj[c] in ind_fixed)
+            if is_fixed
+                if diag_ind && (Jj[c] == i)
+                    push!(diag_ind_fixed, c)
+                else
+                    push!(nnz_fixed, c)
+                end
+            end
+        end
+    end
+    return nnz_fixed, diag_ind_fixed
+end
+
+function get_fixed_nnz(J::SparseMatrixCSC, ind_fixed, diag_ind)
+    n, m = size(J)
+    Jp, Ji = J.colptr, J.rowval
+    return _get_fixed_index_csc(n, m, Jp, Ji, ind_fixed, diag_ind)
+end
+
+
 struct HJDJ{VI, VT, SMT}
     W::SMT
     Jt::SMT
@@ -140,5 +180,21 @@ function tgtmul!(yx::AbstractArray, yu::AbstractArray, K::HJDJ, z::AbstractArray
 
     tgtmul!(yx, yu, K.JtJ, z, w, 1.0, 1.0)
     tgtmul!(yx, yu, K.W, z, w, 1.0, 1.0)
+end
+
+#=
+    Special kernels for fixed variables.
+=#
+
+function fixed!(dest, ind_fixed, val)
+    @inbounds for i in ind_fixed
+        dest[i] = val
+    end
+end
+
+function fixed_diag!(dest, ind_fixed, val)
+    @inbounds for i in ind_fixed
+        dest[i, i] = val
+    end
 end
 
