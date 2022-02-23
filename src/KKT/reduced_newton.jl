@@ -279,9 +279,10 @@ function assemble_condensed_matrix!(kkt::BieglerKKTSystem, K::HJDJ)
     α   = @view kkt.con_scale[nx+1:m]
     prx = @view kkt.pr_diag[1:nx+nu]
     prs = @view kkt.pr_diag[nx+nu+1:nx+nu+ns]
+    Σd = @view kkt.du_diag[nx+1:m]
     # Matrices
     A = kkt.A
-    D .= prs ./ α.^2
+    D .= -1.0 ./ (Σd .- α.^2 ./ prs)
     fixed!(prx, kkt.ind_fixed, 0.0)
     update!(K, A, D, prx)
 end
@@ -337,7 +338,10 @@ function MadNLP.solve_refine_wrapper!(
     Gu = kkt.Gu
     K = kkt.K
     Σₛ = view(kkt.pr_diag, nx+nu+1:nx+nu+ns)
+    Σd = view(kkt.du_diag, nx+1:m)
     α = view(kkt.con_scale, nx+1:m)
+
+    Λ = 1.0 ./ (Σd .- α.^2 ./ Σₛ)
 
     # RHS
     r₁₂ = view(b, 1:nx+nu)
@@ -355,8 +359,8 @@ function MadNLP.solve_refine_wrapper!(
     dy = view(x, ips.n+nx+1:ips.n+m)     # / inequality cons
 
     # Reduction (1) --- Condensed
-    vj .= (Σₛ .* r₅ .+ α .* r₃) ./ α.^2   # v = (α Σₛ⁻¹ α)⁻¹ * (r₅ + α Σₛ⁻¹ r₃)
-    mul!(jv, kkt.A', vj)                  # jᵥ = Aᵀ v
+    vj .= Λ .* (r₅ .+ α .* r₃ ./ Σₛ)      # v = (α Σₛ⁻¹ α)⁻¹ * (r₅ + α Σₛ⁻¹ r₃)
+    mul!(jv, kkt.A', vj, -1.0, 0.0)                  # jᵥ = Aᵀ v
     jv .+= r₁₂                            # r₁₂ - Aᵀv
     # Reduction (2) --- Biegler
     sx1 .= r₄                             # r₄
@@ -385,7 +389,7 @@ function MadNLP.solve_refine_wrapper!(
     ldiv!(Gxi', dλ)                       # dₗ = Gₓ⁻ᵀ(tₓ - Kₓₓ dₓ + Kₓᵤ dᵤ)
     # (2) Extract Condensed
     mul!(vj, kkt.A, dxu)                  # Aₓ dₓ + Aᵤ dᵤ
-    dy .= Σₛ .* (vj .- r₅) ./ α.^2 .- r₃ ./ α
+    dy .= Λ .* (r₅ .- vj .+ α .* r₃ ./ Σₛ)
     ds .= (r₃ .+ α .* dy) ./ Σₛ
 
     MadNLP.fixed_variable_treatment_vec!(x, ips.ind_fixed)
