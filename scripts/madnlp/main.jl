@@ -122,6 +122,7 @@ function subproblem_nlp(
         :inertia_correction_method=>inertia,
         :print_level=>MadNLP.DEBUG,
         :linear_solver=>linear_solver,
+        :dual_initialized=>true,
     )
     ipp = MadNLP.InteriorPointSolver(mnlp; option_dict=options)
     @time MadNLP.optimize!(ipp)
@@ -286,7 +287,7 @@ function subproblem_condensed_kkt(
         :tol=>1e-5, :max_iter=>max_iter,
         :nlp_scaling=>scaling,
         :inertia_correction_method=>inertia,
-        :kkt_system=>MadNLP.CONDENSED_KKT_SYSTEM,
+        :kkt_system=>MadNLP.DENSE_CONDENSED_KKT_SYSTEM,
         :print_level=>MadNLP.DEBUG,
         :linear_solver=>linear_solver,
         # :lapackcpu_algorithm=>MadNLPLapackCPU.CHOLESKY,
@@ -296,9 +297,14 @@ function subproblem_condensed_kkt(
     return ipp
 end
 
-function subproblem_condensed_kkt_gpu(aug; max_iter=100, scaling=true)
+function subproblem_condensed_kkt_gpu(aug; max_iter=100, scaling=true, chol=false)
     @assert CUDA.has_cuda_gpu()
     linear_solver = MadNLPLapackGPU
+    linalgo = if chol
+        MadNLPLapackGPU.CHOLESKY
+    else
+        MadNLPLapackGPU.BUNCHKAUFMAN
+    end
     Argos.reset!(aug)
     mnlp = Argos.ExaNLPModel(aug)
     options = Dict{Symbol, Any}(
@@ -307,13 +313,48 @@ function subproblem_condensed_kkt_gpu(aug; max_iter=100, scaling=true)
         :nlp_scaling=>scaling,
         :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
         :linear_solver=>linear_solver,
-        :lapackgpu_algorithm=>MadNLPLapackGPU.CHOLESKY,
+        :lapackgpu_algorithm=>linalgo,
+        :inertia_correction_method=>MadNLP.INERTIA_FREE,
+        :dual_initialized=>true,
+        # :fixed_variable_treatment=>MadNLP.RELAX_BOUND,
     )
     madopt = MadNLP.Options(linear_solver=linear_solver)
     MadNLP.set_options!(madopt, options, Dict())
     # Custom KKT type
     KKT = MadNLP.DenseCondensedKKTSystem{Float64, CuVector{Float64}, CuMatrix{Float64}}
     ipp = MadNLP.InteriorPointSolver{KKT}(mnlp, madopt; option_linear_solver=options)
-    @time MadNLP.optimize!(ipp)
+    CUDA.@time MadNLP.optimize!(ipp)
     return ipp
 end
+
+function subproblem_biegler_gpu(
+    aug; max_iter=100, scaling=true, nbatch=1, chol=false,
+    inertia=MadNLP.INERTIA_FREE,
+)
+    linear_solver = MadNLPLapackGPU
+    linalgo = if chol
+        MadNLPLapackGPU.CHOLESKY
+    else
+        MadNLPLapackGPU.BUNCHKAUFMAN
+    end
+    Argos.reset!(aug)
+    mnlp = Argos.ExaNLPModel(aug)
+    options = Dict{Symbol, Any}(
+        :tol=>1e-5, :max_iter=>max_iter,
+        :nlp_scaling=>scaling,
+        :inertia_correction_method=>inertia,
+        :print_level=>MadNLP.DEBUG,
+        :linear_solver=>linear_solver,
+        :lapackgpu_algorithm=>linalgo,
+        # :fixed_variable_treatment=>MadNLP.RELAX_BOUND,
+        :dual_initialized=>true,
+    )
+    madopt = MadNLP.Options(linear_solver=linear_solver)
+    MadNLP.set_options!(madopt, options,Dict())
+
+    KKT = Argos.BieglerKKTSystem{Float64, CuVector{Int}, CuVector{Float64}, CuMatrix{Float64}}
+    ipp = MadNLP.InteriorPointSolver{KKT}(mnlp, madopt; option_linear_solver=options)
+    CUDA.@time MadNLP.optimize!(ipp)
+    return ipp
+end
+

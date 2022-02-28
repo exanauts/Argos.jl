@@ -577,6 +577,8 @@ function reset!(nlp::ReducedSpaceEvaluator)
     nlp.is_hessian_objective_updated = false
     nlp.is_adjoint_lagrangian_updated = false
     nlp.is_adjoint_objective_updated = false
+    nlp.etc[:reduction_time] = 0.0
+    nlp.etc[:powerflow_time] = 0.0
     return
 end
 

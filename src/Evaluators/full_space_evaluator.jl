@@ -72,6 +72,7 @@ function FullSpaceEvaluator(
     if length(idx_eq) > 0
         println("eq found")
         ggu[idx_eq] .+= 1e-6
+        ggl[idx_eq] .-= 1e-6
     end
 
     jac = ExaPF.Jacobian(model, constraints ∘ basis, mapxu)

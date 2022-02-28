@@ -21,9 +21,6 @@ function ExaNLPModel(nlp::AbstractNLPEvaluator)
     xl, xu = bounds(nlp, Variables())
     gl, gu = bounds(nlp, Constraints())
     x0  = initial(nlp)
-    # x0  = 0.5 .* (xl .+ xu)
-    # x0[isinf.(x0)] .= 0.0
-    # x0[isnan.(x0)] .= 0.0
     # Sparsity
     hrows, hcols = hessian_structure(nlp)
     jrows, jcols = jacobian_structure(nlp)
@@ -142,18 +139,20 @@ function MadNLP.hess_dense!(m::ExaNLPModel, x, l, hess::AbstractMatrix; obj_weig
 end
 
 # Scaling
-function MadNLP.scale_objective(m::ExaNLPModel{Ev}, g::AbstractVector, x::AbstractVector; max_scaling=1e-8) where {Ev<:ReducedSpaceEvaluator}
-    return min(1.0, max_scaling / norm(m.nlp.grad, Inf))
+function MadNLP.scale_objective(m::ExaNLPModel{Ev}, g::AbstractVector, x::AbstractVector; max_scaling=1e-8) where {Ev<:BridgeDeviceEvaluator{<:ReducedSpaceEvaluator}}
+    return min(1.0, max_scaling / norm(m.nlp.inner.grad, Inf))
 end
 
+_get_jac_raw(nlp::ReducedSpaceEvaluator) = convert(SparseMatrixCSC, nlp.jac.J)
+_get_jac_raw(nlp::BridgeDeviceEvaluator) = convert(SparseMatrixCSC, nlp.inner.jac.J)
 function MadNLP.scale_constraints!(
     m::ExaNLPModel{Ev},
     con_scale::AbstractVector,
     jac::AbstractMatrix,
     x::AbstractVector;
     max_scaling=1e-8,
-) where {Ev<:ReducedSpaceEvaluator}
-    J = convert(SparseMatrixCSC, m.nlp.jac.J)
+) where {Ev<:BridgeDeviceEvaluator{<:ReducedSpaceEvaluator}}
+    J = _get_jac_raw(m.nlp)
     m, n = size(J)
     for j in 1:n
         for c in J.colptr[j]:J.colptr[j+1]-1
@@ -162,5 +161,13 @@ function MadNLP.scale_constraints!(
         end
     end
     con_scale .= min.(1.0, max_scaling ./ con_scale)
+    con_scale .*= 0.01
 end
+
+# function MadNLP.scale_constraints!(m::ExaNLPModel{Ev}, scaled_cons::AbstractVector, jac::AbstractMatrix, x::AbstractVector; max_scaling=1e-8) where {Ev<:BridgeDeviceEvaluator}
+#     n = get_nvar(m)
+#     MadNLP.set_con_scale!(scaled_cons, jac, max_scaling)
+#     nx = m.nlp.inner.nx
+#     scaled_cons[1:nx] .= 10000.0
+# end
 
