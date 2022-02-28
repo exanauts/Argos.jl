@@ -21,7 +21,7 @@ include("Evaluators/Evaluators.jl")
 
 # Wrappers
 include("Wrappers/MOI_wrapper.jl")
-include("Wrappers/MadNLP_wrapper.jl")
+include("Wrappers/NLPModels.jl")
 
 # KKT systems
 include("KKT/KKTsystems.jl")

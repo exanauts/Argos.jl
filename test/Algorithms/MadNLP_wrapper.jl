@@ -13,7 +13,7 @@ end
 function _madnlp_default(nlp; kwargs...)
     Argos.reset!(nlp)
     options = Dict{Symbol, Any}(kwargs...)
-    mnlp = Argos.ExaNLPModel(nlp)
+    mnlp = Argos.OPFModel(nlp)
     ips = MadNLP.InteriorPointSolver(mnlp; option_dict=options)
     MadNLP.optimize!(ips)
     return ips
@@ -25,7 +25,8 @@ function _madnlp_dense_kkt(nlp; kwargs...)
     options = Dict{Symbol, Any}(kwargs...)
     options[:kkt_system] = MadNLP.DENSE_KKT_SYSTEM
     options[:linear_solver] = MadNLP.MadNLPLapackCPU
-    mnlp = Argos.ExaNLPModel(nlp)
+    options[:dual_initialized] = true
+    mnlp = Argos.OPFModel(nlp)
     ipd = MadNLP.InteriorPointSolver(mnlp; option_dict=options)
     MadNLP.optimize!(ipd)
     return ipd
@@ -37,7 +38,8 @@ function _madnlp_condensed_kkt(nlp; kwargs...)
     options = Dict{Symbol, Any}(kwargs...)
     options[:kkt_system] = MadNLP.DENSE_CONDENSED_KKT_SYSTEM
     options[:linear_solver] = MadNLP.MadNLPLapackCPU
-    mnlp = Argos.ExaNLPModel(nlp)
+    options[:dual_initialized] = true
+    mnlp = Argos.OPFModel(nlp)
     ipc = MadNLP.InteriorPointSolver(mnlp; option_dict=options)
     MadNLP.optimize!(ipc)
     return ipc
@@ -51,7 +53,7 @@ function _madnlp_biegler_kkt(nlp; kwargs...)
     madopt = MadNLP.Options(linear_solver=MadNLP.MadNLPLapackCPU)
     MadNLP.set_options!(madopt, options_biegler, Dict())
     KKT = Argos.BieglerKKTSystem{Float64, Vector{Int}, Vector{Float64}, Matrix{Float64}}
-    mnlp = Argos.ExaNLPModel(nlp)
+    mnlp = Argos.OPFModel(nlp)
     ipb = MadNLP.InteriorPointSolver{KKT}(mnlp, madopt; option_linear_solver=options_biegler)
     MadNLP.optimize!(ipb)
     return ipb
@@ -60,6 +62,7 @@ end
 @testset "MadNLP wrapper" begin
     datafile = joinpath(INSTANCES_DIR, "case30.m")
     options = Dict{Symbol, Any}(
+        :dual_initialized=>true,
         :tol=>1e-6,
         :print_level=>MadNLP.ERROR,
     )
@@ -70,7 +73,7 @@ end
         ipd = _madnlp_dense_kkt(nlp; options...)
         _test_results_match(ips, ipd)
         ipc = _madnlp_condensed_kkt(nlp; options...)
-        _test_results_match(ips, ipc)
+        _test_results_match(ips, ipc; atol=1e-8)
     end
     @testset "Linearize-then-reduce" begin
         flp = Argos.FullSpaceEvaluator(datafile)
