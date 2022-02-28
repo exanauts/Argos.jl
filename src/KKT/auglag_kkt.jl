@@ -28,7 +28,7 @@ struct MixedAuglagKKTSystem{T, VT, MT} <: MadNLP.AbstractKKTSystem{T, MT}
     ind_fixed::Vector{Int}
 end
 
-function MixedAuglagKKTSystem{T, VT, MT}(m::ExaNLPModel, ind_cons) where {T, VT, MT}
+function MixedAuglagKKTSystem{T, VT, MT}(m::OPFModel, ind_cons) where {T, VT, MT}
 
     aug = m.nlp
     inner = inner_evaluator(aug)

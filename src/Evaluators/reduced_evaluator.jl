@@ -259,17 +259,6 @@ function setvalues!(nlp::ReducedSpaceEvaluator, attr::PS.ReactiveLoad, values)
     ExaPF.setvalues!(nlp.stack, attr, values)
 end
 
-# Transfer network values inside buffer
-# function transfer!(
-#     nlp::ReducedSpaceEvaluator, vm, va, pg, qg,
-# )
-
-#     setvalues!(nlp.buffer, PS.VoltageMagnitude(), vm)
-#     setvalues!(nlp.buffer, PS.VoltageAngle(), va)
-#     setvalues!(nlp.buffer, PS.ActivePower(), pg)
-#     setvalues!(nlp.buffer, PS.ReactivePower(), qg)
-# end
-
 # Initial position
 function initial(nlp::ReducedSpaceEvaluator{T, VI, VT, MT}) where {T, VI, VT, MT}
     u = VT(undef, nlp.nu)
@@ -557,9 +546,6 @@ function Base.show(io::IO, nlp::ReducedSpaceEvaluator)
     println(io, "    * #vars: ", n)
     println(io, "    * #cons: ", m)
     println(io, "    * constraints:")
-    # for cons in nlp.constraints
-    #     println(io, "        - ", cons)
-    # end
     print(io, "    * linear solver: ", typeof(nlp.linear_solver))
 end
 

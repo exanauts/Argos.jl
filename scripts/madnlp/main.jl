@@ -54,7 +54,7 @@ function solve_auglag_madnlp(aug; linear_solver=MadNLPLapackCPU, max_iter=10, pe
     )
     Argos.reset!(aug)
     aug.ρ = penalty # update penalty in Evaluator
-    mnlp = Argos.ExaNLPModel(aug)
+    mnlp = Argos.OPFModel(aug)
     madnlp_options = Dict{Symbol, Any}(
         :tol=>1e-5,
         :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
@@ -81,7 +81,7 @@ function solve_auglag_madnlp_schur(aug; linear_solver=MadNLPLapackCPU, max_iter=
         ε_primal=1e-5,
     )
     Argos.reset!(aug)
-    mnlp = Argos.ExaNLPModel(aug)
+    mnlp = Argos.OPFModel(aug)
     madnlp_options = Dict{Symbol, Any}(:tol=>1e-5,
                                        :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
                                        :linear_solver=>linear_solver,
@@ -115,7 +115,7 @@ function subproblem_nlp(
     inertia=MadNLP.INERTIA_AUTO,
 )
     Argos.reset!(aug)
-    mnlp = Argos.ExaNLPModel(aug)
+    mnlp = Argos.OPFModel(aug)
     options = Dict{Symbol, Any}(
         :tol=>1e-5, :max_iter=>max_iter,
         :nlp_scaling=>scaling,
@@ -135,13 +135,14 @@ function subproblem_biegler(
     inertia=MadNLP.INERTIA_AUTO,
 )
     Argos.reset!(aug)
-    mnlp = Argos.ExaNLPModel(aug)
+    mnlp = Argos.OPFModel(aug)
     options = Dict{Symbol, Any}(
         :tol=>1e-5, :max_iter=>max_iter,
         :nlp_scaling=>scaling,
         :inertia_correction_method=>inertia,
         :print_level=>MadNLP.DEBUG,
         :linear_solver=>linear_solver,
+        :dual_initialized=>true,
     )
     madopt = MadNLP.Options(linear_solver=linear_solver)
     MadNLP.set_options!(madopt, options,Dict())
@@ -158,14 +159,15 @@ function subproblem_dense_kkt(
     inertia=MadNLP.INERTIA_AUTO,
 )
     Argos.reset!(aug)
-    mnlp = Argos.ExaNLPModel(aug)
+    mnlp = Argos.OPFModel(aug)
     options = Dict{Symbol, Any}(
         :tol=>1e-5, :max_iter=>max_iter,
         :nlp_scaling=>scaling,
         :inertia_correction_method=>inertia,
         :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
         :print_level=>MadNLP.DEBUG,
-        :linear_solver=>linear_solver
+        :linear_solver=>linear_solver,
+        :dual_initialized=>true,
     )
     ipp = MadNLP.InteriorPointSolver(mnlp; option_dict=options)
     @time MadNLP.optimize!(ipp)
@@ -178,7 +180,7 @@ function subproblem_schur_kkt(
     inertia=MadNLP.INERTIA_AUTO,
 )
     Argos.reset!(aug)
-    mnlp = Argos.ExaNLPModel(aug)
+    mnlp = Argos.OPFModel(aug)
 
     options = Dict{Symbol, Any}(
         :tol=>1e-5, :max_iter=>max_iter,
@@ -186,7 +188,8 @@ function subproblem_schur_kkt(
         :inertia_correction_method=>inertia,
         :print_level=>MadNLP.DEBUG,
         :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
-        :linear_solver=>linear_solver
+        :linear_solver=>linear_solver,
+        :dual_initialized=>true,
     )
     madopt = MadNLP.Options(linear_solver=linear_solver)
     MadNLP.set_options!(madopt,options,Dict())
@@ -201,7 +204,7 @@ function subproblem_dense_kkt_gpu(aug; max_iter=100)
     @assert CUDA.has_cuda_gpu()
     linear_solver = MadNLPLapackGPU
     Argos.reset!(aug)
-    mnlp = Argos.ExaNLPModel(aug)
+    mnlp = Argos.OPFModel(aug)
     options = Dict{Symbol, Any}(:tol=>1e-5, :max_iter=>max_iter,
                                 :print_level=>MadNLP.DEBUG,
                                 :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
@@ -262,7 +265,7 @@ function subproblem_schur_kkt_gpu(aug; max_iter=100)
     @assert CUDA.has_cuda_gpu()
     linear_solver = MadNLPLapackGPU
     Argos.reset!(aug)
-    mnlp = Argos.ExaNLPModel(aug)
+    mnlp = Argos.OPFModel(aug)
     options = Dict{Symbol, Any}(:tol=>1e-5, :max_iter=>max_iter,
                                 :print_level=>MadNLP.DEBUG,
                                 :kkt_system=>MadNLP.DENSE_KKT_SYSTEM,
@@ -282,7 +285,7 @@ function subproblem_condensed_kkt(
     inertia=MadNLP.INERTIA_AUTO,
 )
     Argos.reset!(aug)
-    mnlp = Argos.ExaNLPModel(aug)
+    mnlp = Argos.OPFModel(aug)
     options = Dict{Symbol, Any}(
         :tol=>1e-5, :max_iter=>max_iter,
         :nlp_scaling=>scaling,
@@ -290,7 +293,7 @@ function subproblem_condensed_kkt(
         :kkt_system=>MadNLP.DENSE_CONDENSED_KKT_SYSTEM,
         :print_level=>MadNLP.DEBUG,
         :linear_solver=>linear_solver,
-        # :lapackcpu_algorithm=>MadNLPLapackCPU.CHOLESKY,
+        :dual_initialized=>true,
     )
     ipp = MadNLP.InteriorPointSolver(mnlp; option_dict=options)
     @time MadNLP.optimize!(ipp)
@@ -306,7 +309,7 @@ function subproblem_condensed_kkt_gpu(aug; max_iter=100, scaling=true, chol=fals
         MadNLPLapackGPU.BUNCHKAUFMAN
     end
     Argos.reset!(aug)
-    mnlp = Argos.ExaNLPModel(aug)
+    mnlp = Argos.OPFModel(aug)
     options = Dict{Symbol, Any}(
         :tol=>1e-5, :max_iter=>max_iter,
         :print_level=>MadNLP.DEBUG,
@@ -316,7 +319,6 @@ function subproblem_condensed_kkt_gpu(aug; max_iter=100, scaling=true, chol=fals
         :lapackgpu_algorithm=>linalgo,
         :inertia_correction_method=>MadNLP.INERTIA_FREE,
         :dual_initialized=>true,
-        # :fixed_variable_treatment=>MadNLP.RELAX_BOUND,
     )
     madopt = MadNLP.Options(linear_solver=linear_solver)
     MadNLP.set_options!(madopt, options, Dict())
@@ -338,7 +340,7 @@ function subproblem_biegler_gpu(
         MadNLPLapackGPU.BUNCHKAUFMAN
     end
     Argos.reset!(aug)
-    mnlp = Argos.ExaNLPModel(aug)
+    mnlp = Argos.OPFModel(aug)
     options = Dict{Symbol, Any}(
         :tol=>1e-5, :max_iter=>max_iter,
         :nlp_scaling=>scaling,
@@ -346,7 +348,6 @@ function subproblem_biegler_gpu(
         :print_level=>MadNLP.DEBUG,
         :linear_solver=>linear_solver,
         :lapackgpu_algorithm=>linalgo,
-        # :fixed_variable_treatment=>MadNLP.RELAX_BOUND,
         :dual_initialized=>true,
     )
     madopt = MadNLP.Options(linear_solver=linear_solver)

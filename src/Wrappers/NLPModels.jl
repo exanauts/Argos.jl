@@ -1,4 +1,4 @@
-struct ExaNLPModel{Evaluator} <: NLPModels.AbstractNLPModel{Float64,Vector{Float64}}
+struct OPFModel{Evaluator} <: NLPModels.AbstractNLPModel{Float64,Vector{Float64}}
     meta::NLPModels.NLPModelMeta{Float64, Vector{Float64}}
     counters::NLPModels.Counters
     timers::NLPTimers
@@ -9,9 +9,10 @@ struct ExaNLPModel{Evaluator} <: NLPModels.AbstractNLPModel{Float64,Vector{Float
     hcols::Vector{Int}
     jrows::Vector{Int}
     jcols::Vector{Int}
+    etc::Dict{Symbol, Any}
 end
 
-function ExaNLPModel(nlp::AbstractNLPEvaluator)
+function OPFModel(nlp::AbstractNLPEvaluator)
     n = n_variables(nlp)
     m = n_constraints(nlp)
 
@@ -27,7 +28,9 @@ function ExaNLPModel(nlp::AbstractNLPEvaluator)
     nnzh = length(hrows)
     nnzj = length(jrows)
 
-    return ExaNLPModel{typeof(nlp)}(
+    etc = Dict{Symbol, Any}()
+
+    return OPFModel{typeof(nlp)}(
         NLPModels.NLPModelMeta(
             n,
             ncon = m,
@@ -44,25 +47,25 @@ function ExaNLPModel(nlp::AbstractNLPEvaluator)
         NLPModels.Counters(),
         NLPTimers(),
         nlp, UInt64[0],
-        hrows, hcols, jrows, jcols,
+        hrows, hcols, jrows, jcols, etc,
     )
 end
 
-backend(m::ExaNLPModel) = backend(m.nlp)
+backend(m::OPFModel) = backend(m.nlp)
 
-function NLPModels.jac_structure!(m::ExaNLPModel, rows, cols)
+function NLPModels.jac_structure!(m::OPFModel, rows, cols)
     copyto!(rows, m.jrows)
     copyto!(cols, m.jcols)
     return rows, cols
 end
 
-function NLPModels.hess_structure!(m::ExaNLPModel, rows, cols)
+function NLPModels.hess_structure!(m::OPFModel, rows, cols)
     copyto!(rows, m.hrows)
     copyto!(cols, m.hcols)
     return rows, cols
 end
 
-function _update!(m::ExaNLPModel, x::AbstractVector)
+function _update!(m::OPFModel, x::AbstractVector)
     hx = hash(x)
     if hx != m.hash_x[1]
         m.timers.update_time += @elapsed begin
@@ -72,7 +75,7 @@ function _update!(m::ExaNLPModel, x::AbstractVector)
 end
 
 # Objective
-function NLPModels.obj(m::ExaNLPModel,x)
+function NLPModels.obj(m::OPFModel,x)
     _update!(m, x)
     m.timers.obj_time += @elapsed begin
         obj = objective(m.nlp, x)
@@ -81,7 +84,7 @@ function NLPModels.obj(m::ExaNLPModel,x)
 end
 
 # Gradient
-function NLPModels.grad!(m::ExaNLPModel, x, g)
+function NLPModels.grad!(m::OPFModel, x, g)
     _update!(m, x)
     m.timers.grad_time += @elapsed begin
         gradient!(m.nlp, g, x)
@@ -90,7 +93,7 @@ function NLPModels.grad!(m::ExaNLPModel, x, g)
 end
 
 # Constraints
-function NLPModels.cons!(m::ExaNLPModel,x,c)
+function NLPModels.cons!(m::OPFModel,x,c)
     _update!(m, x)
     m.timers.cons_time += @elapsed begin
         constraint!(m.nlp, c, x)
@@ -99,17 +102,17 @@ function NLPModels.cons!(m::ExaNLPModel,x,c)
 end
 
 # Jacobian: sparse callback
-function NLPModels.jac_coord!(m::ExaNLPModel, x, jac::AbstractArray)
+function NLPModels.jac_coord!(m::OPFModel, x, jac::AbstractArray)
     _update!(m, x)
     nnzj = NLPModels.get_nnzj(m)
-    jv = view(jac, 1:nnzj) # NB: ensure compatiliby with MadNLP
+    jv = view(jac, 1:nnzj) # NB: ensure compatibility with MadNLP
     m.timers.jacobian_time += @elapsed begin
         jacobian_coo!(m.nlp, jv, x)
     end
 end
 
 # Jacobian: dense callback
-function MadNLP.jac_dense!(m::ExaNLPModel, x, J::AbstractMatrix)
+function MadNLP.jac_dense!(m::OPFModel, x, J::AbstractMatrix)
     _update!(m, x)
     m.timers.jacobian_time += @elapsed begin
         jacobian!(m.nlp, J, x)
@@ -117,57 +120,24 @@ function MadNLP.jac_dense!(m::ExaNLPModel, x, J::AbstractMatrix)
 end
 
 # Hessian-vector products
-function NLPModels.hprod!(m::ExaNLPModel, x, l, v, hv::AbstractVector; obj_weight=1.0)
+function NLPModels.hprod!(m::OPFModel, x, l, v, hv::AbstractVector; obj_weight=1.0)
     m.timers.hessprod_time += @elapsed begin
         hessian_lagrangian_prod!(m.nlp, hv, x, l, obj_weight, v)
     end
 end
 
 # Hessian: sparse callback
-function NLPModels.hess_coord!(m::ExaNLPModel,x, l, hess::AbstractVector; obj_weight=1.0)
+function NLPModels.hess_coord!(m::OPFModel,x, l, hess::AbstractVector; obj_weight=1.0)
     m.timers.hessian_time += @elapsed begin
         hessian_lagrangian_coo!(m.nlp, hess, x, l, obj_weight)
     end
 end
 
 # Hessian: dense callback
-function MadNLP.hess_dense!(m::ExaNLPModel, x, l, hess::AbstractMatrix; obj_weight=1.0)
+function MadNLP.hess_dense!(m::OPFModel, x, l, hess::AbstractMatrix; obj_weight=1.0)
     _update!(m, x)
     m.timers.hessian_time += @elapsed begin
         hessian_lagrangian!(m.nlp, hess, x, l, obj_weight)
     end
 end
-
-# Scaling
-function MadNLP.scale_objective(m::ExaNLPModel{Ev}, g::AbstractVector, x::AbstractVector; max_scaling=1e-8) where {Ev<:BridgeDeviceEvaluator{<:ReducedSpaceEvaluator}}
-    return min(1.0, max_scaling / norm(m.nlp.inner.grad, Inf))
-end
-
-_get_jac_raw(nlp::ReducedSpaceEvaluator) = convert(SparseMatrixCSC, nlp.jac.J)
-_get_jac_raw(nlp::BridgeDeviceEvaluator) = convert(SparseMatrixCSC, nlp.inner.jac.J)
-function MadNLP.scale_constraints!(
-    m::ExaNLPModel{Ev},
-    con_scale::AbstractVector,
-    jac::AbstractMatrix,
-    x::AbstractVector;
-    max_scaling=1e-8,
-) where {Ev<:BridgeDeviceEvaluator{<:ReducedSpaceEvaluator}}
-    J = _get_jac_raw(m.nlp)
-    m, n = size(J)
-    for j in 1:n
-        for c in J.colptr[j]:J.colptr[j+1]-1
-            i = J.rowval[c]
-            con_scale[i] = max(con_scale[i], abs(J.nzval[c]))
-        end
-    end
-    con_scale .= min.(1.0, max_scaling ./ con_scale)
-    con_scale .*= 0.01
-end
-
-# function MadNLP.scale_constraints!(m::ExaNLPModel{Ev}, scaled_cons::AbstractVector, jac::AbstractMatrix, x::AbstractVector; max_scaling=1e-8) where {Ev<:BridgeDeviceEvaluator}
-#     n = get_nvar(m)
-#     MadNLP.set_con_scale!(scaled_cons, jac, max_scaling)
-#     nx = m.nlp.inner.nx
-#     scaled_cons[1:nx] .= 10000.0
-# end
 
