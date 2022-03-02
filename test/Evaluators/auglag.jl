@@ -1,13 +1,12 @@
 function test_auglag_evaluator(nlp, device, MT)
-    u0 = Argos.initial(nlp)
+    u = Argos.initial(nlp)
     w♭, w♯ = Argos.bounds(nlp, Argos.Variables())
     # Build penalty evaluator
-    @testset "Scaling $scaling" for scaling in [true, false]
+    @testset "Scaling $scaling" for scaling in [false, true]
         Argos.reset!(nlp)
-        pen = Argos.AugLagEvaluator(nlp, u0; scale=scaling)
+        pen = Argos.AugLagEvaluator(nlp, u; scale=scaling)
         VTD, MTD = MT{Float64, 1}, MT{Float64, 2}
         bgd = Argos.BridgeDeviceEvaluator(pen, VTD, MTD)
-        u = w♭
         # Update nlp to stay on manifold
         Argos.update!(pen, u)
         # Compute objective
@@ -18,9 +17,8 @@ function test_auglag_evaluator(nlp, device, MT)
 
         ##################################################
         # Update penalty weigth
-        # (with a large-enough factor to have a meaningful derivative check)
         ##################################################
-        Argos.update_penalty!(pen, η=1e3)
+        Argos.update_penalty!(pen, η=1e0)
         Argos.update_multipliers!(pen)
 
         ##################################################
@@ -37,6 +35,8 @@ function test_auglag_evaluator(nlp, device, MT)
         grad_fd = FiniteDiff.finite_difference_gradient(reduced_cost, u |> Array)
         @test myisapprox(grad_fd, g, rtol=1e-4)
 
+        # TODO: we have a nasty side effect
+        Argos.reset!(pen)
         # Test Hessian only on ReducedSpaceEvaluator and SlackEvaluator
         if (
            isa(nlp, Argos.ReducedSpaceEvaluator) ||

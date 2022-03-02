@@ -242,7 +242,7 @@ end
 Base.get(nlp::ReducedSpaceEvaluator, ::PS.VoltageMagnitude) = nlp.stack.vmag
 Base.get(nlp::ReducedSpaceEvaluator, ::PS.VoltageAngle) = nlp.stack.vang
 Base.get(nlp::ReducedSpaceEvaluator, ::PS.ActivePower) = nlp.stack.pgen
-Base.get(nlp::ReducedSpaceEvaluator, ::PS.ReactivePower) = nlp.stack.qgen
+
 function Base.get(nlp::ReducedSpaceEvaluator, attr::PS.AbstractNetworkAttribute)
     return ExaPF.get(nlp.model, attr)
 end
@@ -417,7 +417,6 @@ function hessprod!(nlp::ReducedSpaceEvaluator, hessvec, u, w)
         nlp.is_hessian_lagrangian_updated = false
     end
     H = nlp.hess.H
-    Gu = nlp.Gu.J
     adjoint_adjoint_reduction!(nlp.reduction, hessvec, H, w)
 end
 
@@ -433,7 +432,7 @@ function hessian_lagrangian_prod!(
     y = nlp.multipliers
     # Init adjoint
     fill!(y, 0.0)
-    y[1:1] .= σ           # / objective
+    y[1:1] .= σ               # / objective
     y[2:nx+1] .-= nlp.μ       # / power balance
     y[nx+2:nx+1+m] .= μ       # / constraints
     # Update Hessian
@@ -444,7 +443,6 @@ function hessian_lagrangian_prod!(
     end
     # Get sparse matrices
     H = nlp.hess.H
-    Gu = nlp.Gu.J
     nlp.etc[:reduction_time] += @elapsed begin
         adjoint_adjoint_reduction!(nlp.reduction, hessvec, H, w)
     end
@@ -455,18 +453,18 @@ function hessian_lagrangian_penalty_prod!(
 )
     nx, nu = nlp.nx, nlp.nu
     m = length(nlp.constraints)
-    if true #!nlp.is_adjoint_lagrangian_updated
+    if !nlp.is_hessian_lagrangian_updated
         g = nlp.wu
         ojtprod!(nlp, g, u, σ, λ)
     end
     y = nlp.multipliers
     # Init adjoint
     fill!(y, 0.0)
-    y[1:1] .= σ           # / objective
+    y[1:1] .= σ               # / objective
     y[2:nx+1] .-= nlp.μ       # / power balance
     y[nx+2:nx+1+m] .= λ       # / constraints
     # Update Hessian
-    if true #!nlp.is_hessian_lagrangian_updated
+    if !nlp.is_hessian_lagrangian_updated
         ExaPF.hessian!(nlp.hess, nlp.stack, y)
         ExaPF.jacobian!(nlp.jac, nlp.stack)
         nlp.is_hessian_lagrangian_updated = true
@@ -474,7 +472,6 @@ function hessian_lagrangian_penalty_prod!(
     end
     # Get sparse matrices
     H = nlp.hess.H
-    Gu = nlp.Gu.J
     J = nlp.jac.J
     W = H + J' * Diagonal(D) * J
 
