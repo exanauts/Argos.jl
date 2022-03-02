@@ -93,7 +93,7 @@ end
 function AugLagEvaluator(
     datafile::String; device=ExaPF.CPU(), scale=false, c₀=0.1, options...
 )
-    nlp = ReducedSpaceEvaluator(datafile; device=device, options...)
+    nlp = ReducedSpaceEvaluator(datafile; device=device, auglag=true, options...)
     u0 = initial(nlp)
     return AugLagEvaluator(nlp, u0; scale=scale, c₀=c₀)
 end
@@ -166,11 +166,16 @@ function hessprod!(ag::AugLagEvaluator, hessvec, u, w)
     ag.counter.hprod += 1
     scaler = ag.scaler
     cx = ag.cons
-    mask = abs.(cx) .> 0
 
     σ = scaler.scale_obj
-    y = (scaler.scale_cons .* ag.λc .* mask)
-    ρ = ag.ρ .* (scaler.scale_cons .* scaler.scale_cons .* mask)
+    if ag.cons_type == Val(:equality)
+        y = (scaler.scale_cons .* ag.λc)
+        ρ = ag.ρ .* (scaler.scale_cons .* scaler.scale_cons)
+    elseif ag.cons_type == Val(:inequality)
+        mask = abs.(cx) .> 0
+        y = (scaler.scale_cons .* ag.λc .* mask)
+        ρ = ag.ρ .* (scaler.scale_cons .* scaler.scale_cons .* mask)
+    end
 
     hessian_lagrangian_penalty_prod!(ag.inner, hessvec, u, y, σ, ρ, w)::Nothing
     return
@@ -180,11 +185,16 @@ function hessian!(ag::AugLagEvaluator, H, u)
     ag.counter.hessian += 1
     scaler = ag.scaler
     cx = ag.cons
-    mask = abs.(cx) .> 0
-
     σ = scaler.scale_obj
-    y = (scaler.scale_cons .* ag.λc .* mask)
-    ρ = ag.ρ .* (scaler.scale_cons .* scaler.scale_cons .* mask)
+    if ag.cons_type == Val(:equality)
+        y = (scaler.scale_cons .* ag.λc)
+        ρ = ag.ρ .* (scaler.scale_cons .* scaler.scale_cons)
+    elseif ag.cons_type == Val(:inequality)
+        mask = abs.(cx) .> 0
+        y = (scaler.scale_cons .* ag.λc .* mask)
+        ρ = ag.ρ .* (scaler.scale_cons .* scaler.scale_cons .* mask)
+    end
+
     hessian_lagrangian_penalty!(ag.inner, H, u, y, σ, ρ)
     return
 end

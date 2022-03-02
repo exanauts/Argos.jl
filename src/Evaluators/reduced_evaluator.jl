@@ -92,14 +92,15 @@ mutable struct ReducedSpaceEvaluator{T, VI, VT, MT, Jacx, Jacu, JacCons, Hess, M
     # Stack
     stack::ExaPF.NetworkStack
     ∂stack::ExaPF.NetworkStack
-    # Jacobians for Power flow
+    # Jacobians
     Gx::Jacx
     Gu::Jacu
-    # Jacobian for remaining constraints
     jac::JacCons
-
+    # Hessian
     hess::Hess
     reduction::MyReduction
+    # H + J' D J operator
+    K::Union{Nothing, HJDJ}
 
     # Options
     linear_solver::LS.AbstractLinearSolver
@@ -121,6 +122,7 @@ function ReducedSpaceEvaluator(
     powerflow_solver=NewtonRaphson(tol=1e-10),
     want_jacobian=true,
     nbatch_hessian=1,
+    auglag=false,
 ) where {T, VI, VT, MT}
     # Load mapping
     mapx = ExaPF.mapping(model, State())
@@ -184,6 +186,15 @@ function ReducedSpaceEvaluator(
     _linear_solver = isnothing(linear_solver) ? LS.DirectSolver(J; nbatch=nbatch_hessian) : linear_solver
     S = ImplicitSensitivity(_linear_solver.factorization, Gu.J)
 
+    # Are we using this as part of an Auglag algorithm?
+    K = if auglag
+        W = hess.H
+        A = jac.J
+        HJDJ(W, A)
+    else
+        nothing
+    end
+
     redop = if nbatch_hessian > 1
         BatchReduction(model, S, nbatch_hessian)
     else
@@ -202,7 +213,7 @@ function ReducedSpaceEvaluator(
         obj, cons, grad, y, wu, wx, λ, μ,
         u_min, u_max, g_min, g_max,
         stack, ∂stack,
-        Gx, Gu, jac, hess, redop,
+        Gx, Gu, jac, hess, redop, K,
         _linear_solver,
         powerflow_solver, pf_buffer,
         false, false, false, false, false, etc,
@@ -242,22 +253,11 @@ end
 Base.get(nlp::ReducedSpaceEvaluator, ::PS.VoltageMagnitude) = nlp.stack.vmag
 Base.get(nlp::ReducedSpaceEvaluator, ::PS.VoltageAngle) = nlp.stack.vang
 Base.get(nlp::ReducedSpaceEvaluator, ::PS.ActivePower) = nlp.stack.pgen
-Base.get(nlp::ReducedSpaceEvaluator, ::PS.ReactivePower) = nlp.stack.qgen
+
 function Base.get(nlp::ReducedSpaceEvaluator, attr::PS.AbstractNetworkAttribute)
     return ExaPF.get(nlp.model, attr)
 end
 get_nnzh(nlp::ReducedSpaceEvaluator) = n_variables(nlp)^2
-
-# Setters
-function setvalues!(nlp::ReducedSpaceEvaluator, attr::PS.AbstractNetworkValues, values)
-    ExaPF.setvalues!(nlp.model, attr, values)
-end
-function setvalues!(nlp::ReducedSpaceEvaluator, attr::PS.ActiveLoad, values)
-    ExaPF.setvalues!(nlp.stack, attr, values)
-end
-function setvalues!(nlp::ReducedSpaceEvaluator, attr::PS.ReactiveLoad, values)
-    ExaPF.setvalues!(nlp.stack, attr, values)
-end
 
 # Initial position
 function initial(nlp::ReducedSpaceEvaluator{T, VI, VT, MT}) where {T, VI, VT, MT}
@@ -392,11 +392,10 @@ end
 # Second-order code
 ####
 # Single version
-function update_full_hessian!(nlp::ReducedSpaceEvaluator, y::AbstractVector)
-    if !nlp.is_hessian_updated
-        nlp.is_hessian_updated = true
-    end
+function update_hessian!(nlp::ReducedSpaceEvaluator, y::AbstractVector)
+    ExaPF.hessian!(nlp.hess, nlp.stack, y)
 end
+
 function hessprod!(nlp::ReducedSpaceEvaluator, hessvec, u, w)
     nx, nu = nlp.nx, nlp.nu
     m = length(nlp.constraints)
@@ -412,12 +411,11 @@ function hessprod!(nlp::ReducedSpaceEvaluator, hessvec, u, w)
     y[2:nx+1] .-= nlp.λ       # / power balance
     # Update Hessian
     if !nlp.is_hessian_objective_updated
-        ExaPF.hessian!(nlp.hess, nlp.stack, y)
+        update_hessian!(nlp, y)
         nlp.is_hessian_objective_updated = true
         nlp.is_hessian_lagrangian_updated = false
     end
     H = nlp.hess.H
-    Gu = nlp.Gu.J
     adjoint_adjoint_reduction!(nlp.reduction, hessvec, H, w)
 end
 
@@ -433,18 +431,17 @@ function hessian_lagrangian_prod!(
     y = nlp.multipliers
     # Init adjoint
     fill!(y, 0.0)
-    y[1:1] .= σ           # / objective
+    y[1:1] .= σ               # / objective
     y[2:nx+1] .-= nlp.μ       # / power balance
     y[nx+2:nx+1+m] .= μ       # / constraints
     # Update Hessian
     if !nlp.is_hessian_lagrangian_updated
-        ExaPF.hessian!(nlp.hess, nlp.stack, y)
+        update_hessian!(nlp, y)
         nlp.is_hessian_lagrangian_updated = true
         nlp.is_hessian_objective_updated = false
     end
     # Get sparse matrices
     H = nlp.hess.H
-    Gu = nlp.Gu.J
     nlp.etc[:reduction_time] += @elapsed begin
         adjoint_adjoint_reduction!(nlp.reduction, hessvec, H, w)
     end
@@ -453,32 +450,28 @@ end
 function hessian_lagrangian_penalty_prod!(
     nlp::ReducedSpaceEvaluator, hessvec, u, λ, σ, D, w,
 )
+    @assert !isnothing(nlp.K)
     nx, nu = nlp.nx, nlp.nu
     m = length(nlp.constraints)
-    if true #!nlp.is_adjoint_lagrangian_updated
+    if !nlp.is_hessian_lagrangian_updated
         g = nlp.wu
         ojtprod!(nlp, g, u, σ, λ)
     end
     y = nlp.multipliers
     # Init adjoint
     fill!(y, 0.0)
-    y[1:1] .= σ           # / objective
+    y[1:1] .= σ               # / objective
     y[2:nx+1] .-= nlp.μ       # / power balance
     y[nx+2:nx+1+m] .= λ       # / constraints
     # Update Hessian
-    if true #!nlp.is_hessian_lagrangian_updated
+    if !nlp.is_hessian_lagrangian_updated
         ExaPF.hessian!(nlp.hess, nlp.stack, y)
         ExaPF.jacobian!(nlp.jac, nlp.stack)
+        update!(nlp.K, nlp.jac.J, D)
         nlp.is_hessian_lagrangian_updated = true
         nlp.is_hessian_objective_updated = false
     end
-    # Get sparse matrices
-    H = nlp.hess.H
-    Gu = nlp.Gu.J
-    J = nlp.jac.J
-    W = H + J' * Diagonal(D) * J
-
-    adjoint_adjoint_reduction!(nlp.reduction, hessvec, W, w)
+    adjoint_adjoint_reduction!(nlp.reduction, hessvec, nlp.K, w)
 end
 
 # Batch Hessian

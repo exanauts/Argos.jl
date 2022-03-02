@@ -29,7 +29,7 @@ function BridgeDeviceEvaluator(nlp::AbstractNLPEvaluator, ::Type{VTD}, ::Type{MT
         MTD(undef, m, n),
         MTD(undef, n, n),
     )
-    return BridgeDeviceEvaluator{typeof(nlp), VTD, MTD}(nlp, buffers)
+    return BridgeDeviceEvaluator(nlp, buffers)
 end
 
 n_variables(nlp::BridgeDeviceEvaluator) = n_variables(nlp.inner)

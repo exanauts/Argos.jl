@@ -30,9 +30,9 @@ function spgemm!(transa::CUSPARSE.SparseChar, transb::CUSPARSE.SparseChar, alpha
         throw(ArgumentError("Sparse mm! only supports beta=0"))
     end
 
-    descA = CUSPARSE.CuSparseMatrixDescriptor(A)
-    descB = CUSPARSE.CuSparseMatrixDescriptor(B)
-    descC = CUSPARSE.CuSparseMatrixDescriptor(C)
+    descA = CUSPARSE.CuSparseMatrixDescriptor(A, 'O')
+    descB = CUSPARSE.CuSparseMatrixDescriptor(B, 'O')
+    descC = CUSPARSE.CuSparseMatrixDescriptor(C, 'O')
 
     spgemm_Desc = CuSpGEMMDescriptor()
     out = Ref{Csize_t}(0)

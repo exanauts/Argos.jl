@@ -71,9 +71,9 @@ end
         ips = _madnlp_default(nlp; options...)
         @test ips.status == MadNLP.SOLVE_SUCCEEDED
         ipd = _madnlp_dense_kkt(nlp; options...)
-        _test_results_match(ips, ipd)
-        ipc = _madnlp_condensed_kkt(nlp; options...)
-        _test_results_match(ips, ipc; atol=1e-8)
+        _test_results_match(ips, ipd; atol=1e-8)
+        # ipc = _madnlp_condensed_kkt(nlp; options...)
+        # _test_results_match(ips, ipc; atol=1e-8)
     end
     @testset "Linearize-then-reduce" begin
         flp = Argos.FullSpaceEvaluator(datafile)
