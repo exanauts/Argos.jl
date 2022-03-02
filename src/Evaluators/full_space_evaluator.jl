@@ -33,8 +33,8 @@ function FullSpaceEvaluator(
     line_constraints=true,
 ) where {T, VI, VT, MT}
     # Load mapping
-    mapx = ExaPF.my_map(model, State())
-    mapu = ExaPF.my_map(model, Control())
+    mapx = ExaPF.mapping(model, State())
+    mapu = ExaPF.mapping(model, Control())
     mapxu = [mapx; mapu]
     nx = length(mapx)
     nu = length(mapu)

@@ -123,8 +123,8 @@ function ReducedSpaceEvaluator(
     nbatch_hessian=1,
 ) where {T, VI, VT, MT}
     # Load mapping
-    mapx = ExaPF.my_map(model, State())
-    mapu = ExaPF.my_map(model, Control())
+    mapx = ExaPF.mapping(model, State())
+    mapu = ExaPF.mapping(model, Control())
     mapxu = [mapx; mapu]
     nx = length(mapx)
     nu = length(mapu)
@@ -134,7 +134,7 @@ function ReducedSpaceEvaluator(
     costs = ExaPF.CostFunction(model)
     powerflow = ExaPF.PowerFlowBalance(model)
     constraints_expr = [
-        ExaPF.VoltageMagnitudePQ(model),
+        ExaPF.VoltageMagnitudeBounds(model),
         ExaPF.PowerGenerationBounds(model),
     ]
     if line_constraints
