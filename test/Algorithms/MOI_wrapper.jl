@@ -27,10 +27,10 @@ const MOI = MathOptInterface
 
     @testset "ReducedSpaceEvaluator with L-BFGS" begin
         optimizer = Ipopt.Optimizer()
-        MOI.set(optimizer, MOI.RawParameter("print_level"), 0)
-        MOI.set(optimizer, MOI.RawParameter("limited_memory_max_history"), 50)
-        MOI.set(optimizer, MOI.RawParameter("hessian_approximation"), "limited-memory")
-        MOI.set(optimizer, MOI.RawParameter("tol"), 1e-4)
+        MOI.set(optimizer, MOI.RawOptimizerAttribute("print_level"), 0)
+        MOI.set(optimizer, MOI.RawOptimizerAttribute("limited_memory_max_history"), 50)
+        MOI.set(optimizer, MOI.RawOptimizerAttribute("hessian_approximation"), "limited-memory")
+        MOI.set(optimizer, MOI.RawOptimizerAttribute("tol"), 1e-4)
 
         solution = Argos.optimize!(optimizer, nlp)
         MOI.empty!(optimizer)
@@ -41,8 +41,8 @@ const MOI = MathOptInterface
 
     @testset "ReducedSpaceEvaluator with Hessian" begin
         optimizer = Ipopt.Optimizer()
-        MOI.set(optimizer, MOI.RawParameter("print_level"), 0)
-        MOI.set(optimizer, MOI.RawParameter("tol"), 1e-4)
+        MOI.set(optimizer, MOI.RawOptimizerAttribute("print_level"), 0)
+        MOI.set(optimizer, MOI.RawOptimizerAttribute("tol"), 1e-4)
 
         solution = Argos.optimize!(optimizer, nlp)
         MOI.empty!(optimizer)
@@ -54,9 +54,9 @@ const MOI = MathOptInterface
     # Test resolution with AugLagEvaluator and Ipopt, as used inside ProxAL
     @testset "AugLagEvaluator with Hessian" begin
         optimizer = Ipopt.Optimizer()
-        MOI.set(optimizer, MOI.RawParameter("print_level"), 0)
-        MOI.set(optimizer, MOI.RawParameter("tol"), 1e-4)
-        MOI.set(optimizer, MOI.RawParameter("max_iter"), 30)
+        MOI.set(optimizer, MOI.RawOptimizerAttribute("print_level"), 0)
+        MOI.set(optimizer, MOI.RawOptimizerAttribute("tol"), 1e-4)
+        MOI.set(optimizer, MOI.RawOptimizerAttribute("max_iter"), 30)
         aug = Argos.AugLagEvaluator(nlp, Argos.initial(nlp); c₀=0.1)
 
         solution = Argos.optimize!(optimizer, aug)
@@ -66,9 +66,9 @@ const MOI = MathOptInterface
 
     @testset "FullSpaceEvaluator with Hessian" begin
         optimizer = Ipopt.Optimizer()
-        MOI.set(optimizer, MOI.RawParameter("print_level"), 0)
-        MOI.set(optimizer, MOI.RawParameter("tol"), 1e-4)
-        MOI.set(optimizer, MOI.RawParameter("max_iter"), 30)
+        MOI.set(optimizer, MOI.RawOptimizerAttribute("print_level"), 0)
+        MOI.set(optimizer, MOI.RawOptimizerAttribute("tol"), 1e-4)
+        MOI.set(optimizer, MOI.RawOptimizerAttribute("max_iter"), 30)
         nlp = Argos.FullSpaceEvaluator(datafile; line_constraints=false)
         solution = Argos.optimize!(optimizer, nlp)
         MOI.empty!(optimizer)

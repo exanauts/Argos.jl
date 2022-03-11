@@ -53,13 +53,13 @@ end
 
 backend(m::OPFModel) = backend(m.nlp)
 
-function NLPModels.jac_structure!(m::OPFModel, rows, cols)
+function NLPModels.jac_structure!(m::OPFModel, rows::AbstractVector, cols::AbstractVector)
     copyto!(rows, m.jrows)
     copyto!(cols, m.jcols)
     return rows, cols
 end
 
-function NLPModels.hess_structure!(m::OPFModel, rows, cols)
+function NLPModels.hess_structure!(m::OPFModel, rows::AbstractVector, cols::AbstractVector)
     copyto!(rows, m.hrows)
     copyto!(cols, m.hcols)
     return rows, cols
@@ -75,7 +75,7 @@ function _update!(m::OPFModel, x::AbstractVector)
 end
 
 # Objective
-function NLPModels.obj(m::OPFModel,x)
+function NLPModels.obj(m::OPFModel,x::AbstractVector)
     _update!(m, x)
     m.timers.obj_time += @elapsed begin
         obj = objective(m.nlp, x)
@@ -84,7 +84,7 @@ function NLPModels.obj(m::OPFModel,x)
 end
 
 # Gradient
-function NLPModels.grad!(m::OPFModel, x, g)
+function NLPModels.grad!(m::OPFModel, x::AbstractVector, g::AbstractVector)
     _update!(m, x)
     m.timers.grad_time += @elapsed begin
         gradient!(m.nlp, g, x)
@@ -93,7 +93,7 @@ function NLPModels.grad!(m::OPFModel, x, g)
 end
 
 # Constraints
-function NLPModels.cons!(m::OPFModel,x,c)
+function NLPModels.cons!(m::OPFModel,x::AbstractVector,c::AbstractVector)
     _update!(m, x)
     m.timers.cons_time += @elapsed begin
         constraint!(m.nlp, c, x)
@@ -102,7 +102,7 @@ function NLPModels.cons!(m::OPFModel,x,c)
 end
 
 # Jacobian: sparse callback
-function NLPModels.jac_coord!(m::OPFModel, x, jac::AbstractArray)
+function NLPModels.jac_coord!(m::OPFModel, x::AbstractVector, jac::AbstractVector)
     _update!(m, x)
     nnzj = NLPModels.get_nnzj(m)
     jv = view(jac, 1:nnzj) # NB: ensure compatibility with MadNLP
@@ -120,14 +120,14 @@ function MadNLP.jac_dense!(m::OPFModel, x, J::AbstractMatrix)
 end
 
 # Hessian-vector products
-function NLPModels.hprod!(m::OPFModel, x, l, v, hv::AbstractVector; obj_weight=1.0)
+function NLPModels.hprod!(m::OPFModel, x::AbstractVector, l::AbstractVector, v::AbstractVector, hv::AbstractVector; obj_weight=1.0)
     m.timers.hessprod_time += @elapsed begin
         hessian_lagrangian_prod!(m.nlp, hv, x, l, obj_weight, v)
     end
 end
 
 # Hessian: sparse callback
-function NLPModels.hess_coord!(m::OPFModel,x, l, hess::AbstractVector; obj_weight=1.0)
+function NLPModels.hess_coord!(m::OPFModel,x::AbstractVector, l::AbstractVector, hess::AbstractVector; obj_weight=1.0)
     m.timers.hessian_time += @elapsed begin
         hessian_lagrangian_coo!(m.nlp, hess, x, l, obj_weight)
     end
