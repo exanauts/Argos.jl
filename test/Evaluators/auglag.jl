@@ -37,31 +37,27 @@ function test_auglag_evaluator(nlp, device, MT)
 
         # TODO: we have a nasty side effect
         Argos.reset!(pen)
-        # Test Hessian only on ReducedSpaceEvaluator and SlackEvaluator
-        if (
-           isa(nlp, Argos.ReducedSpaceEvaluator) ||
-           isa(nlp, Argos.SlackEvaluator)
-        )
-            n = length(u)
-            Argos.update!(pen, u)
-            hv = similar(u) ; fill!(hv, 0)
-            w = similar(u)
-            h_w = zeros(n) ; h_w[1] = 1.0
-            copyto!(w, h_w)
+        n = length(u)
+        Argos.update!(pen, u)
+        hv = similar(u) ; fill!(hv, 0)
+        w = similar(u)
+        h_w = zeros(n) ; h_w[1] = 1.0
+        copyto!(w, h_w)
 
-            Argos.hessprod!(pen, hv, u, w)
-            H = similar(u, n, n) ; fill!(H, 0)
-            Argos.hessian!(pen, H, u)
-            # Is Hessian vector product relevant?
-            @test H * w ≈ hv
-            # Is Hessian correct?
+        Argos.hessprod!(pen, hv, u, w)
+        H = similar(u, n, n) ; fill!(H, 0)
+        Argos.hessian!(pen, H, u)
+        # Is Hessian vector product relevant?
+        @test H * w ≈ hv
+
+        # Is Hessian correct?
+        if isa(device, CPU) # test is too slow on GPU...
             hess_fd = FiniteDiff.finite_difference_hessian(reduced_cost, u)
-
             h_H = H |> Array
             h_H_fd = hess_fd.data |> Array
-
             @test isapprox(h_H, h_H_fd, rtol=1e-5)
         end
+
         # Test estimation of multipliers (only on SlackEvaluator)
         if isa(nlp, Argos.SlackEvaluator) && isa(device, CPU)
             λ = Argos.estimate_multipliers(pen, u)

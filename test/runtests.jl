@@ -1,5 +1,6 @@
 
 using Test
+using LazyArtifacts
 using LinearAlgebra
 using SparseArrays
 
@@ -13,7 +14,7 @@ using MathOptInterface
 const MOI = MathOptInterface
 
 # Data
-const INSTANCES_DIR = ExaPF.instances_directory()
+const INSTANCES_DIR = joinpath(artifact"ExaData", "ExaData")
 const CASES = ["case9.m", "case30.m"]
 ARCHS = Any[(CPU(), Array, SparseMatrixCSC)]
 
