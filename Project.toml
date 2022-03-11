@@ -22,8 +22,12 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 cusolverRF = "954e31b5-dc66-4dc7-aae1-6825ae6cf659"
 
 [compat]
+CUDA = "3.8.3"
+CUDAKernels = "0.3.3"
 ExaPF = "0.7"
 FiniteDiff = "2.7"
-KernelAbstractions = "0.7"
+Ipopt = "0.9"
+KernelAbstractions = "0.7.2"
 MadNLP = "0.4"
 MathOptInterface = "0.10"
+NLPModels = "0.18"
