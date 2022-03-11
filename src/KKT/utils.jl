@@ -143,45 +143,6 @@ function get_fixed_nnz(J::SparseMatrixCSC, ind_fixed, diag_ind)
 end
 
 
-struct HJDJ{VI, VT, SMT}
-    W::SMT
-    Jt::SMT
-    JtJ::SMT
-    Σ::VT
-    transperm::VI
-end
-function HJDJ(W::SparseMatrixCSC, J::SparseMatrixCSC)
-    n = size(W, 1)
-    Jt = spzeros(0, 0)
-    transperm = zeros(Int, 0)
-    JtJ = J' * J
-    constants = similar(nonzeros(W), n) ; fill!(constants, 0)
-    return HJDJ(W, Jt, JtJ, constants, transperm)
-end
-
-function update!(K::HJDJ, A::SparseMatrixCSC, D::AbstractVector, Σ::AbstractVector)
-    K.JtJ .= A' * Diagonal(D) * A
-    K.Σ .= Σ
-end
-
-function LinearAlgebra.mul!(y::AbstractArray, K::HJDJ, x::AbstractArray)
-    y .= K.Σ .* x
-    mul!(y, K.W, x, 1.0, 1.0)
-    mul!(y, K.JtJ, x, 1.0, 1.0)
-end
-
-function tgtmul!(yx::AbstractArray, yu::AbstractArray, K::HJDJ, z::AbstractArray, w::AbstractArray, alpha::Number, beta::Number)
-    nx, nu = size(yx, 1), size(yu, 1)
-
-    sx = view(K.Σ, 1:nx)
-    su = view(K.Σ, 1+nx:nx+nu)
-    yx .= sx .* z
-    yu .= su .* w
-
-    tgtmul!(yx, yu, K.JtJ, z, w, 1.0, 1.0)
-    tgtmul!(yx, yu, K.W, z, w, 1.0, 1.0)
-end
-
 #=
     Special kernels for fixed variables.
 =#

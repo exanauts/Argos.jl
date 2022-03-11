@@ -33,7 +33,7 @@ include("api.jl")
 include("auglag.jl")
 
 function _init(datafile, ::Type{Argos.ReducedSpaceEvaluator}, device)
-    return Argos.ReducedSpaceEvaluator(datafile; device=device)
+    return Argos.ReducedSpaceEvaluator(datafile; device=device, auglag=true)
 end
 # function _init(datafile, ::Type{Argos.ProxALEvaluator}, device)
 #     nlp = Argos.ReducedSpaceEvaluator(datafile; device=device)
@@ -41,7 +41,7 @@ end
 #     return Argos.ProxALEvaluator(nlp, time)
 # end
 function _init(datafile, ::Type{Argos.SlackEvaluator}, device)
-    return Argos.SlackEvaluator(datafile; device=device)
+    return Argos.SlackEvaluator(datafile; device=device, auglag=true)
 end
 
 function runtests(datafile, device, AT)

@@ -23,7 +23,7 @@ const MOI = MathOptInterface
     CASE57_OBJECTIVE = 41737.78674184994
 
     datafile = joinpath(INSTANCES_DIR, "case57.m")
-    nlp = Argos.ReducedSpaceEvaluator(datafile)
+    nlp = Argos.ReducedSpaceEvaluator(datafile; auglag=true)
 
     @testset "ReducedSpaceEvaluator with L-BFGS" begin
         optimizer = Ipopt.Optimizer()
