@@ -159,16 +159,13 @@ end
 
 function jprod!(nlp::FullSpaceEvaluator, jv, x, v)
     ExaPF.jacobian!(nlp.jac, nlp.stack)
-    vx = view(v, 1:nlp.nx)
-    vu = view(v, nlp.nx+1:nlp.nx+nlp.nu)
     mul!(jv, nlp.jac.J, v)
     return
 end
 
 function jtprod!(nlp::FullSpaceEvaluator, jv, x, v)
     ExaPF.jacobian!(nlp.jac, nlp.stack)
-    J = nlp.jac.J
-    mul!(jv, J', v)
+    mul!(jv, nlp.jac.J', v)
     return
 end
 
