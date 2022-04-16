@@ -6,6 +6,8 @@ using Test
 
 using FiniteDiff
 using LinearAlgebra
+using DelimitedFiles
+using LazyArtifacts
 using Random
 using SparseArrays
 using KernelAbstractions
@@ -80,6 +82,19 @@ function runtests(datafile, device, AT)
             test_evaluator_callbacks(nlp, device, AT)
             test_evaluator_hessian_lagrangian(nlp, device, AT)
             test_evaluator_sparse_callbacks(nlp, device, AT)
+        end
+        @testset "Argos.StochEvaluator Interface" begin
+            nblocks = 5
+            case_name = split(split(datafile, '/')[end], '.')[1]
+            demands = joinpath(artifact"ExaData", "ExaData", "mp_demand")
+            pload = readdlm(joinpath(demands, "$(case_name)_oneweek_168.Pd"))[:, 1:nblocks] ./ 100
+            qload = readdlm(joinpath(demands, "$(case_name)_oneweek_168.Qd"))[:, 1:nblocks] ./ 100
+
+            stoch = Argos.StochEvaluator(datafile, pload, qload)
+            test_evaluator_api(stoch, device, AT)
+            test_evaluator_callbacks(stoch, device, AT)
+            test_evaluator_hessian_lagrangian(stoch, device, AT)
+            test_evaluator_sparse_callbacks(stoch, device, AT)
         end
     end
 end
