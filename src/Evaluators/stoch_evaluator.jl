@@ -32,73 +32,6 @@ mutable struct StochEvaluator{T, VI, VT, MT, JacCons, HessLag} <: AbstractNLPEva
     map2tril::VI
 end
 
-function block_sparsity_hessian(H, nx, nu, nscen)
-    i_hess, j_hess, _ = findnz(H)
-    nnzh = length(i_hess)
-    i_coo, j_coo = Int[], Int[]
-    ind_uu = Tuple{Int, Int}[]
-    idk = 1
-    for (i, j) in zip(i_hess, j_hess)
-        # Get current scenario
-        k = div(i - 1, nx+nu) + 1
-        @assert 1 <= k <= nscen
-        ik = (i-1) % (nx + nu) + 1
-        jk = j
-        ## xx
-        if (ik <= nx) && (jk <= nx)
-            push!(i_coo, ik + (k-1) * nx)
-            push!(j_coo, jk + (k-1) * nx)
-        ## xu
-        elseif (nx < ik <= nx+nu) && (jk <= nx)
-            push!(i_coo, ik + (nscen-1) * nx)
-            push!(j_coo, jk + (k-1) * nx)
-        ## ux
-        elseif (ik <= nx) && (nx < jk <= nx+nu)
-            push!(i_coo, ik + (k-1) * nx)
-            push!(j_coo, jk + (nscen-1) * nx)
-        ## uu
-        elseif (nx < ik <= nx+nu) && (nx < jk <= nx+nu)
-            push!(i_coo, ik + (nscen-1) * nx)
-            push!(j_coo, jk + (nscen-1) * nx)
-            push!(ind_uu, (idk, k))
-        end
-        idk += 1
-    end
-    return i_coo, j_coo, ind_uu
-end
-
-function block_sparsity_jacobian(J, nx, nu, nscen, slices)
-    i_jac, j_jac, _ = findnz(J)
-    i_coo, j_coo = Int[], Int[]
-
-    cumslices = nscen .* cumsum(slices)
-
-    shift = 0
-    idk = 1 # start with first constraints
-    for (i, j) in zip(i_jac, j_jac)
-        # Which constraint?
-        idk = 1
-        while i > cumslices[idk]
-            idk += 1
-        end
-        shift = (idk > 1) ? cumslices[idk-1] : 0
-        # Which scenario?
-        k = div(i - shift - 1, slices[idk]) + 1
-        @assert 0 < k <= nscen
-
-        ## / x
-        if j <= nx
-            push!(i_coo, i)
-            push!(j_coo, j + (k-1) * nx)
-        ## / u
-        elseif j <= nx + nu
-            push!(i_coo, i)
-            push!(j_coo, j + (nscen-1) * nx)
-        end
-    end
-    return i_coo, j_coo
-end
-
 #=
     Ordering: [x1, x2, ..., xN, u]
 =#
@@ -155,7 +88,6 @@ function StochEvaluator(
     lagrangian_expr = [costs; constraints_expr]
     lagrangian = ExaPF.MultiExpressions(lagrangian_expr)
     hess = ExaPF.ArrowheadHessian(model, lagrangian ∘ basis, nscen)
-    println(typeof(hess))
     ExaPF.set_params!(hess, stack)
 
     map2tril = tril_mapping(hess.H)
@@ -282,7 +214,7 @@ function hessian_lagrangian_coo!(nlp::StochEvaluator, hess, x, y, σ)
     n = n_variables(nlp)::Int
     m = n_constraints(nlp)
     nlp._multipliers[1:nlp.nscen] .= σ / nlp.nscen
-    copyto!(nlp._multipliers, nlp.nscen, y, 1, m)
+    copyto!(nlp._multipliers, nlp.nscen + 1, y, 1, m)
     ExaPF.hessian!(nlp.hess, nlp.stack, nlp._multipliers)
     # TODO
     # Keep only lower-triangular part
