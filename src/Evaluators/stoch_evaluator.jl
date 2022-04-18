@@ -93,7 +93,7 @@ function StochEvaluator(
     map2tril = tril_mapping(hess.H)
 
     return StochEvaluator(
-        model, nscen, nx, nu, blk_mapu, blk_mapx, mapz,
+        model, nscen, nx*nscen, nu, blk_mapu, blk_mapx, mapz,
         basis, costs, constraints,
         obj, cons, grad_control, y, x_min, x_max, g_min, g_max,
         stack, ∂stack, jac, hess, map2tril,
@@ -106,7 +106,7 @@ end
 model(nlp::StochEvaluator) = nlp.model
 backend(nlp::StochEvaluator) = nlp
 
-n_variables(nlp::StochEvaluator) = nlp.nx * nlp.nscen + nlp.nu
+n_variables(nlp::StochEvaluator) = nlp.nx + nlp.nu
 n_constraints(nlp::StochEvaluator) = length(nlp.g_min)
 
 constraints_type(::StochEvaluator) = :inequality
@@ -144,7 +144,7 @@ bounds(nlp::StochEvaluator, ::Constraints) = (nlp.g_min, nlp.g_max)
 # Update buffer with new state and control
 function update!(nlp::StochEvaluator, x)
     copyto!(nlp.stack, nlp.mapz, x)
-    u = view(x, nlp.nscen*nlp.nx+1:nlp.nscen*nlp.nx+nlp.nu)
+    u = view(x, nlp.nx+1:nlp.nx+nlp.nu)
     ExaPF.blockcopy!(nlp.stack, nlp.blk_mapu, u)
     # Full forward pass
     nlp.basis(nlp.stack.ψ, nlp.stack)
@@ -166,7 +166,7 @@ function gradient!(nlp::StochEvaluator, g, x)
     copyto!(g, nlp.∂stack, nlp.mapz)
     copyto!(nlp._grad_control, nlp.∂stack, nlp.blk_mapu)
 
-    gu = view(g, nlp.nscen*nlp.nx+1:nlp.nscen*nlp.nx+nlp.nu)
+    gu = view(g, nlp.nx+1:nlp.nx+nlp.nu)
     sum!(gu, reshape(nlp._grad_control, nlp.nu, nlp.nscen))
     g .*= 1.0 / nlp.nscen
     return
@@ -216,7 +216,6 @@ function hessian_lagrangian_coo!(nlp::StochEvaluator, hess, x, y, σ)
     nlp._multipliers[1:nlp.nscen] .= σ / nlp.nscen
     copyto!(nlp._multipliers, nlp.nscen + 1, y, 1, m)
     ExaPF.hessian!(nlp.hess, nlp.stack, nlp._multipliers)
-    # TODO
     # Keep only lower-triangular part
     transfer2tril!(hess, nlp.hess.H, nlp.map2tril)
     return
