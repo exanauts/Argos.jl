@@ -83,17 +83,17 @@ function StochEvaluator(
     # Remove equalities
     # TODO
 
-    jac = ExaPF.ArrowheadJacobian(model, constraints ∘ basis, nscen)
+    jac = ExaPF.ArrowheadJacobian(model, constraints ∘ basis, ExaPF.AllVariables(), nscen)
     ExaPF.set_params!(jac, stack)
     lagrangian_expr = [costs; constraints_expr]
     lagrangian = ExaPF.MultiExpressions(lagrangian_expr)
-    hess = ExaPF.ArrowheadHessian(model, lagrangian ∘ basis, nscen)
+    hess = ExaPF.ArrowheadHessian(model, lagrangian ∘ basis, ExaPF.AllVariables(), nscen)
     ExaPF.set_params!(hess, stack)
 
     map2tril = tril_mapping(hess.H)
 
     return StochEvaluator(
-        model, nscen, nx*nscen, nu, blk_mapu, blk_mapx, mapz,
+        model, nscen, nx*nscen, nu, VI(blk_mapu), VI(blk_mapx), VI(mapz),
         basis, costs, constraints,
         obj, cons, grad_control, y, x_min, x_max, g_min, g_max,
         stack, ∂stack, jac, hess, map2tril,

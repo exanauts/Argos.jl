@@ -133,9 +133,9 @@ function adjoint_adjoint_reduction!(red::AbstractReduction, hessvec, H, w)
     z = red.z
     ψ = red.ψ
 
-    t1 = mul!(z, red.S, w, 1.0, 0.0)
-    t2 = tgtmul!(ψ, hessvec, H, z, w, 1.0, 0.0)
-    t3 = tmul!(hessvec, red.S, ψ, 1.0, 1.0)
+    mul!(z, red.S, w, 1.0, 0.0)
+    tgtmul!(ψ, hessvec, H, z, w, 1.0, 0.0)
+    tmul!(hessvec, red.S, ψ, 1.0, 1.0)
     return
 end
 
