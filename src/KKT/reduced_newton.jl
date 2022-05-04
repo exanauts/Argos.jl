@@ -146,9 +146,10 @@ MadNLP.is_reduced(::BieglerKKTSystem) = true
 
 # Return SparseMatrixCOO to MadNLP
 function MadNLP.get_raw_jacobian(kkt::BieglerKKTSystem)
-    n, m = kkt.nx + kkt.nu, size(kkt.A, 1)
+    m = size(kkt.J, 1)
+    n = kkt.nx + kkt.nu
     i, j, v = findnz(kkt.J)
-    return MadNLP.SparseMatrixCOO(n, m, i, j, v)
+    return MadNLP.SparseMatrixCOO(m, n, i, j, v)
 end
 
 function MadNLP.initialize!(kkt::BieglerKKTSystem)
@@ -158,7 +159,7 @@ function MadNLP.initialize!(kkt::BieglerKKTSystem)
 end
 
 function MadNLP.set_jacobian_scaling!(kkt::BieglerKKTSystem{T,VI,VT,MT}, constraint_scaling::AbstractVector) where {T,VI,VT,MT}
-    copyto!(kkt.con_scale, constraint_scaling)
+    _copyto!(kkt.con_scale, 1, constraint_scaling, 1, length(constraint_scaling))
     nnzJ = length(kkt.j_V)::Int
     Ji, _, _ = findnz(kkt.J)
     jscale = zeros(nnzJ)
