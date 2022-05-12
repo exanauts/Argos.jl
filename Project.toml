@@ -1,7 +1,7 @@
 name = "Argos"
 uuid = "ef244971-cf80-42b0-9762-2c2c832df5d5"
 authors = ["fpacaud <fpacaud@anl.gov>"]
-version = "0.1.0"
+version = "0.2.0"
 
 [deps]
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
@@ -24,6 +24,7 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 [compat]
 CUDA = "3.8.3"
 CUDAKernels = "0.4"
+ExaPF = "0.7.1"
 FiniteDiff = "2.7"
 Ipopt = "1"
 KernelAbstractions = "0.8"
