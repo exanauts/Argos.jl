@@ -17,7 +17,7 @@ The package is structured as follows:
 
 Argos.jl is currently unregistered. To install it, enter in the REPL the command:
 ```julia
-add "git@github.com:exanauts/Argos.jl.git"
+add "https://github.com/exanauts/Argos.jl"
 ```
 
 To check that everything is working as expected, please run
@@ -96,8 +96,9 @@ induced by the power flow equations:
 nlp = Argos.ReducedSpaceEvaluator("case57.m")
 optimizer = Ipopt.Optimizer() # MOI optimizer
 # Use LBFGS algorithm, as reduced Hessian is not available by default!
-MOI.set(optimizer, MOI.RawParameter("hessian_approximation"), "limited-memory")
-MOI.set(optimizer, MOI.RawParameter("tol"), 1e-4)
+MOI.set(optimizer, MOI.RawOptimizerAttribute("hessian_approximation"), "limited-memory")
+# Update tolerance to be above tolerance of Newton-Raphson subsolver
+MOI.set(optimizer, MOI.RawOptimizerAttribute("tol"), 1e-4)
 # Solve reduced space problem
 solution = Argos.optimize!(optimizer, nlp)
 ```
