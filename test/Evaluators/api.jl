@@ -98,12 +98,13 @@ end
 
 function test_evaluator_hessian(nlp, device, M; rtol=1e-6)
     Argos.reset!(nlp)
+    bdg = Argos.BridgeDeviceEvaluator(nlp, M{Float64, 1}, M{Float64, 2})
 
     n = Argos.n_variables(nlp)
     @test Argos.has_hessian(nlp)
     function reduced_cost(u_)
-        Argos.update!(nlp, u_)
-        return Argos.objective(nlp, u_)
+        Argos.update!(bdg, u_)
+        return Argos.objective(bdg, u_)
     end
     u = Argos.initial(nlp)
     Argos.update!(nlp, u)
@@ -120,10 +121,11 @@ function test_evaluator_hessian(nlp, device, M; rtol=1e-6)
     Argos.hessian!(nlp, H, u)
 
     # 3/ FiniteDiff
-    hess_fd = FiniteDiff.finite_difference_hessian(reduced_cost, u)
+    u0 = u |> Array
+    hess_fd = FiniteDiff.finite_difference_hessian(reduced_cost, u0)
 
     @test H * w == hv
-    @test H ≈ hess_fd.data rtol=rtol
+    @test myisapprox(H, hess_fd.data, rtol=rtol)
 end
 
 function test_evaluator_hessian_lagrangian(nlp, device, M; rtol=1e-6)
@@ -180,14 +182,15 @@ end
 
 function test_evaluator_batch_hessian(nlp, device, M; rtol=1e-6)
     Argos.reset!(nlp)
+    bdg = Argos.BridgeDeviceEvaluator(nlp, M{Float64, 1}, M{Float64, 2})
 
     n = Argos.n_variables(nlp)
     nbatch = Argos.number_batches(nlp)
     @test Argos.has_hessian(nlp)
     @test nbatch > 1
     function reduced_cost(u_)
-        Argos.update!(nlp, u_)
-        return Argos.objective(nlp, u_)
+        Argos.update!(bdg, u_)
+        return Argos.objective(bdg, u_)
     end
 
     u = Argos.initial(nlp)
@@ -207,24 +210,25 @@ function test_evaluator_batch_hessian(nlp, device, M; rtol=1e-6)
     Argos.hessian!(nlp, H, u)
 
     # 3/ FiniteDiff
-    hess_fd = FiniteDiff.finite_difference_hessian(reduced_cost, u)
+    u0 = u |> Array
+    hess_fd = FiniteDiff.finite_difference_hessian(reduced_cost, u0)
 
     @test H * w ≈ hv
-    @test H ≈ hess_fd.data rtol=rtol
+    @test myisapprox(H, hess_fd.data, rtol=rtol)
 
     m = Argos.n_constraints(nlp)
     if m > 0
         J = similar(u, m, n)
         Argos.jacobian!(nlp, J, u)
         function reduced_cons(u_)
-            cons = similar(u_, m)
-            Argos.update!(nlp, u_)
-            Argos.constraint!(nlp, cons, u_)
-            return cons
+            h_cons = zeros(m)
+            Argos.update!(bdg, u_)
+            Argos.constraint!(bdg, h_cons, u_)
+            return h_cons
         end
-        J_fd = FiniteDiff.finite_difference_jacobian(reduced_cons, u)
+        J_fd = FiniteDiff.finite_difference_jacobian(reduced_cons, u0)
         # TODO: check why we can't relax the tolerance here
-        @test J ≈ J_fd rtol=1e-4
+        @test myisapprox(J, J_fd, rtol=1e-4)
     end
 end
 
