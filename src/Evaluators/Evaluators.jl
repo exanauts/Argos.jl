@@ -298,6 +298,7 @@ include("scalers.jl")
 # Basic evaluators
 include("reduced_evaluator.jl")
 include("full_space_evaluator.jl")
+include("stoch_evaluator.jl")
 include("slack_evaluator.jl")
 include("feasibility_evaluator.jl")
 # include("proxal_evaluators.jl")

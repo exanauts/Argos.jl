@@ -133,9 +133,9 @@ function adjoint_adjoint_reduction!(red::AbstractReduction, hessvec, H, w)
     z = red.z
     ψ = red.ψ
 
-    t1 = mul!(z, red.S, w, 1.0, 0.0)
-    t2 = tgtmul!(ψ, hessvec, H, z, w, 1.0, 0.0)
-    t3 = tmul!(hessvec, red.S, ψ, 1.0, 1.0)
+    mul!(z, red.S, w, 1.0, 0.0)
+    tgtmul!(ψ, hessvec, H, z, w, 1.0, 0.0)
+    tmul!(hessvec, red.S, ψ, 1.0, 1.0)
     return
 end
 
@@ -145,8 +145,7 @@ struct Reduction{VT,Op} <: AbstractReduction
     S::Op
 end
 
-function Reduction(polar::PolarForm{T, VI, VT, MT}, S::SensitivityOperator) where {T, VI, VT, MT}
-    nx = ExaPF.number(polar, ExaPF.State())
+function Reduction(polar::PolarForm{T, VI, VT, MT}, S::SensitivityOperator, nx, nu) where {T, VI, VT, MT}
     z = VT(undef, nx) ; fill!(z, zero(T))
     ψ = VT(undef, nx) ; fill!(ψ, zero(T))
     return Reduction(z, ψ, S)
@@ -175,8 +174,7 @@ struct BatchReduction{MT,Op} <: AbstractReduction
     S::Op
 end
 
-function BatchReduction(polar::PolarForm{T, VI, VT, MT}, S, nbatch) where {T, VI, VT, MT}
-    nx, nu = ExaPF.number(polar, ExaPF.State()), ExaPF.number(polar, ExaPF.Control())
+function BatchReduction(polar::PolarForm{T, VI, VT, MT}, S, nx, nu, nbatch) where {T, VI, VT, MT}
     z   = MT(undef, nx, nbatch) ; fill!(z, zero(T))
     ψ   = MT(undef, nx, nbatch) ; fill!(ψ, zero(T))
     v  = MT(undef, nu, nbatch)  ; fill!(v, zero(T))

@@ -60,7 +60,7 @@ function bridge(nlp::ReducedSpaceEvaluator{T,VI,VT,MT}) where {T,VI,VT,MT}
     )
     return BridgeDeviceEvaluator{typeof(nlp), VT, VT}(nlp, buffers)
 end
-function bridge(nlp::FullSpaceEvaluator{T,VI,VT,MT}) where {T,VI,VT,MT}
+function bridge(nlp::Union{FullSpaceEvaluator{T,VI,VT,MT},StochEvaluator{T,VI,VT,MT}}) where {T,VI,VT,MT}
     n, m = n_variables(nlp), n_constraints(nlp)
     i, j = hessian_structure(nlp)
     nnzh = length(i)

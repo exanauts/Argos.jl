@@ -196,9 +196,9 @@ function ReducedSpaceEvaluator(
     end
 
     redop = if nbatch_hessian > 1
-        BatchReduction(model, S, nbatch_hessian)
+        BatchReduction(model, S, nx, nu, nbatch_hessian)
     else
-        Reduction(model, S)
+        Reduction(model, S, nx, nu)
     end
 
     # Set timers
