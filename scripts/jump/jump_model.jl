@@ -27,7 +27,15 @@ function build_opf_model(polar, buffer, solver; line_constraints=true)
     vm0 = buffer.vmag
     va0 = buffer.vang
     pg0 = buffer.pgen
-    qg0 = buffer.qgen
+
+    yff_re = real.(pf.lines.Yff)
+    yff_im = imag.(pf.lines.Yff)
+    yft_re = real.(pf.lines.Yft)
+    yft_im = imag.(pf.lines.Yft)
+    ytf_re = real.(pf.lines.Ytf)
+    ytf_im = imag.(pf.lines.Ytf)
+    ytt_re = real.(pf.lines.Ytt)
+    ytt_im = imag.(pf.lines.Ytt)
 
     # Pd = buffer.pload
     # Qd = buffer.qload
@@ -43,9 +51,6 @@ function build_opf_model(polar, buffer, solver; line_constraints=true)
     g_ij = real.(yvals)
     b_ij = imag.(yvals)
 
-    # Topology
-    top = polar.topology
-
     #=
         Build model
     =#
@@ -54,7 +59,7 @@ function build_opf_model(polar, buffer, solver; line_constraints=true)
 
     # VARIABLES
     @variable(opfmodel, pg_min[i] <= Pg[i=1:ngen] <= pg_max[i], start=pg0[i])
-    @variable(opfmodel, qg_min[i] <= Qg[i=1:ngen] <= qg_max[i], start=qg0[i])
+    @variable(opfmodel, qg_min[i] <= Qg[i=1:ngen] <= qg_max[i])
     @variable(opfmodel, vm_min[i] <= Vm[i=1:nbus] <= vm_max[i], start=vm0[i])
     @variable(opfmodel, Va[i=1:nbus], start=va0[i])
 
@@ -82,13 +87,13 @@ function build_opf_model(polar, buffer, solver; line_constraints=true)
 
     # Line constraints
     if line_constraints
-        f = top.f_buses
-        t = top.t_buses
+        f = pf.lines.from_buses
+        t = pf.lines.to_buses
         ## from lines
-        yff_abs = top.yff_re.^2 .+ top.yff_im.^2
-        yft_abs = top.yft_re.^2 .+ top.yft_im.^2
-        yre_fr =   top.yff_re .* top.yft_re .+ top.yff_im .* top.yft_im
-        yim_fr = - top.yff_re .* top.yft_im .+ top.yff_im .* top.yft_re
+        yff_abs = yff_re.^2 .+ yff_im.^2
+        yft_abs = yft_re.^2 .+ yft_im.^2
+        yre_fr =   yff_re .* yft_re .+ yff_im .* yft_im
+        yim_fr = - yff_re .* yft_im .+ yff_im .* yft_re
 
         opfmodel.ext[:line_fr] = @NLconstraint(
             opfmodel, [ℓ=1:nlines],
@@ -99,10 +104,10 @@ function build_opf_model(polar, buffer, solver; line_constraints=true)
         )
 
         ## to lines
-        ytf_abs = top.ytf_re.^2 .+ top.ytf_im.^2
-        ytt_abs = top.ytt_re.^2 .+ top.ytt_im.^2
-        yre_to =   top.ytf_re .* top.ytt_re .+ top.ytf_im .* top.ytt_im
-        yim_to = - top.ytf_re .* top.ytt_im .+ top.ytf_im .* top.ytt_re
+        ytf_abs = ytf_re.^2 .+ ytf_im.^2
+        ytt_abs = ytt_re.^2 .+ ytt_im.^2
+        yre_to =   ytf_re .* ytt_re .+ ytf_im .* ytt_im
+        yim_to = - ytf_re .* ytt_im .+ ytf_im .* ytt_re
 
         opfmodel.ext[:line_to] = @NLconstraint(
             opfmodel, [ℓ=1:nlines],
@@ -164,19 +169,10 @@ function attach_callback!(opfmodel::Model)
     return opfmodel
 end
 
-function store_solution!(buffer::ExaPF.PolarNetworkState, model::JuMP.Model)
-    ExaPF.setvalues!(buffer, PS.ActivePower(), JuMP.value.(model[:Pg]))
-    ExaPF.setvalues!(buffer, PS.ReactivePower(), JuMP.value.(model[:Qg]))
-    ExaPF.setvalues!(buffer, PS.VoltageMagnitude(), JuMP.value.(model[:Vm]))
-    ExaPF.setvalues!(buffer, PS.VoltageAngle(), JuMP.value.(model[:Va]))
-    return
-end
-
 function main(datafile::String)
     polar = ExaPF.PolarForm(datafile)
-    buffer = ExaPF.get(polar, ExaPF.PhysicalState())
-    ExaPF.init_buffer!(polar, buffer)
-    m = build_opf_model(polar, buffer, Ipopt.Optimizer; line_constraints=true)
+    stack = ExaPF.NetworkStack(polar)
+    m = build_opf_model(polar, stack, Ipopt.Optimizer; line_constraints=true)
     # attach_callback!(m)
     JuMP.optimize!(m)
     return m
