@@ -22,6 +22,26 @@ function Argos.HJDJ(W::CuSparseMatrixCSR, J::CuSparseMatrixCSR)
     return Argos.HJDJ{CuVector{Int}, CuVector{Float64}, typeof(W)}(W, Jt, JtJ, constants, transperm)
 end
 
+function Argos.update!(K::Argos.HJDJ, A, D, Σ)
+    m = size(A, 1)
+    ev = _scale_transpose_kernel!(CUDADevice())(
+        K.Jt.nzVal, A.rowPtr, A.colVal, A.nzVal, D, K.transperm,
+        ndrange=(m, 1),
+    )
+    wait(ev)
+    spgemm!('N', 'N', 1.0, K.Jt, A, 0.0, K.JtJ, 'O')
+    K.Σ .= Σ
+end
+function Argos.update!(K::Argos.HJDJ, A, D)
+    m = size(A, 1)
+    ev = _scale_transpose_kernel!(CUDADevice())(
+        K.Jt.nzVal, A.rowPtr, A.colVal, A.nzVal, D, K.transperm,
+        ndrange=(m, 1),
+    )
+    wait(ev)
+    spgemm!('N', 'N', 1.0, K.Jt, A, 0.0, K.JtJ, 'O')
+end
+
 function MadNLP.set_aug_diagonal!(kkt::Argos.BieglerKKTSystem{T, VI, VT, MT}, ips::MadNLP.InteriorPointSolver) where {T, VI<:CuVector{Int}, VT<:CuVector{T}, MT<:CuMatrix{T}}
     haskey(kkt.etc, :pr_diag_host) || (kkt.etc[:pr_diag_host] = Vector{T}(undef, length(kkt.pr_diag)))
     pr_diag_h = kkt.etc[:pr_diag_host]::Vector{T}
