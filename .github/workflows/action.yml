@@ -45,5 +45,6 @@ jobs:
           arch: ${{ matrix.julia-arch }}
       - run: julia --project -e 'using Pkg; Pkg.Registry.update()'
       - run: julia --project -e 'using Pkg; Pkg.add("CUSOLVERRF")'
+      - run: julia --project -e 'using Pkg; Pkg.develop(path="lib/ArgosCUDA.jl")'
       - uses: julia-actions/julia-buildpkg@latest
       - uses: julia-actions/julia-runtest@latest
