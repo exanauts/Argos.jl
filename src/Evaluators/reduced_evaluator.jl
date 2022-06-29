@@ -183,7 +183,7 @@ function ReducedSpaceEvaluator(
     # Build Linear Algebra
     nbatch_hessian = min(nbatch_hessian, nu)
     J = Gx.J
-    _linear_solver = isnothing(linear_solver) ? LS.DirectSolver(J; nbatch=nbatch_hessian) : linear_solver
+    _linear_solver = isnothing(linear_solver) ? LS.DirectSolver(J; nrhs=nbatch_hessian) : linear_solver
     S = ImplicitSensitivity(_linear_solver.factorization, Gu.J)
 
     # Are we using this as part of an Auglag algorithm?

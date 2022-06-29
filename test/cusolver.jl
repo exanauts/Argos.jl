@@ -9,18 +9,14 @@ using ExaPF
 using MadNLP
 using SparseArrays
 import ExaPF: LinearSolvers
-using cusolverRF
+using CUSOLVERRF
 
 const LS = LinearSolvers
 
 include("spgemm.jl")
 
 # Plug cusolverRF in ExaPF.LinearSolvers
-LS.DirectSolver(J::CuSparseMatrixCSR; kwargs...) = LS.DirectSolver(cusolverRF.RF(J; kwargs...))
-
-function LS.update!(s::LS.DirectSolver{Fac}, J::CuSparseMatrixCSR) where {Fac <: Factorization}
-    lu!(s.factorization, J)
-end
+LS.DirectSolver(J::CuSparseMatrixCSR; kwargs...) = LS.DirectSolver(CUSOLVERRF.RFLU(J; kwargs...))
 
 #=
     Argos.transfer_auglag_hessian
