@@ -307,16 +307,19 @@ end
 
 function MadNLP.solve_refine_wrapper!(
     ips::MadNLP.InteriorPointSolver{<:BieglerKKTSystem{T,VI,VT,MT}},
-    x_h, b_h,
+    x_r::MadNLP.AbstractKKTVector,
+    b_r::MadNLP.AbstractKKTVector,
 ) where {T, VI, VT, MT}
     kkt = ips.kkt
+    x_h = MadNLP.full(x_r)
+    b_h = MadNLP.full(b_r)
     x = _load_buffer(kkt, x_h, :kkt_x)::VT
     b = _load_buffer(kkt, b_h, :kkt_b)::VT
     MadNLP.fixed_variable_treatment_vec!(b, ips.ind_fixed)
     m = ips.m # constraints
     nx, nu = kkt.nx, kkt.nu
     ns = m - nx
-    @assert length(b) == length(x) == ips.n + m
+    @assert length(b) == length(x)
 
     # Buffers
     jv = kkt._wxu1
