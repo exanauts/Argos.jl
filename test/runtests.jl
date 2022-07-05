@@ -20,7 +20,7 @@ ARCHS = Any[(CPU(), Array, SparseMatrixCSC)]
 
 if has_cuda_gpu()
     using CUDAKernels
-    include("cusolver.jl")
+    using ArgosCUDA
     CUDA_ARCH = (CUDADevice(), CuArray, nothing)
     push!(ARCHS, CUDA_ARCH)
 end
