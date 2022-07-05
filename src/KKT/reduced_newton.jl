@@ -87,7 +87,7 @@ function BieglerKKTSystem{T, VI, VT, MT}(nlp::OPFModel, ind_cons=MadNLP.get_inde
     du_diag = VT(undef, m) ; fill!(du_diag, zero(T))
 
     nbatches = min(max_batches, nu)
-    linear_solver = LS.DirectSolver(Gx; nbatch=nbatches)
+    linear_solver = LS.DirectSolver(Gx; nrhs=nbatches)
     Gxi = linear_solver.factorization
     S = ImplicitSensitivity(Gxi, Gu)
     reduction = if nbatches > 1
