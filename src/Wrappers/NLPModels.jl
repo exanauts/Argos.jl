@@ -89,7 +89,7 @@ function NLPModels.grad!(m::OPFModel, x::AbstractVector, g::AbstractVector)
     m.timers.grad_time += @elapsed begin
         gradient!(m.nlp, g, x)
     end
-    return
+    return g
 end
 
 # Constraints
@@ -98,7 +98,7 @@ function NLPModels.cons!(m::OPFModel,x::AbstractVector,c::AbstractVector)
     m.timers.cons_time += @elapsed begin
         constraint!(m.nlp, c, x)
     end
-    return
+    return c
 end
 
 # Jacobian: sparse callback
