@@ -71,6 +71,7 @@ function _update!(m::OPFModel, x::AbstractVector)
         m.timers.update_time += @elapsed begin
             update!(m.nlp, x)
         end
+        m.hash_x[1] = hx
     end
 end
 

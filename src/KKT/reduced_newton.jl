@@ -311,8 +311,8 @@ function MadNLP.solve_refine_wrapper!(
     b_r::MadNLP.AbstractKKTVector,
 ) where {T, VI, VT, MT}
     kkt = ips.kkt
-    x_h = MadNLP.full(x_r)
-    b_h = MadNLP.full(b_r)
+    x_h = MadNLP.primal_dual(x_r)
+    b_h = MadNLP.primal_dual(b_r)
     x = _load_buffer(kkt, x_h, :kkt_x)::VT
     b = _load_buffer(kkt, b_h, :kkt_b)::VT
     MadNLP.fixed_variable_treatment_vec!(b, ips.ind_fixed)
