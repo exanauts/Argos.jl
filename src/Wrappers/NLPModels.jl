@@ -29,6 +29,7 @@ function OPFModel(nlp::AbstractNLPEvaluator)
     nnzj = length(jrows)
 
     etc = Dict{Symbol, Any}()
+    etc[:powerflow_jacobian] = []
 
     return OPFModel{typeof(nlp)}(
         NLPModels.NLPModelMeta(
@@ -109,6 +110,11 @@ function NLPModels.jac_coord!(m::OPFModel, x::AbstractVector, jac::AbstractVecto
     jv = view(jac, 1:nnzj) # NB: ensure compatibility with MadNLP
     m.timers.jacobian_time += @elapsed begin
         jacobian_coo!(m.nlp, jv, x)
+    end
+
+    # Save Jacobian
+    if isa(m.nlp, ReducedSpaceEvaluator)
+        push!(m.etc[:powerflow_jacobian], copy(m.nlp.Gx.J))
     end
 end
 
