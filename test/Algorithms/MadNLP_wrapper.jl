@@ -59,8 +59,11 @@ function _madnlp_biegler_kkt(nlp; kwargs...)
     return ipb
 end
 
-@testset "MadNLP wrapper" begin
-    datafile = joinpath(INSTANCES_DIR, "case30.m")
+@testset "MadNLP wrapper: $case" for case in [
+    "case30.m",
+    "case57.m",
+]
+    datafile = joinpath(INSTANCES_DIR, case)
     options = Dict{Symbol, Any}(
         :dual_initialized=>true,
         :tol=>1e-6,
@@ -72,8 +75,8 @@ end
         @test ips.status == MadNLP.SOLVE_SUCCEEDED
         ipd = _madnlp_dense_kkt(nlp; options...)
         _test_results_match(ips, ipd; atol=1e-8)
-        # ipc = _madnlp_condensed_kkt(nlp; options...)
-        # _test_results_match(ips, ipc; atol=1e-8)
+        ipc = _madnlp_condensed_kkt(nlp; options...)
+        _test_results_match(ips, ipc; atol=1e-8)
     end
     @testset "Linearize-then-reduce" begin
         flp = Argos.FullSpaceEvaluator(datafile)
@@ -83,5 +86,18 @@ end
         _test_results_match(ips, ipb; atol=1e-8)
         @test ipb.kkt.Wref === flp.hess.H
     end
+end
+
+@testset "Solve OPF with $form" for form in [
+    Argos.FullSpace(),
+    Argos.BieglerReduction(),
+    Argos.DommelTinney(),
+]
+    case = "case9.m"
+    datafile = joinpath(INSTANCES_DIR, case)
+
+    ips = Argos.run_opf(datafile, form; tol=1e-5, print_level=MadNLP.ERROR)
+    @test isa(ips, MadNLP.InteriorPointSolver)
+    @test ips.status == MadNLP.SOLVE_SUCCEEDED
 end
 

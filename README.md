@@ -5,13 +5,16 @@
 [docs-latest-img]: https://img.shields.io/badge/docs-latest-blue.svg
 [docs-latest-url]: https://exanauts.github.io/Argos/
 
-Argos.jl extends [ExaPF.jl](https://github.com/exanauts/ExaPF.jl) by implementing
-the optimization routines required to solve the optimal power flow (OPF) problems.
+Argos.jl extends the power-system modeler [ExaPF.jl](https://github.com/exanauts/ExaPF.jl)
+and the interior-point solver [MadNLP.jl](https://github.com/MadNLP/MadNLP.jl)
+to solve the optimal power flow (OPF) problem entirely in Julia.
+
 The package is structured as follows:
 - in `src/Evaluators/`, various optimization evaluators implement the different callbacks (objective, gradient, Hessian)
   required in the optimization algorithms .
 - in `src/Algorithms/`, an Augmented Lagrangian algorithm is implemented, targeting
   primarily the resolution of large-scale OPF problems on GPU architectures.
+- in `src/Wrappers/`, a wrapper for [MathOptInterface](https://github.com/jump-dev/MathOptInterface.jl) and a wrapper for [NLPModels.jl](https://github.com/JuliaSmoothOptimizers/NLPModels.jl/) are implemented.
 
 ## Installation
 
@@ -26,16 +29,41 @@ test Argos
 ```
 
 By default, this command tests all the `Evaluators` implemented in Argos
-on the CPU and, if available, on CUDA GPUs.
+on the CPU and, if available, on a CUDA GPU.
 
 ## Quickstart
 
-Argos' cornerstone is the `ReducedSpaceEvaluator`, allowing to run
-the optimization algorithm directly in the reduced space induced by
-the power flow equations. Instantiating a new `ReducedSpaceEvaluator`
-from a MATPOWER file simply amounts to
+Once Argos installed, we can use the function `run_opf` to solve
+the OPF with MadNLP. The function takes as input any MATPOWER file:
 ```julia
+# Solve in the full-space
+ips = Argos.run_opf("data/case9.m", Argos.FullSpace())
+
+```
+The second argument specifies the formulation used inside MadNLP to solve
+the OPF problem. `FullSpace()` implements the classical full-space formulation,
+(as implemented inside MATPOWER or PowerModels.jl). Alternatively, one may want to solve
+the OPF using the reduced-space formulation of Dommel and Tinney:
+```julia
+# Solve in the reduced-space
+ips = Argos.run_opf("data/case9.m", Argos.DommelTinney())
+
+```
+
+## How to use Argos' evaluators?
+
+Argos implements two evaluators to solve the OPF problem:
+the `FullSpaceEvaluator` implements the classical OPF formulation
+in the full-space, whereas `ReducedSpaceEvaluator` implements the
+reduced-space formulation of Dommel & Tinney.
+
+### Using an evaluator
+Instantiating a new evaluator from a MATPOWER file simply amounts to
+```julia
+# Reduced-space evaluator
 nlp = Argos.ReducedSpaceEvaluator("case57.m")
+# Full-space evaluator
+flp = Argos.FullSpaceEvaluator("case57.m")
 ```
 
 An initial optimization variable can be computed as
@@ -43,13 +71,12 @@ An initial optimization variable can be computed as
 u = Argos.initial(nlp)
 ```
 The variable `u` is the control that will be used all throughout the
-optimization. Then, the function `update!` solves the power flow and updates accordingly all the structures
-inside `nlp`:
+optimization. Once a new point `u` obtained, one can refresh all the structures
+inside `nlp` with:
 ```julia
 Argos.update!(nlp, u)
 ```
-Once the power flow equations solved, the other callbacks can be evaluated
-as well:
+Once the structures refreshed, the other callbacks can be evaluated as well:
 ```julia
 Argos.objective(nlp, u) # objective
 Argos.gradient(nlp, u)  # reduced gradient
@@ -57,7 +84,40 @@ Argos.jacobian(nlp, u)  # reduced Jacobian
 Argos.hessian(nlp, u)   # reduced Hessian
 ```
 
-### Use the ReducedSpaceEvaluator on GPU accelerators
+
+### MOI wrapper
+
+Argos implements a wrapper to [MathOptInterface](https://github.com/jump-dev/MathOptInterface.jl)
+to solve the optimal power flow problem with any nonlinear optimization solver compatible
+with MathOptInterface:
+```julia
+nlp = Argos.ReducedSpaceEvaluator("case57.m")
+optimizer = Ipopt.Optimizer() # MOI optimizer
+# Update tolerance to be above tolerance of Newton-Raphson subsolver
+MOI.set(optimizer, MOI.RawOptimizerAttribute("tol"), 1e-5)
+# Solve reduced space problem
+solution = Argos.optimize!(optimizer, nlp)
+```
+
+### NLPModels wrapper
+
+Alternatively, one can use NLPModels.jl to wrap any evaluators implemented
+in Argos. This amounts simply to:
+```julia
+nlp = Argos.FullSpaceEvaluator("case57.m")
+# Wrap in NLPModels
+model = Argos.OPFModel(nlp)
+
+x0 = NLPModels.get_x0(model)
+obj = NLPModels.obj(model, x0)
+
+```
+Once the evaluator wrapped inside NLPModels, we can leverage any
+solver implemented in [JuliaSmoothOptimizers](https://github.com/JuliaSmoothOptimizers/)
+to solve the OPF problem.
+
+
+## How to deport the solution of the OPF on the GPU?
 [`ExaPF.jl`](https://github.com/exanauts/ExaPF-Opt.jl) is
 using [`KernelAbstractions`](https://github.com/JuliaGPU/KernelAbstractions.jl)
 to implement all its core operations. Hence, deporting the computation
@@ -65,6 +125,7 @@ on GPU accelerators is straightforward. Argos.jl inherits this behavior and
 all evaluators can be instantiated on GPU accelerators, simply as
 ```julia
 using CUDAKernels # Load CUDA backend for KernelAbstractions
+using ArgosCUDA
 nlp = Argos.ReducedSpaceEvaluator("case57.m"; device=CUDADevice())
 ```
 When doing so, all kernels are instantiated on the GPU to avoid
@@ -84,22 +145,4 @@ nlp = Argos.ReducedSpaceEvaluator("case57.m"; device=CUDADevice(), nbatch_hessia
 ```
 Note that on large instances, the batch computation could be quite heavy on the
 GPU's memory.
-
-
-## MOI wrapper
-
-Argos implements a wrapper to [MathOptInterface](https://github.com/jump-dev/MathOptInterface.jl)
-to solve the optimal power flow problem directly in the reduced space
-induced by the power flow equations:
-
-```julia
-nlp = Argos.ReducedSpaceEvaluator("case57.m")
-optimizer = Ipopt.Optimizer() # MOI optimizer
-# Use LBFGS algorithm, as reduced Hessian is not available by default!
-MOI.set(optimizer, MOI.RawOptimizerAttribute("hessian_approximation"), "limited-memory")
-# Update tolerance to be above tolerance of Newton-Raphson subsolver
-MOI.set(optimizer, MOI.RawOptimizerAttribute("tol"), 1e-4)
-# Solve reduced space problem
-solution = Argos.optimize!(optimizer, nlp)
-```
 
