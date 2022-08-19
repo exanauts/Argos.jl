@@ -198,7 +198,13 @@ function MadNLP.eval_lag_hess_wrapper!(ipp::MadNLP.InteriorPointSolver, kkt::Mix
 end
 
 # Overload linear solve by Schur complement approach
-function MadNLP.solve_refine_wrapper!(ipp::MadNLP.InteriorPointSolver{<:MixedAuglagKKTSystem}, x, b)
+function MadNLP.solve_refine_wrapper!(
+    ipp::MadNLP.InteriorPointSolver{<:MixedAuglagKKTSystem},
+    x_r::MadNLP.AbstractKKTVector,
+    b_r::MadNLP.AbstractKKTVector,
+)
+    x = MadNLP.primal_dual(x_r)
+    b = MadNLP.primal_dual(b_r)
     kkt = ipp.kkt
     cnt = ipp.cnt
     ρ = kkt.aug.ρ # current penalty

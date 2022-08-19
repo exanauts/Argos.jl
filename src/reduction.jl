@@ -26,7 +26,7 @@ function LinearAlgebra.mul!(y::AbstractArray, S::ImplicitSensitivity, x::Abstrac
 end
 
 # TODO: we should not modify x here
-function tmul!(y::AbstractArray, S::ImplicitSensitivity, x::AbstractArray, alpha, beta) where {N, T, Imp<:ImplicitSensitivity}
+function tmul!(y::AbstractArray, S::ImplicitSensitivity, x::AbstractArray, alpha, beta)
     ldiv!(S.lujac', x)
     mul!(y, S.Gu', x, -alpha, beta)
 end
