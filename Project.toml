@@ -16,7 +16,7 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 [compat]
 CUDA = "^3.8"
 CUDAKernels = "0.4"
-ExaPF = "~0.7.3"
+ExaPF = "~0.8"
 FiniteDiff = "2.7"
 Ipopt = "1"
 KernelAbstractions = "0.8"
