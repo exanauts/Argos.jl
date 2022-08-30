@@ -159,3 +159,18 @@ function fixed_diag!(dest, ind_fixed, val)
     end
 end
 
+# TODO: forgiving function should not belong to Argos
+function MadNLP.solve!(M::MadNLP.LapackCPUSolver{T}, x::SubArray{T}) where T
+    if M.opt.lapack_algorithm == MadNLP.BUNCHKAUFMAN
+        MadNLP.solve_bunchkaufman!(M,x)
+    elseif M.opt.lapack_algorithm == MadNLP.LU
+        MadNLP.solve_lu!(M,x)
+    elseif M.opt.lapack_algorithm == MadNLP.QR
+        MadNLP.solve_qr!(M,x)
+    elseif M.opt.lapack_algorithm == MadNLP.CHOLESKY
+        MadNLP.solve_cholesky!(M,x)
+    else
+        error(MadNLP.LOGGER,"Invalid lapack_algorithm")
+    end
+end
+
