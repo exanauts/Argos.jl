@@ -19,5 +19,6 @@ using MadNLP
 include("kernels.jl")
 include("sparse.jl")
 include("reduction.jl")
+include("api.jl")
 
 end # module
