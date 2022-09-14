@@ -6,56 +6,63 @@ function _test_results_match(ips1, ips2; atol=1e-10)
     @test ips1.cnt.k == ips2.cnt.k
     @test ips1.obj_val ≈ ips2.obj_val atol=atol
     @test ips1.x ≈ ips2.x atol=atol
-    @test ips1.l ≈ ips2.l atol=atol
+    @test ips1.y ≈ ips2.y atol=atol
 end
 
 # Solve with default options (reference).
 function _madnlp_default(nlp; kwargs...)
     Argos.reset!(nlp)
-    options = Dict{Symbol, Any}(kwargs...)
     mnlp = Argos.OPFModel(nlp)
-    ips = MadNLP.InteriorPointSolver(mnlp; option_dict=options)
-    MadNLP.optimize!(ips)
+    ips = MadNLP.MadNLPSolver(mnlp; kwargs...)
+    MadNLP.solve!(ips)
     return ips
 end
 
 # Solve with DENSE_KKT_SYSTEM
 function _madnlp_dense_kkt(nlp; kwargs...)
     Argos.reset!(nlp)
-    options = Dict{Symbol, Any}(kwargs...)
-    options[:kkt_system] = MadNLP.DENSE_KKT_SYSTEM
-    options[:linear_solver] = MadNLP.MadNLPLapackCPU
-    options[:dual_initialized] = true
     mnlp = Argos.OPFModel(nlp)
-    ipd = MadNLP.InteriorPointSolver(mnlp; option_dict=options)
-    MadNLP.optimize!(ipd)
+    ipd = MadNLP.MadNLPSolver(
+        mnlp;
+        kkt_system=MadNLP.DENSE_KKT_SYSTEM,
+        linear_solver=LapackCPUSolver,
+        kwargs...
+    )
+    MadNLP.solve!(ipd)
     return ipd
 end
 
 # Solve with DENSE_CONDENSED_KKT_SYSTEM
 function _madnlp_condensed_kkt(nlp; kwargs...)
     Argos.reset!(nlp)
-    options = Dict{Symbol, Any}(kwargs...)
-    options[:kkt_system] = MadNLP.DENSE_CONDENSED_KKT_SYSTEM
-    options[:linear_solver] = MadNLP.MadNLPLapackCPU
-    options[:dual_initialized] = true
     mnlp = Argos.OPFModel(nlp)
-    ipc = MadNLP.InteriorPointSolver(mnlp; option_dict=options)
-    MadNLP.optimize!(ipc)
+    ipc = MadNLP.MadNLPSolver(
+        mnlp;
+        kkt_system=MadNLP.DENSE_CONDENSED_KKT_SYSTEM,
+        linear_solver=LapackCPUSolver,
+        kwargs...
+    )
+    MadNLP.solve!(ipc)
     return ipc
 end
 
 # Solve with BieglerKKTSystem
 function _madnlp_biegler_kkt(nlp; kwargs...)
+    T = Float64
+    VI = Vector{Int}
+    VT = Vector{T}
+    MT = Matrix{T}
+
     Argos.reset!(nlp)
     options_biegler = Dict{Symbol, Any}(kwargs...)
-    options_biegler[:linear_solver] = MadNLP.MadNLPLapackCPU
-    madopt = MadNLP.Options(linear_solver=MadNLP.MadNLPLapackCPU)
-    MadNLP.set_options!(madopt, options_biegler, Dict())
-    KKT = Argos.BieglerKKTSystem{Float64, Vector{Int}, Vector{Float64}, Matrix{Float64}}
+    options_biegler[:linear_solver] = LapackCPUSolver
+    opt_ipm, opt_linear, logger = MadNLP.load_options(; options_biegler...)
+
+    KKT = Argos.BieglerKKTSystem{T, VI, VT, MT}
+
     mnlp = Argos.OPFModel(nlp)
-    ipb = MadNLP.InteriorPointSolver{KKT}(mnlp, madopt; option_linear_solver=options_biegler)
-    MadNLP.optimize!(ipb)
+    ipb = MadNLP.MadNLPSolver{T, KKT}(mnlp, opt_ipm, opt_linear; logger=logger)
+    MadNLP.solve!(ipb)
     return ipb
 end
 
@@ -97,7 +104,7 @@ end
     datafile = joinpath(INSTANCES_DIR, case)
 
     ips = Argos.run_opf(datafile, form; tol=1e-5, print_level=MadNLP.ERROR)
-    @test isa(ips, MadNLP.InteriorPointSolver)
+    @test isa(ips, MadNLP.MadNLPSolver)
     @test ips.status == MadNLP.SOLVE_SUCCEEDED
 end
 

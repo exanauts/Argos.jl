@@ -1,5 +1,5 @@
 
-struct BieglerKKTSystem{T, VI, VT, MT, SMT} <: MadNLP.AbstractReducedKKTSystem{T, MT}
+struct BieglerKKTSystem{T, VI, VT, MT, SMT} <: MadNLP.AbstractReducedKKTSystem{T, VT, MT}
     K::HJDJ{VI,VT,SMT}
     Wref::SMT
     W::SMT
@@ -306,7 +306,7 @@ function MadNLP.build_kkt!(kkt::BieglerKKTSystem{T, VI, VT, MT}) where {T, VI, V
 end
 
 function MadNLP.solve_refine_wrapper!(
-    ips::MadNLP.InteriorPointSolver{<:BieglerKKTSystem{T,VI,VT,MT}},
+    ips::MadNLP.MadNLPSolver{T, <:BieglerKKTSystem{T,VI,VT,MT}},
     x_r::MadNLP.AbstractKKTVector,
     b_r::MadNLP.AbstractKKTVector,
 ) where {T, VI, VT, MT}
@@ -401,7 +401,7 @@ function MadNLP.solve_refine_wrapper!(
     return solve_status
 end
 
-function MadNLP.set_aug_RR!(kkt::BieglerKKTSystem, ips::MadNLP.InteriorPointSolver, RR::MadNLP.RobustRestorer)
+function MadNLP.set_aug_RR!(kkt::BieglerKKTSystem, ips::MadNLP.MadNLPSolver, RR::MadNLP.RobustRestorer)
     copyto!(kkt.pr_diag, ips.zl./(ips.x.-ips.xl) .+ ips.zu./(ips.xu.-ips.x) .+ RR.zeta.*RR.D_R.^2)
     copyto!(kkt.du_diag, .-RR.pp./RR.zp .- RR.nn./RR.zn)
 end

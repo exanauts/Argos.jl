@@ -42,7 +42,7 @@ function Argos.update!(K::Argos.HJDJ, A, D)
     spgemm!('N', 'N', 1.0, K.Jt, A, 0.0, K.JtJ, 'O')
 end
 
-function MadNLP.set_aug_diagonal!(kkt::Argos.BieglerKKTSystem{T, VI, VT, MT}, ips::MadNLP.InteriorPointSolver) where {T, VI<:CuVector{Int}, VT<:CuVector{T}, MT<:CuMatrix{T}}
+function MadNLP.set_aug_diagonal!(kkt::Argos.BieglerKKTSystem{T, VI, VT, MT}, ips::MadNLP.MadNLPSolver) where {T, VI<:CuVector{Int}, VT<:CuVector{T}, MT<:CuMatrix{T}}
     haskey(kkt.etc, :pr_diag_host) || (kkt.etc[:pr_diag_host] = Vector{T}(undef, length(kkt.pr_diag)))
     pr_diag_h = kkt.etc[:pr_diag_host]::Vector{T}
     # Broadcast is not working as MadNLP array are allocated on the CPU,

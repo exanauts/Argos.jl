@@ -43,7 +43,7 @@ end
 
 # Solve subproblem with MadNLP
 function solve_subproblem!(
-    algo::AuglagSolver{<:MadNLP.InteriorPointSolver}, aug::AugLagEvaluator, uₖ;
+    algo::AuglagSolver{<:MadNLP.MadNLPSolver}, aug::AugLagEvaluator, uₖ;
     tol=-1, niter=1
 )
     n_iter = aug.counter.hessian
@@ -71,7 +71,7 @@ function solve_subproblem!(
 end
 
 get_name(solver::AuglagSolver{<:MOI.AbstractOptimizer}) = MOI.get(solver.optimizer, MOI.SolverName())
-get_name(solver::AuglagSolver{<:MadNLP.InteriorPointSolver}) = "MadNLP+"
+get_name(solver::AuglagSolver{<:MadNLP.MadNLPSolver}) = "MadNLP+"
 
 #=
     CORE ALGORITHM

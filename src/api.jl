@@ -49,8 +49,8 @@ struct FullSpace <: AbstractOPFFormulation end
 function run_opf(datafile::String, ::FullSpace; options...)
     flp = FullSpaceEvaluator(datafile)
     model = OPFModel(flp)
-    ips = MadNLP.InteriorPointSolver(model; options...)
-    MadNLP.optimize!(ips)
+    ips = MadNLP.MadNLPSolver(model; options...)
+    MadNLP.solve!(ips)
     return ips
 end
 
@@ -72,13 +72,13 @@ function run_opf(datafile::String, ::BieglerReduction; options...)
     flp = FullSpaceEvaluator(datafile)
     model = OPFModel(flp)
 
-    madopt = MadNLP.Options(linear_solver=MadNLPLapackCPU)
-    opt_dict = Dict{Symbol, Any}()
-    MadNLP.set_options!(madopt, opt_dict, options)
+    madnlp_options = Dict{Symbol, Any}(options...)
+    madnlp_options[:linear_solver] = MadNLP.LapackCPUSolver
+    opt_ipm, opt_linear, logger = MadNLP.load_options(; madnlp_options...)
 
     KKT = Argos.BieglerKKTSystem{Float64, Vector{Int}, Vector{Float64}, Matrix{Float64}}
-    ips = MadNLP.InteriorPointSolver{KKT}(model, madopt; option_linear_solver=opt_dict)
-    MadNLP.optimize!(ips)
+    ips = MadNLP.MadNLPSolver{Float64, KKT}(model, opt_ipm, opt_linear; logger=logger)
+    MadNLP.solve!(ips)
     return ips
 end
 
@@ -108,14 +108,13 @@ struct DommelTinney <: AbstractOPFFormulation end
 function run_opf(datafile::String, ::DommelTinney; options...)
     nlp = ReducedSpaceEvaluator(datafile)
     model = OPFModel(nlp)
-    opt_dict = Dict{Symbol, Any}(
-        :kkt_system=>MadNLP.DENSE_CONDENSED_KKT_SYSTEM,
-        :linear_solver=>MadNLPLapackCPU,
-        :lapackcpu_algorithm=>MadNLPLapackCPU.CHOLESKY,
-    )
+    madnlp_options = Dict{Symbol, Any}(options...)
+    madnlp_options[:kkt_system] = MadNLP.DENSE_CONDENSED_KKT_SYSTEM
+    madnlp_options[:linear_solver] = MadNLP.LapackCPUSolver
+    madnlp_options[:lapack_algorithm] = MadNLP.CHOLESKY
 
-    ips = MadNLP.InteriorPointSolver(model; option_dict=opt_dict, options...)
-    MadNLP.optimize!(ips)
+    ips = MadNLP.MadNLPSolver(model; madnlp_options...)
+    MadNLP.solve!(ips)
     return ips
 end
 

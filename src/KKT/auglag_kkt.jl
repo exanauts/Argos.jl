@@ -3,7 +3,7 @@
 =#
 
 # Supports only bound-constrained optimization problem (so no Jacobian)!
-struct MixedAuglagKKTSystem{T, VT, MT} <: MadNLP.AbstractKKTSystem{T, MT}
+struct MixedAuglagKKTSystem{T, VT, MT} <: MadNLP.AbstractKKTSystem{T, VT, MT}
     aug::AbstractNLPEvaluator # for Auglag information
     n::Int
     m::Int
@@ -108,7 +108,7 @@ MadNLP.compress_jacobian!(kkt::MixedAuglagKKTSystem) = nothing
 MadNLP.jtprod!(y::AbstractVector, kkt::MixedAuglagKKTSystem, x::AbstractVector) = nothing
 MadNLP.set_jacobian_scaling!(kkt::MixedAuglagKKTSystem, constraint_scaling::AbstractVector) = nothing
 
-function MadNLP.set_aug_diagonal!(kkt::MixedAuglagKKTSystem, ips::MadNLP.InteriorPointSolver)
+function MadNLP.set_aug_diagonal!(kkt::MixedAuglagKKTSystem, ips::MadNLP.MadNLPSolver)
     copyto!(kkt.pr_diag, ips.zl./(ips.x.-ips.xl) .+ ips.zu./(ips.xu.-ips.x))
     fill!(kkt.du_diag, 0.0)
 end
@@ -162,7 +162,7 @@ function MadNLP.mul!(y::AbstractVector, kkt::MixedAuglagKKTSystem, x::AbstractVe
 end
 
 # Overload Hessian evaluation
-function MadNLP.eval_lag_hess_wrapper!(ipp::MadNLP.InteriorPointSolver, kkt::MixedAuglagKKTSystem, x::Vector{Float64},l::Vector{Float64};is_resto=false)
+function MadNLP.eval_lag_hess_wrapper!(ipp::MadNLP.MadNLPSolver, kkt::MixedAuglagKKTSystem, x::Vector{Float64},l::Vector{Float64};is_resto=false)
     nlp = ipp.nlp
     cnt = ipp.cnt
     # Scaling
@@ -199,10 +199,10 @@ end
 
 # Overload linear solve by Schur complement approach
 function MadNLP.solve_refine_wrapper!(
-    ipp::MadNLP.InteriorPointSolver{<:MixedAuglagKKTSystem},
+    ipp::MadNLP.MadNLPSolver{T, <:MixedAuglagKKTSystem{T, VT, MT}},
     x_r::MadNLP.AbstractKKTVector,
     b_r::MadNLP.AbstractKKTVector,
-)
+) where {T, VT, MT}
     x = MadNLP.primal_dual(x_r)
     b = MadNLP.primal_dual(b_r)
     kkt = ipp.kkt
