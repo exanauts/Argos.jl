@@ -1,5 +1,5 @@
 mutable struct StochEvaluator{T, VI, VT, MT, JacCons, HessLag} <: AbstractNLPEvaluator
-    model::ExaPF.PolarForm{T, VI, VT, MT}
+    model::ExaPF.BlockPolarForm{T, VI, VT, MT}
     nscen::Int
     nx::Int
     nu::Int
@@ -23,8 +23,8 @@ mutable struct StochEvaluator{T, VI, VT, MT, JacCons, HessLag} <: AbstractNLPEva
     g_max::VT
 
     # Cache
-    stack::ExaPF.BlockNetworkStack
-    ∂stack::ExaPF.BlockNetworkStack
+    stack::ExaPF.NetworkStack
+    ∂stack::ExaPF.NetworkStack
 
     jac::JacCons
     hess::HessLag
@@ -42,6 +42,8 @@ function StochEvaluator(
     @assert size(ploads, 2) == size(qloads, 2)
     nscen = size(ploads, 2)
 
+    blk_model = ExaPF.BlockPolarForm(model, nscen)
+
     nx = ExaPF.number(model, State())
     nu = ExaPF.number(model, Control())
 
@@ -53,18 +55,20 @@ function StochEvaluator(
     mapz = [blk_mapx; blk_mapu[1:nu]]
 
     # Expressions
-    basis = ExaPF.PolarBasis(model)
-    costs = ExaPF.CostFunction(model)
+    basis = ExaPF.PolarBasis(blk_model)
+    costs = ExaPF.CostFunction(blk_model)
     constraints_expr = [
-        ExaPF.PowerFlowBalance(model),
-        ExaPF.PowerGenerationBounds(model),
-        ExaPF.LineFlows(model),
+        ExaPF.PowerFlowBalance(blk_model),
+        ExaPF.PowerGenerationBounds(blk_model),
+        ExaPF.LineFlows(blk_model),
     ]
     constraints = ExaPF.MultiExpressions(constraints_expr)
-    m = length(constraints) * nscen
+    m = length(constraints)
 
-    stack = ExaPF.BlockNetworkStack(model, ploads, qloads)
-    ∂stack = ExaPF.BlockNetworkStack(model, ploads, qloads)
+    stack = ExaPF.NetworkStack(blk_model)
+    ∂stack = ExaPF.NetworkStack(blk_model)
+    ExaPF.set_params!(stack, ploads, qloads)
+    ExaPF.set_params!(∂stack, ploads, qloads)
 
     # Buffers
     obj = VT(undef, nscen)
@@ -72,28 +76,30 @@ function StochEvaluator(
     grad_control = VT(undef, nu * nscen)
     y = VT(undef, m + nscen)
 
-    s_min, s_max = ExaPF.bounds(model, stack)
+    s_min, s_max = ExaPF.bounds(blk_model, stack)
     x_min, x_max = s_min[mapz], s_max[mapz]
 
-    g_min = vcat([repeat(ExaPF.bounds(model, f)[1], nscen) for f in constraints_expr]...)
-    g_max = vcat([repeat(ExaPF.bounds(model, f)[2], nscen) for f in constraints_expr]...)
+    # g_min = vcat([ExaPF.bounds(blk_model, f)[1] for f in constraints_expr]...)
+    # g_max = vcat([ExaPF.bounds(blk_model, f)[2] for f in constraints_expr]...)
+    g_min, g_max = ExaPF.bounds(blk_model, constraints)
+    # g_max = ExaPF.bounds(blk_model, constraints)
 
     # Remove bounds below a given threshold
     g_max = min.(g_max, 1e5)
     # Remove equalities
     # TODO
 
-    jac = ExaPF.ArrowheadJacobian(model, constraints ∘ basis, ExaPF.AllVariables(), nscen)
+    jac = ExaPF.ArrowheadJacobian(blk_model, constraints ∘ basis, ExaPF.AllVariables())
     ExaPF.set_params!(jac, stack)
     lagrangian_expr = [costs; constraints_expr]
     lagrangian = ExaPF.MultiExpressions(lagrangian_expr)
-    hess = ExaPF.ArrowheadHessian(model, lagrangian ∘ basis, ExaPF.AllVariables(), nscen)
+    hess = ExaPF.ArrowheadHessian(blk_model, lagrangian ∘ basis, ExaPF.AllVariables())
     ExaPF.set_params!(hess, stack)
 
     map2tril = tril_mapping(hess.H)
 
     return StochEvaluator(
-        model, nscen, nx*nscen, nu, VI(blk_mapu), VI(blk_mapx), VI(mapz),
+        blk_model, nscen, nx*nscen, nu, VI(blk_mapu), VI(blk_mapx), VI(mapz),
         basis, costs, constraints,
         obj, cons, grad_control, y, x_min, x_max, g_min, g_max,
         stack, ∂stack, jac, hess, map2tril,
@@ -246,7 +252,7 @@ function reset!(nlp::StochEvaluator)
     fill!(nlp._cons, 0)
     empty!(nlp.stack)
     empty!(nlp.∂stack)
-    ExaPF.init!(nlp.model, nlp.stack; loads=false)
+    ExaPF.init!(nlp.model, nlp.stack; update_loads=false)
     fill!(nonzeros(nlp.hess.H), 0)
     return
 end
