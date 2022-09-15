@@ -174,7 +174,7 @@ struct BatchReduction{MT,Op} <: AbstractReduction
     S::Op
 end
 
-function BatchReduction(polar::PolarForm{T, VI, VT, MT}, S, nx, nu, nbatch) where {T, VI, VT, MT}
+function BatchReduction(polar::ExaPF.AbstractPolarFormulation{T, VI, VT, MT}, S, nx, nu, nbatch) where {T, VI, VT, MT}
     z   = MT(undef, nx, nbatch) ; fill!(z, zero(T))
     ψ   = MT(undef, nx, nbatch) ; fill!(ψ, zero(T))
     v  = MT(undef, nu, nbatch)  ; fill!(v, zero(T))
