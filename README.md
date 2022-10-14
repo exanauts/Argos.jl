@@ -7,20 +7,20 @@
 
 Argos.jl extends the power-system modeler [ExaPF.jl](https://github.com/exanauts/ExaPF.jl)
 and the interior-point solver [MadNLP.jl](https://github.com/MadNLP/MadNLP.jl)
-to solve the optimal power flow (OPF) problem entirely in Julia.
+to solve optimal power flow (OPF) problems entirely in Julia.
 
 The package is structured as follows:
 - in `src/Evaluators/`, various optimization evaluators implement the different callbacks (objective, gradient, Hessian)
-  required in the optimization algorithms .
+  required in the optimization algorithms.
 - in `src/Algorithms/`, an Augmented Lagrangian algorithm is implemented, targeting
   primarily the resolution of large-scale OPF problems on GPU architectures.
 - in `src/Wrappers/`, a wrapper for [MathOptInterface](https://github.com/jump-dev/MathOptInterface.jl) and a wrapper for [NLPModels.jl](https://github.com/JuliaSmoothOptimizers/NLPModels.jl/) are implemented.
 
 ## Installation
 
-Argos.jl is currently unregistered. To install it, enter in the REPL the command:
+One can install Argos with the default package manager:
 ```julia
-add "https://github.com/exanauts/Argos.jl"
+add Argos
 ```
 
 To check that everything is working as expected, please run
@@ -33,8 +33,9 @@ on the CPU and, if available, on a CUDA GPU.
 
 ## Quickstart
 
-Once Argos installed, we can use the function `run_opf` to solve
-the OPF with MadNLP. The function takes as input any MATPOWER file:
+The function `run_opf` is the entry-point to Argos.
+It takes as input a path to a MATPOWER file and solve
+the associated OPF with MadNLP:
 ```julia
 # Solve in the full-space
 ips = Argos.run_opf("data/case9.m", Argos.FullSpace())
@@ -118,7 +119,7 @@ to solve the OPF problem.
 
 
 ## How to deport the solution of the OPF on the GPU?
-[`ExaPF.jl`](https://github.com/exanauts/ExaPF-Opt.jl) is
+[`ExaPF.jl`](https://github.com/exanauts/ExaPF.jl) is
 using [`KernelAbstractions`](https://github.com/JuliaGPU/KernelAbstractions.jl)
 to implement all its core operations. Hence, deporting the computation
 on GPU accelerators is straightforward. Argos.jl inherits this behavior and
@@ -137,12 +138,12 @@ GPU, the reduced Hessian can be evaluated in parallel.
 
 ### Batch evaluation of the reduced Hessian
 Instead of computing the reduced Hessian one Hessian-vector product after one Hessian-vector product,
-the Hessian-vector products are directly evaluated in batch in this case.
+the Hessian-vector products can be evaluated in batch.
 To activate the batch evaluation for the reduced Hessian, please specify
 the number of Hessian-vector products to perform in one batch as
 ```julia
 nlp = Argos.ReducedSpaceEvaluator("case57.m"; device=CUDADevice(), nbatch_hessian=8)
 ```
-Note that on large instances, the batch computation could be quite heavy on the
+Note that on large instances, the batch computation can be demanding in term of
 GPU's memory.
 
