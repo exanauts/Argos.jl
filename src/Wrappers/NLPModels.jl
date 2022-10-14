@@ -112,6 +112,11 @@ function NLPModels.jac_coord!(m::OPFModel, x::AbstractVector, jac::AbstractVecto
     end
 end
 
+function NLPModels.jtprod!(m::OPFModel, x::AbstractVector, v::AbstractVector, jv::AbstractVector)
+    _update!(m, x)
+    jtprod!(m.nlp, jv, x, v)
+end
+
 # Jacobian: dense callback
 function MadNLP.jac_dense!(m::OPFModel, x, J::AbstractMatrix)
     _update!(m, x)
@@ -140,5 +145,32 @@ function MadNLP.hess_dense!(m::OPFModel, x, l, hess::AbstractMatrix; obj_weight=
     m.timers.hessian_time += @elapsed begin
         hessian_lagrangian!(m.nlp, hess, x, l, obj_weight)
     end
+end
+
+# ## Note
+# When we are working in the reduced space, we modify the scaling
+# of the problem to avoid depending on the inverse of the Jacobian Gx.
+
+function MadNLP.scale_objective(m::OPFModel, grad::AbstractVector; max_gradient=1e-8)
+    # nlp = backend(m)
+    # g_ = isa(nlp, ReducedSpaceEvaluator) ? nlp.grad : grad
+    return 1e-4 #min(1, max_gradient / norm(g_, Inf))
+end
+
+function MadNLP.scale_constraints!(
+    m::OPFModel,
+    con_scale::AbstractVector,
+    jac::AbstractMatrix;
+    max_gradient=1e-8,
+)
+    # nlp = backend(m)
+    # J = nlp.jac.J
+    # fill!(con_scale, 0.0)
+    # Ji, Jj, Jv = SparseArrays.findnz(J)
+    # for i in 1:SparseArrays.nnz(J)
+    #     row = @inbounds Ji[i]
+    #     @inbounds con_scale[row] = max(con_scale[row], abs(Jv[i]))
+    # end
+    con_scale .= 1e-2 #min.(1.0, max_gradient ./ con_scale)
 end
 

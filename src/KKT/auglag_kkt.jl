@@ -3,7 +3,7 @@
 =#
 
 # Supports only bound-constrained optimization problem (so no Jacobian)!
-struct MixedAuglagKKTSystem{T, VT, MT} <: MadNLP.AbstractKKTSystem{T, VT, MT}
+struct MixedAuglagKKTSystem{T, VT, MT, QN} <: MadNLP.AbstractKKTSystem{T, VT, MT, QN}
     aug::AbstractNLPEvaluator # for Auglag information
     n::Int
     m::Int

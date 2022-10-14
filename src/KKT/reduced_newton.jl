@@ -1,5 +1,6 @@
+using Random
 
-struct BieglerKKTSystem{T, VI, VT, MT, SMT} <: MadNLP.AbstractReducedKKTSystem{T, VT, MT}
+struct BieglerKKTSystem{T, VI, VT, MT, SMT, QN} <: MadNLP.AbstractReducedKKTSystem{T, VT, MT, QN}
     K::HJDJ{VI,VT,SMT}
     Wref::SMT
     W::SMT
@@ -41,10 +42,11 @@ struct BieglerKKTSystem{T, VI, VT, MT, SMT} <: MadNLP.AbstractReducedKKTSystem{T
     ind_W_fixed::VI
     con_scale::VT
     jacobian_scaling::VT
+    qn::QN
     etc::Dict{Symbol,Any}
 end
 
-function BieglerKKTSystem{T, VI, VT, MT}(nlp::OPFModel, ind_cons=MadNLP.get_index_constraints(nlp); max_batches=256) where {T, VI, VT, MT}
+function BieglerKKTSystem{T, VI, VT, MT, SMT, QN}(nlp::OPFModel, ind_cons=MadNLP.get_index_constraints(nlp); max_batches=20) where {T, VI, VT, MT, SMT, QN}
     n_slack = length(ind_cons.ind_ineq)
     n = NLPModels.get_nvar(nlp)
     m = NLPModels.get_ncon(nlp)
@@ -58,7 +60,6 @@ function BieglerKKTSystem{T, VI, VT, MT}(nlp::OPFModel, ind_cons=MadNLP.get_inde
 
     Wref = evaluator.hess.H
     W = copy(Wref)
-    SMT = typeof(W)
     h_V = VT(undef, nnzh) ; fill!(h_V, zero(T))
 
     J = copy(evaluator.jac.J)
@@ -122,10 +123,18 @@ function BieglerKKTSystem{T, VI, VT, MT}(nlp::OPFModel, ind_cons=MadNLP.get_inde
     ind_Gu_fixed, _ = get_fixed_nnz(Gu, ind_fixed .- nx, false)
     ind_W_fixed, ind_W_fixed_diag = get_fixed_nnz(W, ind_fixed, true)
 
+    if QN <: BlockBFGS
+        qn = BlockBFGS{T, VT, MT}(nu, nbatches)
+    else
+        qn = QN(n)
+    end
     # Buffers
-    etc = Dict{Symbol, Any}(:reduction_time=>0.0)
+    etc = Dict{Symbol, Any}(
+        :reduction_time=>0.0,
+        :S => zeros(nu, 0),
+    )
 
-    return BieglerKKTSystem{T, VI, VT, MT, SMT}(
+    return BieglerKKTSystem{T, VI, VT, MT, SMT, QN}(
         K, Wref, W, J, A, Gx, Gu, mapA, mapGx, mapGu,
         h_V, j_V,
         pr_diag, du_diag,
@@ -134,7 +143,7 @@ function BieglerKKTSystem{T, VI, VT, MT}(nlp::OPFModel, ind_cons=MadNLP.get_inde
         nx, nu,
         ind_cons.ind_ineq, ind_fixed,
         ind_Gu_fixed, ind_A_fixed, ind_W_fixed_diag, ind_W_fixed,
-        con_scale, jacobian_scaling,
+        con_scale, jacobian_scaling, qn,
         etc,
     )
 end
@@ -288,7 +297,7 @@ function assemble_condensed_matrix!(kkt::BieglerKKTSystem, K::HJDJ)
     update!(K, A, D, prx)
 end
 
-function MadNLP.build_kkt!(kkt::BieglerKKTSystem{T, VI, VT, MT}) where {T, VI, VT, MT}
+function MadNLP.build_kkt!(kkt::BieglerKKTSystem{T, VI, VT, MT, SMT, QN}) where {T, VI, VT, MT, SMT, QN<:MadNLP.ExactHessian}
     nx = kkt.nx
     fixed!(nonzeros(kkt.W), kkt.ind_W_fixed, 0.0)
     fixed!(nonzeros(kkt.W), kkt.ind_W_fixed_diag, 1.0)
@@ -300,6 +309,136 @@ function MadNLP.build_kkt!(kkt::BieglerKKTSystem{T, VI, VT, MT}) where {T, VI, V
         reduce!(kkt.reduction, kkt.aug_com, kkt.K)
     end
     kkt.etc[:reduction_time] += timed
+
+    # Regularize final reduced matrix to ensure it is full-rank
+    fixed_diag!(kkt.aug_com, kkt.ind_fixed .- nx, 1.0)
+end
+
+function mymul!(red, y, H, x)
+    nx = size(red.z, 1)
+    z = view(red.z, 1:nx)
+    ψ = view(red.ψ, 1:nx)
+    mul!(z, red.S, x, 1.0, 0.0)
+    tgtmul!(ψ, y, H, z, x, 1.0, 0.0)
+    tmul!(y, red.S, ψ, 1.0, 1.0)
+    return y
+end
+
+function cgdir(red, A, V, k, b)
+    n, p = size(V)
+    # @assert size(A, 1) == n
+    @assert k <= p
+    x0 = rand(n)
+    t0 = zeros(n)
+    rk = zeros(n)
+    mymul!(red, rk, A, x0)
+    rk .-= b
+
+    pk = -rk
+    for i in 1:k
+        V[:, i] .= pk
+        rkm = dot(rk, rk)
+        mymul!(red, t0, A, pk)
+        alphak = rkm / dot(pk, t0)
+        rk .+= alphak .* t0
+        betak = dot(rk, rk) / rkm
+        pk .= .-rk .+ betak .* pk
+    end
+end
+
+function MadNLP.build_kkt!(kkt::BieglerKKTSystem{T, VI, VT, MT, SMT, QN}) where {T, VI, VT, MT, SMT, QN<:BlockBFGS}
+    qn = kkt.qn
+    red = kkt.reduction
+    nx, nu = kkt.nx, kkt.nu
+
+    fixed!(nonzeros(kkt.W), kkt.ind_W_fixed, 0.0)
+    fixed!(nonzeros(kkt.W), kkt.ind_W_fixed_diag, 1.0)
+
+    assemble_condensed_matrix!(kkt, kkt.K)
+    fill!(kkt.aug_com, 0.0)
+    update!(kkt.reduction)
+
+    if qn.shift[1] == -1
+        reduce!(kkt.reduction, qn.Bk, kkt.K)
+        copyto!(kkt.aug_com, qn.Bk)
+        fill!(red.tangents, 0.0)
+        qn.shift[1] = 1
+    else
+        nbatches = n_batches(red)
+
+        # Evaluate Batch Hessian-vector products
+        k = qn.shift[1]
+        V = red.tangents
+        offset = (k - 1) * nbatches
+        M = randn(nu, nbatches)
+        V .= M #- V * V' * M
+        # orth = qr(M)
+        # V .= orth.Q[:, 1:nbatches]
+        # fill!(V, 0)
+        # eij = randperm(nu)
+        # for j in 1:nbatches
+        #     V[eij[j], j] = 1.0
+        # end
+
+
+        # for j in 1:nbatches
+        #     i = (j+offset-1) % nu + 1
+        #     V[i, j] = 1.0
+        # end
+        # cgdir(kkt.reduction, kkt.K, V, nbatches, kkt.etc[:d])
+
+        if haskey(kkt.etc, :p)
+            V[:, 1] = kkt.etc[:p]
+        end
+
+        # orth = qr(V)
+        # V .= orth.Q[:, 1:nbatches]
+
+        fill!(view(kkt.K.Σ, 1+nx:nx+nu), 0)
+        adjoint_adjoint_reduction!(red, qn.HV, kkt.K, V)
+
+        # Block BFGS update
+        mul!(qn.BkV, qn.Bk, V)
+        mul!(qn.DD, V', qn.BkV)
+        MadNLP.symmetrize!(qn.DD)
+        J = cholesky(qn.DD)
+        transpose!(qn.Y, qn.BkV)
+        ldiv!(J, qn.Y)
+        mul!(qn.Bk, qn.BkV, qn.Y, -1.0, 1.0)
+
+        mul!(qn.DD, V', qn.HV)
+        MadNLP.symmetrize!(qn.DD)
+        J = cholesky(qn.DD; check=false)
+        if issuccess(J)
+            transpose!(qn.Y, qn.HV)
+            ldiv!(J, qn.Y)
+        else
+            println("fail")
+            N = pinv(qn.DD)
+            mul!(qn.Y, N, qn.HV')
+
+            # println("fail")
+            # reg = 1.0
+
+            # for i in 1:10
+            #     mul!(qn.DD, V', V, reg, 1.0)
+            #     reg *= 10
+            #     J = cholesky(qn.DD; check=false)
+            # end
+            # if !issuccess(J)
+            #     error("regularization failed")
+            # end
+        end
+
+        mul!(qn.Bk, qn.HV, qn.Y, 1.0, 1.0)
+
+        qn.shift[1] += 1
+
+        MadNLP.symmetrize!(qn.Bk)
+        copyto!(kkt.aug_com, qn.Bk)
+        pru = view(kkt.pr_diag, nx+1:nx+nu)
+        kkt.aug_com[diagind(kkt.aug_com)] .+= pru
+    end
 
     # Regularize final reduced matrix to ensure it is full-rank
     fixed_diag!(kkt.aug_com, kkt.ind_fixed .- nx, 1.0)
@@ -380,6 +519,9 @@ function MadNLP.solve_refine_wrapper!(
     du .= tu
     ips.cnt.linear_solver_time += @elapsed begin
         MadNLP.solve!(ips.linear_solver, du)
+        kkt.etc[:p] = du
+        kkt.etc[:d] = tu
+        kkt.etc[:S] = hcat(kkt.etc[:S], du)
     end
     solve_status = true
 

@@ -17,6 +17,7 @@ using MadNLP
 
 include("utils.jl")
 include("reduction.jl")
+include("block_bfgs.jl")
 include("Evaluators/Evaluators.jl")
 
 # Wrappers

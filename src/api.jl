@@ -76,7 +76,10 @@ function run_opf(datafile::String, ::BieglerReduction; options...)
     madnlp_options[:linear_solver] = MadNLP.LapackCPUSolver
     opt_ipm, opt_linear, logger = MadNLP.load_options(; madnlp_options...)
 
-    KKT = Argos.BieglerKKTSystem{Float64, Vector{Int}, Vector{Float64}, Matrix{Float64}}
+    SMT = SparseMatrixCSC{Float64, Int}
+    QN = BlockBFGS{Float64, Vector{Float64}}
+    # QN = MadNLP.ExactHessian{Float64, Vector{Float64}}
+    KKT = Argos.BieglerKKTSystem{Float64, Vector{Int}, Vector{Float64}, Matrix{Float64}, SMT, QN}
     ips = MadNLP.MadNLPSolver{Float64, KKT}(model, opt_ipm, opt_linear; logger=logger)
     MadNLP.solve!(ips)
     return ips

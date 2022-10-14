@@ -58,7 +58,9 @@ function _madnlp_biegler_kkt(nlp; kwargs...)
     options_biegler[:linear_solver] = LapackCPUSolver
     opt_ipm, opt_linear, logger = MadNLP.load_options(; options_biegler...)
 
-    KKT = Argos.BieglerKKTSystem{T, VI, VT, MT}
+    QN = MadNLP.ExactHessian{T, VT}
+    SMT = SparseMatrixCSC{T, Int}
+    KKT = Argos.BieglerKKTSystem{T, VI, VT, MT, SMT, QN}
 
     mnlp = Argos.OPFModel(nlp)
     ipb = MadNLP.MadNLPSolver{T, KKT}(mnlp, opt_ipm, opt_linear; logger=logger)
