@@ -1,32 +1,32 @@
 # Evaluators
 
-In `Argos.jl`, the evaluators are the final layer of the structure.
-They take as input a given `ExaPF.AbstractFormulation` and implement the
-callbacks for the optimization solvers.
+Argos wraps [ExaPF]() to gather the objective and the constraints
+associated to a particular OPF problem inside an `Evaluator`.
+The two principal evaluators are the `ReducedSpaceEvaluator`
+and the `FullSpaceEvaluator`.
+
 
 ## Overview of the AbstractNLPEvaluator
 
-An [`Argos.AbstractNLPEvaluator`](@ref) implements an optimization problem
+An [`Argos.AbstractNLPEvaluator`](@ref) implements the callbacks
+associated to a given optimization problem:
 associated with an underlying `ExaPF.AbstractFormulation`:
 ```math
+\min_{u \in \mathbb{R}^n} \;              f(u)
+\quad \text{subject to}\quad
+\left\{
 \begin{aligned}
-\min_{u \in \mathbb{R}^n} \;             & f(u)     \\
-\text{subject to} \quad & g(u) = 0 \\
+ & g(u) = 0 \\
                         & h(u) \leq 0.
 \end{aligned}
+\right.
 ```
 with $f: \mathbb{R}^n \to \mathbb{R}$ the objective function,
 $g: \mathbb{R}^n \to \mathbb{R}^{m_E}$ non-linear equality constraints and
 $h: \mathbb{R}^n \to \mathbb{R}^{m_I}$ non-linear inequality constraints.
 
-### Callbacks
-
-Most non-linear optimization algorithms rely on *callbacks* to pass
-information about the structure of the problem to the optimizer.
-In `Argos`, the implementation of the evaluators allows to have a proper splitting
-between the model (formulated in the `ExaPF.AbstractFormulation` layer)
-and the optimization algorithms. By design, the implementation
-of an [`Argos.AbstractNLPEvaluator`](@ref) shares a similar spirit with the implementations
+By design, the implementation
+of [`Argos.AbstractNLPEvaluator`](@ref) shares a similar spirit with the implementations
 introduced in other packages, as
 
 - MathOptInterface.jl's [AbstractNLPEvaluator](https://jump.dev/MathOptInterface.jl/stable/apireference/#MathOptInterface.AbstractNLPEvaluator)
@@ -215,24 +215,4 @@ all the different callbacks, independently of one other.
 !!! note
     Once the powerflow equations solved in a `update!` call, the solution ``x_k`` is stored implicitly in `nlp.buffer`. These values will be used as a starting point for the next resolution of powerflow equations.
 
-## Passing the problem to an optimization solver with MathOptInterface
 
-`Argos.jl` provides a utility to pass the non-linear structure
-specified by a [`Argos.AbstractNLPEvaluator`](@ref) to a `MathOptInterface` (MOI)
-optimization problem. That allows to solve the corresponding
-optimal power flow problem using any non-linear optimization solver compatible
-with MOI.
-
-For instance, we can solve the reduced problem specified
-in `nlp` with Ipopt. In a few lines of code:
-
-```julia
-using Ipopt
-optimizer = Ipopt.Optimizer()
-MOI.set(optimizer, MOI.RawParameter("print_level"), 5)
-MOI.set(optimizer, MOI.RawParameter("limited_memory_max_history"), 50)
-MOI.set(optimizer, MOI.RawParameter("hessian_approximation"), "limited-memory")
-solution = Argos.optimize!(optimizer, nlp)
-MOI.empty!(optimizer)
-
-```

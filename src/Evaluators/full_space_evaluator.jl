@@ -1,4 +1,9 @@
 
+"""
+    FullSpaceEvaluator{T, VI, VT, MT, JacCons, HessLag} <: AbstractNLPEvaluator
+
+Full-space evaluator fo OPF.
+"""
 mutable struct FullSpaceEvaluator{T, VI, VT, MT, JacCons, HessLag} <: AbstractNLPEvaluator
     model::ExaPF.PolarForm{T, VI, VT, MT}
     nx::Int

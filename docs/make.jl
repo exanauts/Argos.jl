@@ -18,10 +18,25 @@ makedocs(
     checkdocs = :exports,
     pages = [
         "Home" => "index.md",
-        "Evaluators" => "man/evaluators.md",
+        "Quickstart" => [
+            "quickstart/cpu.md",
+            "quickstart/cuda.md",
+        ],
+        "Manual" => [
+            "Overview" => "man/overview.md",
+            "Full-space" => "man/fullspace.md",
+            "Reduced-space" => "man/reducedspace.md",
+            "Evaluators" => "man/evaluators.md",
+        ],
+        "Wrappers" => [
+            "MathOptInterface" => "man/moi_wrapper.md",
+            "NLPModels" => "man/nlpmodel_wrapper.md",
+        ],
         "Library" => [
-            "Evaluators" => "lib/evaluators.md",
-        ]
+            "Evaluators API" => "lib/api.md",
+            "Evaluators Type" => "lib/evaluators.md",
+        ],
+        "References" => "references.md",
     ]
 )
 
