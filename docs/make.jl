@@ -47,7 +47,7 @@ makedocs(
 deploydocs(
     repo = "github.com/exanauts/Argos.jl.git",
     target = "build",
-    devbranch = "develop",
+    devbranch = "master",
     devurl = "dev",
     push_preview = true,
 )
