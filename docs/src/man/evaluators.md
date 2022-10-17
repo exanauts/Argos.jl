@@ -1,6 +1,6 @@
 # Evaluators
 
-Argos wraps [ExaPF]() to gather the objective and the constraints
+Argos wraps [ExaPF](https://github.com/exanauts/ExaPF.jl/) to gather the objective and the constraints
 associated to a particular OPF problem inside an `Evaluator`.
 The two principal evaluators are the `ReducedSpaceEvaluator`
 and the `FullSpaceEvaluator`.

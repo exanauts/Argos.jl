@@ -10,7 +10,7 @@ INSTANCES_DIR = joinpath(artifact_path(exadata_hash), "ExaData")
 
 Unless explicitly specified, Argos solves the OPF
 on the CPU. Argos provides 3 different methods to solve
-the OPF, all relying on the interior-point method.
+the OPF, all relying on the interior-point method (IPM).
 
 ---
 
@@ -23,7 +23,7 @@ the OPF, all relying on the interior-point method.
 ---
 
 - **Full-space** and **Biegler** are equivalent in exact arithmetic. **Full-space** solves the original (sparse) KKT system whereas **Biegler** uses a reduction method to find an equivalent (dense) linear system.
-- **Dommel & Tinney** is a port of the [classical algorithm of Dommel and Tinney](https://ieeexplore.ieee.org/abstract/document/4073461?casa_token=hJTPXuWhZPwAAAAA:eafEn2hG-_oQG5M-je0hGC86h4sZfdElvf0oBPqlfeNSbWWH1ckLC2RICB5EJO4M60SvAb-jaQ) originally proposed in 1968. It exploits the structure of the power flow equations to optimize only with relation to the OPF's degrees of freedom (the *control*, associated to the voltage at the PV nodes and the power generations). The reduction is the same as in **Biegler**, but **Dommel & Tinney** comprises an additional projection step to recover the dependent variables (the *state*). Currently, **Dommel & Tinney** uses the Newton-Raphson algorithm implemented in ExaPF to compute the projection step.
+- **Dommel & Tinney** is a port of the [classical algorithm of Dommel and Tinney](https://ieeexplore.ieee.org/abstract/document/4073461) originally developed in 1968. It exploits the structure of the power flow equations to optimize only with relation to the degrees of freedom (the *control*, associated to the voltage at the PV nodes and the power generations). The reduction is the same as in **Biegler**, but **Dommel & Tinney** comprises an additional projection step to recover the dependent variables (the *state*). Currently, **Dommel & Tinney** uses the Newton-Raphson algorithm implemented in ExaPF to compute the projection step.
 
 All three methods are described in detail in the
 [Argos paper](https://arxiv.org/abs/2203.11875).
@@ -75,7 +75,7 @@ Argos.run_opf(datafile, Argos.BieglerReduction(); lapack_algorithm=MadNLP.CHOLES
       so `DommelTinney` can potentially eat a lot of memory on
       the largest instances.
     - As with `BieglerReduction`, we recommend using Lapack with
-      the Cholesky factorization to solve the KKT system.
+      a Cholesky factorization to solve the KKT system.
     - Note that we have to increase MadNLP's tolerance (parameter `tol`)
       as we cannot optimize below the tolerance of the Newton-Raphson
       employed under the hood (`1e-10` by default).

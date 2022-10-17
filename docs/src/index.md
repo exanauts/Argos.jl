@@ -15,7 +15,7 @@ Argos is a registered package, and its installation amouts to:
 pkg> add Argos
 ```
 The function `run_opf` takes as input a path to a regular
-MATPOWER file to solve the associated OPF problem:
+MATPOWER file and solves the associated OPF problem:
 ```julia
 julia> Argos.run_opf("case9.m", Argos.FullSpace())
 
@@ -23,8 +23,8 @@ julia> Argos.run_opf("case9.m", Argos.FullSpace())
 
 ## Purpose
 
-When using the polar formulation, OPF problems formulate as
-large-scale nonlinear problems (NLP), challenging to solve.
+When using the polar formulation, OPF problems translates to
+large-scale nonconvex nonlinear problems (NLP), challenging to solve.
 When solving such large-scale problems, the two bottlenecks are:
 1. The evaluation of the nonlinear first- and second-order derivatives.
 2. The solution of the Karush-Kuhn-Tucker (KKT) system inside the optimization solver.
@@ -42,8 +42,8 @@ As such, Argos is tightly integrated with the interior-point
 solver [MadNLP](https://github.com/MadNLP/MadNLP.jl) to exploit the structure
 of the optimal power flow problem in a *condense and reduce* approach.
 
-Argos is only a prototype, and is nowhere as mature
-as established packages as [MATPOWER](matpower.org/)
+Argos is a prototype, and is nowhere as mature
+as established packages as [MATPOWER](https://matpower.org/)
 or [PowerModels.jl](https://github.com/lanl-ansi/PowerModels.jl).
 However, Argos is building on the flexibility provided by the
 Julia language, and we believe it is package well-suited for research
@@ -53,7 +53,7 @@ purpose and advanced users.
 
 Argos development was supported by the Exascale Computing Project (ECP).
 The development of Argos has been greatly facilited by the flexibility
-offered by the [Julia language](julialang.org/) and its excellent
+offered by the [Julia language](https://julialang.org/) and its excellent
 [GPU ecosystem](https://juliagpu.org/).
 Notably, Argos makes an extensive use of [CUDA.jl](https://github.com/JuliaGPU/CUDA.jl/)
 and [KernelAbstractions.jl](https://github.com/JuliaGPU/KernelAbstractions.jl).
@@ -75,17 +75,49 @@ greatly appreciate your citing it.
 }
 ```
 
+## Funding
+
+This research was supported by the Exascale Computing Project (17-SC-20-SC), a joint project of the U.S. Department of Energy’s Office of Science and National Nuclear Security Administration, responsible for delivering a capable exascale ecosystem, including software, applications, and hardware technology, to support the nation’s exascale computing imperative.
 
 ## Table of contents
 
-### Manual
+### Quickstart
+
 
 ```@contents
 Pages = [
     "quickstart/cpu.md",
     "quickstart/cuda.md",
-    "man/evaluators.md",
+]
+Depth = 1
+```
+
+### OPF Model
+```@contents
+Pages = [
+    "man/overview.md",
+    "man/fullspace.md",
+    "man/reducedspace.md",
+]
+Depth = 1
+```
+
+### OPF Solution
+```@contents
+Pages = [
+    "optim/fullspace.md",
+    "optim/reducedspace.md",
+    "optim/biegler.md",
+]
+Depth = 1
+```
+
+### Wrappers
+
+```@contents
+Pages = [
     "man/moi_wrapper.md",
+    "man/nlpmodel_wrapper.md",
 ]
 Depth = 1
 ```
@@ -94,11 +126,9 @@ Depth = 1
 
 ```@contents
 Pages = [
+    "lib/api.md",
     "lib/evaluators.md",
 ]
 Depth = 1
 ```
 
-## Funding
-
-This research was supported by the Exascale Computing Project (17-SC-20-SC), a joint project of the U.S. Department of Energy’s Office of Science and National Nuclear Security Administration, responsible for delivering a capable exascale ecosystem, including software, applications, and hardware technology, to support the nation’s exascale computing imperative.

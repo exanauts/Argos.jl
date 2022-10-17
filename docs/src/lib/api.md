@@ -32,6 +32,7 @@ constraints_type
 
 
 ```@docs
+update!
 objective
 gradient!
 constraint!

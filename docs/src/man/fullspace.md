@@ -14,7 +14,7 @@ INSTANCES_DIR = joinpath(artifact_path(exadata_hash), "ExaData")
 # FullSpaceEvaluator
 
 [`FullSpaceEvaluator`](@ref) models the original OPF
-problem in the full-space, as formulated by ExaPF.
+problem in the full-space.
 
 ## Initialization
 A `FullSpaceEvaluator` can be instantiated both
@@ -66,7 +66,7 @@ clb, cub = Argos.bounds(flp, Argos.Constraints())
 
 ### Sparse Jacobian and sparse Hessian
 More importantly, `FullSpaceEvaluator` stores
-two AD backends to evaluate the Jacobian and the
+two [AD backends](https://exanauts.github.io/ExaPF.jl/stable/man/autodiff/) to evaluate the Jacobian and the
 Hessian in sparse format using ExaPF.
 
 For the Hessian, the AD backend is
@@ -104,7 +104,7 @@ j_V = zeros(nnzj)
 Argos.jacobian_coo!(flp, j_V, x)
 sparse(j_I, j_J, j_V) # build a SparseMatrixCSC
 ```
-and for the Hessian (only the triangular entries are being returned):
+and for the Hessian:
 ```@example full_evaluator
 # Query sparsity pattern:
 h_I, h_J = Argos.hessian_structure(flp)
@@ -115,6 +115,9 @@ Argos.hessian_lagrangian_coo!(flp, h_V, x, y, 1.0)
 sparse(h_I, h_J, h_V) # build a SparseMatrixCSC
 ```
 
+!!! info
+    For the Hessian, only the lower-triangular are being returned.
+
 ## Deport on CUDA GPU
 Deporting all the operations on a CUDA GPU simply amounts
 to instantiate a [`FullSpaceEvaluator`](@ref) on the GPU, with
@@ -124,4 +127,10 @@ flp = Argos.FullSpaceEvaluator(datafile; device=CUDADevice())
 ```
 
 Then, the API remains exactly the same as on the CPU.
+
+When using `device=CUDADevice()`, the model is entirely instantiated on the device,
+without data left on the host (hence minimizing the communication
+costs). The computation of the derivatives is streamlined by propagating
+the tangents in parallel, leading to faster evaluations of the callbacks.
+As expected, the larger the model, the more significant is the performance gain.
 

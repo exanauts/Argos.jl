@@ -12,8 +12,8 @@ INSTANCES_DIR = joinpath(artifact_path(exadata_hash), "ExaData")
 
 # Overview
 
-Argos acts as a layer build on top of [ExaPF](https://github.com/exanauts/ExaPF.jl/)
-to formulate the OPF problems in a form suitable
+Argos acts as a layer built on top of [ExaPF](https://github.com/exanauts/ExaPF.jl/)
+to formulate the OPF problem in a form suitable
 for optimization solvers (i.e. by formulating the problems
 with nonlinear callbacks). Depending whether we are working in the full-
 or in the reduced-space, the two principal evaluators are
@@ -42,8 +42,8 @@ and $h$ encodes the remaining operational constraints
 
 !!! note
     Compared to MATPOWER or PowerModels, Argos comes with two major
-    differences.
-    1. Only a subset of the power flow equations is considered, leading to a total of $n_x$ equations instead of $2 n_{bus}$.
+    differences in the formulation.
+    1. Only a subset of the power flow equations is considered, leading to a total of $n_x$ instead of $2 n_{bus}$ equations.
     2. The reactive power generations are considered only implicitly, through the remaining power flow equations.
 
     Hence, the problem formulated by Argos has a smaller size as
@@ -66,7 +66,6 @@ We get the number of variables and constraints simply as
 
 ```
 
-One can
 
 ### Network variables
 Internally, each evaluator stores the current state of the network
@@ -77,9 +76,7 @@ stack = flp.stack
 # Query current voltage magnitude and angle values
 [stack.vmag stack.vang]
 ```
-
-One updates the values in the cache by calling the function
-`update!`:
+The function [`update!`](@ref) updates the values in the cache:
 ```@example evaluator
 x = rand(n)
 Argos.update!(flp, x)
@@ -90,13 +87,14 @@ Argos.update!(flp, x)
 
 !!! note
     Everytime we have a new variable `x`, it is important
-    to refresh the cache by calling explicitly `Argos.update!(flp, x)`.
+    to refresh the cache by calling explicitly `Argos.update!(flp, x)`
+    before calling the other callbacks.
 
 
 ### Callbacks
 
-Now the cache has been refreshed by calling `update!`, one can query the
-different callbacks:
+Now the cache has been refreshed by calling [`update!`](@ref), one can query the
+different callbacks to evaluate the objective, the constraints and the derivatives:
 
 **Objective:**
 ```@example evaluator
