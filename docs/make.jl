@@ -1,5 +1,9 @@
 using Pkg
 
+Pkg.develop(PackageSpec(path=joinpath(dirname(@__FILE__), "..")))
+# when first running instantiate
+Pkg.instantiate()
+
 using Documenter, Argos
 
 makedocs(
@@ -10,7 +14,7 @@ makedocs(
     ),
     modules = [Argos],
     repo = "https://github.com/exanauts/Argos.jl/blob/{commit}{path}#{line}",
-    strict = true,
+    # strict = true,
     checkdocs = :exports,
     pages = [
         "Home" => "index.md",
@@ -21,3 +25,10 @@ makedocs(
     ]
 )
 
+deploydocs(
+    repo = "github.com/exanauts/Argos.jl.git",
+    target = "build",
+    devbranch = "develop",
+    devurl = "dev",
+    push_preview = true,
+)
