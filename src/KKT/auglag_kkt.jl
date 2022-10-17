@@ -1,8 +1,40 @@
-#=
-    MixedAuglagKKTSystem
-=#
+"""
+    MixedAuglagKKTSystem{T, VT, MT} <: MadNLP.AbstractKKTSystem{T, VT, MT}
 
-# Supports only bound-constrained optimization problem (so no Jacobian)!
+Implementation in [MadNLP syntax](https://madnlp.github.io/MadNLP.jl/dev/lib/kkt/#KKT-systems) of the KKT system associated to the augmented Lagrangian
+formulation [`AugLagEvaluator`](@ref) applied to a nonlinear problem
+with equality constraints. The method is described in [PMSSA2022].
+
+## Examples
+
+```julia-repl
+julia> nlp = Argos.ReducedSpaceEvaluator("case9.m")
+
+julia> aug = Argos.AugLagEvaluator(nlp)
+
+julia> opf = Argos.OPFModel(aug)
+
+julia> T = Float64
+
+julia> VT, MT = Vector{T}, Matrix{T}
+
+julia> kkt = Argos.MixedAuglagKKTSystem{T, VT, MT}(opf)
+
+julia> MadNLP.get_kkt(kkt) # return the matrix to factorize
+
+```
+
+## Notes
+`MixedAuglagKKTSystem` can be instantiated both on the host memory (CPU)
+or on a NVIDIA GPU using CUDA.
+
+Supports only bound-constrained optimization problem (so no Jacobian).
+
+## References
+
+[PMSSA2022] Pacaud, François, Daniel Adrian Maldonado, Sungho Shin, Michel Schanen, and Mihai Anitescu. "A feasible reduced space method for real-time optimal power flow." Electric Power Systems Research 212 (2022): 108268.
+
+"""
 struct MixedAuglagKKTSystem{T, VT, MT} <: MadNLP.AbstractKKTSystem{T, VT, MT}
     aug::AbstractNLPEvaluator # for Auglag information
     n::Int

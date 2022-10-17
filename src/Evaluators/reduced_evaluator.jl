@@ -1,16 +1,17 @@
 
 """
-    ReducedSpaceEvaluator{T, VI, VT, MT, Jacx, Jacu, JacCons, Hess} <: AbstractNLPEvaluator
+    ReducedSpaceEvaluator{T, VI, VT, MT} <: AbstractNLPEvaluator
 
-Reduced-space evaluator projecting the optimization problem
+Reduced-space evaluator projecting the optimal power flow problem
 into the powerflow manifold defined by the nonlinear equation ``g(x, u) = 0``.
-The state ``x`` is defined implicitly, as a function of the control
+The state ``x(u)`` is defined implicitly, as a function of the control
 ``u``. Hence, the powerflow equation is implicitly satisfied
 when we are using this evaluator.
 
 Once a new point `u` is passed to the evaluator,
 the user needs to call the method `update!` to find the corresponding
-state ``x(u)`` satisfying the balance equation ``g(x(u), u) = 0``.
+state ``x(u)`` satisfying the balance equation ``g(x(u), u) = 0`` and
+refresh the values in the internal stack.
 
 Taking as input an `ExaPF.PolarForm` structure, the reduced evaluator
 builds the bounds corresponding to the control `u`,
@@ -19,18 +20,27 @@ The reduced evaluator could be instantiated on the host memory, or on a specific
 
 ## Examples
 
-```julia-repl
-julia> datafile = "case9.m"  # specify a path to a MATPOWER instance
-julia> nlp = ReducedSpaceEvaluator(datafile)
+```jldoctest; setup=:(using ExaPF, Argos)
+julia> nlp = Argos.ReducedSpaceEvaluator(ExaPF.load_polar("case9.m"))
 A ReducedSpaceEvaluator object
-    * device: KernelAbstractions.CPU()
+    * device: CPU()
     * #vars: 5
-    * #cons: 10
-    * constraints:
-        - voltage_magnitude_constraints
-        - active_power_constraints
-        - reactive_power_constraints
-    * linear solver: ExaPF.LinearSolvers.DirectSolver()
+    * #cons: 28
+    * linear solver: ExaPF.LinearSolvers.DirectSolver{SuiteSparse.UMFPACK.UmfpackLU{Float64, Int64}}
+
+julia> u = Argos.initial(nlp)
+5-element Vector{Float64}:
+ 1.0
+ 1.0
+ 1.0
+ 1.63
+ 0.85
+
+julia> Argos.update!(nlp, u); # solve power-flow
+
+julia> Argos.objective(nlp, u) # get objective
+5438.323706833448
+
 ```
 
 If a GPU is available, we could instantiate `nlp` as
@@ -50,14 +60,12 @@ A ReducedSpaceEvaluator object
 ```
 
 ## Note
-Mathematically, we set apart the state ``x`` from the control ``u``,
-and use a third variable ``y`` --- the by-product --- to denote the remaining
-values of the network.
+Mathematically, we set apart the state ``x`` from the control ``u``.
 In the implementation of `ReducedSpaceEvaluator`,
-we only deal with a control `u` and an attribute `buffer`,
+we only deal with a control `u` and an attribute `stack`,
 storing all the physical values needed to describe the network.
-The attribute `buffer` stores the values of the control `u`, the state `x`
-and the by-product `y`. Each time we are calling the method `update!`,
+The attribute `buffer` stores the values of the control `u` and the state `x`
+Each time we are calling the method `update!`,
 the values of the control are copied into the buffer.
 
 """
@@ -538,7 +546,6 @@ function Base.show(io::IO, nlp::ReducedSpaceEvaluator)
     println(io, "    * device: ", nlp.model.device)
     println(io, "    * #vars: ", n)
     println(io, "    * #cons: ", m)
-    println(io, "    * constraints:")
     print(io, "    * linear solver: ", typeof(nlp.linear_solver))
 end
 

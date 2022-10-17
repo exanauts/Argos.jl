@@ -310,7 +310,6 @@ include("full_space_evaluator.jl")
 include("stoch_evaluator.jl")
 include("slack_evaluator.jl")
 include("feasibility_evaluator.jl")
-# include("proxal_evaluators.jl")
 include("bridge_evaluator.jl")
 
 # Penalty evaluators

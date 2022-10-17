@@ -40,6 +40,8 @@ makedocs(
         "Library" => [
             "Evaluators API" => "lib/api.md",
             "Evaluators Type" => "lib/evaluators.md",
+            "KKT systems" => "lib/kkt.md",
+            "Wrappers" => "lib/wrappers.md",
         ],
     ]
 )

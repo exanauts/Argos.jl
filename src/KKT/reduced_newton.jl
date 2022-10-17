@@ -1,4 +1,45 @@
 
+"""
+    BieglerKKTSystem{T, VI, VT, MT, SMT} <: MadNLP.AbstractReducedKKTSystem{T, VT, MT}
+
+Implementation of Biegler's reduction method [BNS2015] in MadNLP's syntax.
+The API follows the [MadNLP's specifications](https://madnlp.github.io/MadNLP.jl/dev/lib/kkt/#KKT-systems). The reduction is at the basis of the *linearize-then-reduce*
+method described in [PSSMA2022].
+
+Return a dense matrix that can be factorized efficiently inside MadNLP by any dense
+linear algebra routine (e.g. Lapack).
+
+## Examples
+
+```julia-repl
+julia> flp = Argos.FullSpaceEvaluator("case9.m")
+
+julia> opf = Argos.OPFModel(flp)
+
+julia> T = Float64
+
+julia> VI, VT, MT = Vector{Int}, Vector{T}, Matrix{T}
+
+julia> kkt = Argos.BieglerKKTSystem{T, VI, VT, MT}(opf)
+
+julia> MadNLP.get_kkt(kkt) # return the matrix to factorize
+
+```
+
+## Notes
+
+`BieglerKKTSystem` can be instantiated both on the host memory (CPU)
+or on a NVIDIA GPU using CUDA. When instantiated on the GPU, `BieglerKKTSystem`
+uses `cusolverRF` to streamline the solution of the sparse linear systems
+in the reduction algorithm.
+
+## References
+
+[BNS2015] Biegler, Lorenz T., Jorge Nocedal, and Claudia Schmid. "A reduced Hessian method for large-scale constrained optimization." SIAM Journal on Optimization 5, no. 2 (1995): 314-347.
+
+[PSSMA2022] Pacaud, François, Sungho Shin, Michel Schanen, Daniel Adrian Maldonado, and Mihai Anitescu. "Condensed interior-point methods: porting reduced-space approaches on GPU hardware." arXiv preprint arXiv:2203.11875 (2022).
+
+"""
 struct BieglerKKTSystem{T, VI, VT, MT, SMT} <: MadNLP.AbstractReducedKKTSystem{T, VT, MT}
     K::HJDJ{VI,VT,SMT}
     Wref::SMT

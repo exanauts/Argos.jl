@@ -1,3 +1,6 @@
+```@meta
+CurrentModule = Argos
+```
 # NLPModels
 ```@setup nlpmodel
 using LazyArtifacts
@@ -13,7 +16,7 @@ API is closed to [NLPModels](https://github.com/JuliaSmoothOptimizers/NLPModels.
 to wrap any `AbstractNLPEvaluator` in a `NLPModels.AbstractNLPModel` structure.
 
 ## Initializing
-In Argos, this is provided by the `OPFModel` structure, which
+In Argos, this is provided by the [`OPFModel`](@ref) structure, which
 takes as input any `AbstractNLPEvaluator` and converts it as a
 `NLPModels.AbstractNLPModel`.
 
@@ -56,3 +59,34 @@ NLPModels.cons(model, x0)
 NLPModels.grad(model, x0)
 ```
 and so on...
+
+
+## Accelerating the callbacks on a NVIDIA GPU
+
+We can exploit any available NVIDIA GPU to accelerate the evaluation
+of the derivatives. To do so, one first need to [install `ArgosCUDA`](../quickstart/cuda.md).
+
+Then, we can instantiate a new evaluator on the GPU with:
+```julia
+using ArgosCUDA, CUDAKernels
+flp = Argos.FullSpaceEvaluator(datafile; device=CUDADevice())
+
+```
+The [`OPFModel`](@ref) structure works exclusively on the host memory,
+so we have to bridge the evaluator `flp` to the host before creating
+a new instance of `OPFModel`:
+```julia
+brige = Argos.bridge(flp)
+model = Argos.OPFModel(bridge)
+
+```
+
+!!! note
+    Bridging an evaluator between the host and the device induces
+    significant data movements between the host and the device, as for each
+    input or for each output we have to move the data back and forth between
+    the host and the device. However, we have noticed that in practice
+    the time to operate the data transfer is negligible compared to the other
+    operations (linear algebra, KKT system solution) pursued inside the
+    optimization algorithm.
+

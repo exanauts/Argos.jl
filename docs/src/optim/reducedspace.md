@@ -66,7 +66,7 @@ The associated KKT system is now represented as a dense matrix, more appropriate
 for dense problem. However, the generated KKT system is still too large, as its
 size is proportional to both the number of variables and the number of constraints. This
 approach is not tractable on larger problems.
-Fortunately, MadNLP allows to [condense the KKT system]()
+Fortunately, MadNLP allows to [condense the KKT system](https://madnlp.github.io/MadNLP.jl/dev/lib/kkt/#MadNLP.AbstractCondensedKKTSystem)
 using a Schur complement approach. By doing so, the size of the KKT system is
 only proportional to the number of variables (here, `5`):
 ```@example reducedmadnlp

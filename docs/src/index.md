@@ -128,6 +128,8 @@ Depth = 1
 Pages = [
     "lib/api.md",
     "lib/evaluators.md",
+    "lib/kkt.md",
+    "lib/wrappers.md",
 ]
 Depth = 1
 ```
