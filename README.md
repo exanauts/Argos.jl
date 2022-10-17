@@ -1,9 +1,6 @@
 # Argos.jl
 
-[![][docs-latest-img]][docs-latest-url] ![CI](https://github.com/exanauts/Argos.jl/workflows/Run%20tests/badge.svg?branch=master)
-
-[docs-latest-img]: https://img.shields.io/badge/docs-latest-blue.svg
-[docs-latest-url]: https://exanauts.github.io/Argos/
+[![][docs-stable-img]][docs-stable-url] [![][build-latest-img]][build-url] [![][codecov-latest-img]][codecov-latest-url]
 
 Argos.jl extends the power-system modeler [ExaPF.jl](https://github.com/exanauts/ExaPF.jl)
 and the interior-point solver [MadNLP.jl](https://github.com/MadNLP/MadNLP.jl)
@@ -146,3 +143,9 @@ nlp = Argos.ReducedSpaceEvaluator("case57.m"; device=CUDADevice(), nbatch_hessia
 Note that on large instances, the batch computation could be quite heavy on the
 GPU's memory.
 
+[docs-latest-img]: https://img.shields.io/badge/docs-latest-blue.svg
+[docs-latest-url]: https://exanauts.github.io/Argos/
+[build-url]: https://github.com/exanauts/Argos.jl/actions?query=workflow
+[build-latest-img]: https://github.com/exanauts/Argos.jl/workflows/Run%20tests/badge.svg?branch=master
+[codecov-latest-img]: https://codecov.io/gh/exanauts/Argos.jl/branch/master/graphs/badge.svg?branch=master
+[codecov-latest-url]: https://codecov.io/github/exanauts/Argos.jl?branch=master
