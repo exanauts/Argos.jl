@@ -145,3 +145,12 @@ function transfer2tril!(hessvals::AbstractVector, H::SparseMatrixCSC, csc2tril)
     hessvals .= Hz[csc2tril]
 end
 
+function _check(val, val_min, val_max)
+    violated_inf = findall(val .< val_min)
+    violated_sup = findall(val .> val_max)
+    n_inf = length(violated_inf)
+    n_sup = length(violated_sup)
+    err_inf = norm(val_min[violated_inf] .- val[violated_inf], Inf)
+    err_sup = norm(val[violated_sup] .- val_max[violated_sup], Inf)
+    return (n_inf, err_inf, n_sup, err_sup)
+end

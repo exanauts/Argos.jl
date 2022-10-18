@@ -24,6 +24,7 @@ function test_evaluator_api(nlp, device, M)
 
     @test isa(Argos.has_hessian(nlp), Bool)
     @test isa(Argos.has_hessian_lagrangian(nlp), Bool)
+    @test isa(Argos.backend(nlp), Argos.AbstractNLPEvaluator)
 
     Argos.reset!(nlp)
 end
@@ -91,6 +92,13 @@ function test_evaluator_callbacks(nlp, device, M; rtol=1e-6)
         # Test Jacobian vector product
         Argos.jprod!(nlp, v, u, jv)
         @test isapprox(J * jv, v)
+    else
+        cons = similar(g_min, 0)
+        jac = similar(g_min, 0)
+        Argos.constraint!(nlp, cons, u)
+        jI, jJ = Argos.jacobian_structure(nlp)
+        @test jI == jJ == Int[]
+        Argos.jacobian!(nlp, jac, u)
     end
 
     Argos.reset!(nlp)

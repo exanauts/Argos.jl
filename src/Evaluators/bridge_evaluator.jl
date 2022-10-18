@@ -115,6 +115,13 @@ function jtprod!(nlp::BridgeDeviceEvaluator, jv, u, v)
     return
 end
 
+function jprod!(nlp::BridgeDeviceEvaluator, jv, u, v)
+    copyto!(nlp.buffers.wx, v)
+    jprod!(nlp.inner, nlp.buffers.wc, nlp.buffers.u, nlp.buffers.wx)
+    _copyto!(jv, 1, nlp.buffers.wc, 1, length(jv))
+    return
+end
+
 function ojtprod!(nlp::BridgeDeviceEvaluator, jv, u, σ, v)
     copyto!(nlp.buffers.wc, v)
     ojtprod!(nlp.inner, nlp.buffers.wx, nlp.buffers.u, σ, nlp.buffers.wc)

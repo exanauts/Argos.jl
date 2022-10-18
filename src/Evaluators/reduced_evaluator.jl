@@ -542,6 +542,16 @@ function Base.show(io::IO, nlp::ReducedSpaceEvaluator)
     print(io, "    * linear solver: ", typeof(nlp.linear_solver))
 end
 
+function primal_infeasibility!(nlp::ReducedSpaceEvaluator, cons, u)
+    constraint!(nlp, cons, u) # Evaluate constraints
+    (n_inf, err_inf, n_sup, err_sup) = _check(cons, nlp.g_min, nlp.g_max)
+    return max(err_inf, err_sup)
+end
+function primal_infeasibility(nlp::ReducedSpaceEvaluator, u)
+    cons = similar(nlp.g_min) ; fill!(cons, 0)
+    return primal_infeasibility!(nlp, cons, u)
+end
+
 function reset!(nlp::ReducedSpaceEvaluator)
     # Reset adjoint
     fill!(nlp.λ, 0)

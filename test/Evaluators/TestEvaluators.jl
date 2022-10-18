@@ -37,11 +37,6 @@ include("auglag.jl")
 function _init(datafile, ::Type{Argos.ReducedSpaceEvaluator}, device)
     return Argos.ReducedSpaceEvaluator(datafile; device=device, auglag=true)
 end
-# function _init(datafile, ::Type{Argos.ProxALEvaluator}, device)
-#     nlp = Argos.ReducedSpaceEvaluator(datafile; device=device)
-#     time = Argos.Normal
-#     return Argos.ProxALEvaluator(nlp, time)
-# end
 function _init(datafile, ::Type{Argos.SlackEvaluator}, device)
     return Argos.SlackEvaluator(datafile; device=device, auglag=true)
 end
@@ -74,6 +69,11 @@ function runtests(datafile, device, AT)
     ]
         nlp = _init(datafile, Evaluator, device)
         test_auglag_evaluator(nlp, device, AT)
+    end
+    @testset "BridgeDeviceEvaluator" begin
+        nlp = Argos.ReducedSpaceEvaluator(datafile; device=device)
+        bdg = Argos.bridge(nlp)
+        test_evaluator_callbacks(bdg, device, AT)
     end
     if isa(device, CPU) # Currently supported only on the CPU
         @testset "Argos.FullSpaceEvaluator Interface" begin
