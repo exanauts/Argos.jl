@@ -1,4 +1,49 @@
 
+"""
+    FullSpaceEvaluator{T, VI, VT, MT} <: AbstractNLPEvaluator
+
+Structure to evaluate the optimal power flow problem in the full-space.
+
+When a new point `x` is passed to the evaluator, one has to refresh
+the internal `stack` by calling the function [`update!`](@ref)
+
+## Examples
+
+```jldoctest; setup=:(using ExaPF, Argos)
+julia> flp = Argos.FullSpaceEvaluator(ExaPF.load_polar("case9.m"))
+A FullSpaceEvaluator object
+    * device: CPU()
+    * #vars: 19
+    * #cons: 36
+
+julia> x = Argos.initial(flp)
+19-element Vector{Float64}:
+ 0.0
+ 0.0
+ 0.0
+ 0.0
+ 0.0
+ 0.0
+ 0.0
+ 0.0
+ 1.0
+ 1.0
+ 1.0
+ 1.0
+ 1.0
+ 1.0
+ 1.0
+ 1.0
+ 1.0
+ 1.63
+ 0.85
+
+julia> Argos.update!(flp, x); # update values in stack
+
+julia> Argos.objective(flp, x) # get objective
+4509.0275
+```
+"""
 mutable struct FullSpaceEvaluator{T, VI, VT, MT, JacCons, HessLag} <: AbstractNLPEvaluator
     model::ExaPF.PolarForm{T, VI, VT, MT}
     nx::Int
@@ -224,7 +269,6 @@ function Base.show(io::IO, nlp::FullSpaceEvaluator)
     println(io, "    * device: ", nlp.model.device)
     println(io, "    * #vars: ", n)
     println(io, "    * #cons: ", m)
-    println(io, "    * constraints:")
 end
 
 function reset!(nlp::FullSpaceEvaluator)

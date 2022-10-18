@@ -242,7 +242,6 @@ function Base.show(io::IO, nlp::StochEvaluator)
     println(io, "    * device: ", nlp.model.device)
     println(io, "    * #vars: ", n)
     println(io, "    * #cons: ", m)
-    println(io, "    * constraints:")
 end
 
 function reset!(nlp::StochEvaluator)

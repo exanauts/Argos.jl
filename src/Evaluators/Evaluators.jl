@@ -83,6 +83,15 @@ function n_constraints end
 
 # Callbacks
 """
+    update!(nlp::AbstractNLPEvaluator, u::AbstractVector)
+
+Update the internal structure inside `nlp` with the new
+entry `u`. This method has to be called before calling any
+other callbacks.
+"""
+function update! end
+
+"""
     objective(nlp::AbstractNLPEvaluator, u)::Float64
 
 Evaluate the objective at given variable `u`.
@@ -301,7 +310,6 @@ include("full_space_evaluator.jl")
 include("stoch_evaluator.jl")
 include("slack_evaluator.jl")
 include("feasibility_evaluator.jl")
-# include("proxal_evaluators.jl")
 include("bridge_evaluator.jl")
 
 # Penalty evaluators

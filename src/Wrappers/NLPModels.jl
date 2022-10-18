@@ -1,3 +1,34 @@
+"""
+    OPFModel <: NLPModels.AbstractNLPModel{Float64,Vector{Float64}}
+
+Wrap a [`AbstractNLPEvaluator`](@ref) as a `NLPModels.AbstractNLPModel`.
+
+## Examples
+
+```julia-repl
+julia> datafile = "case9.m"  # specify a path to a MATPOWER instance
+
+julia> nlp = Argos.ReducedSpaceEvaluator(datafile);
+
+julia> model = Argos.OPFModel(nlp)
+
+```
+
+## Attributes
+
+- `meta::NLPModels.NLPModelMeta`: information about the model.
+- `counter::NLPModels.Counters`: count how many time each callback is being called.
+- `timer::NLPTimers`: decompose time spent in each callback.
+- `nlp::AbstractNLPEvaluator`: OPF model.
+- `hash_x::UInt`: hash of the last evaluated variable `x`
+- `hrows::Vector{Int}`: row indices of the Hessian.
+- `hcols::Vector{Int}`: column indices of the Hessian.
+- `jrows::Vector{Int}`: row indices of the Jacobian.
+- `jcols::Vector{Int}`: column indices of the Jacobian.
+- `etc::Dict{Symbol,Any}`: a dictionnary for running experiments.
+
+
+"""
 struct OPFModel{Evaluator} <: NLPModels.AbstractNLPModel{Float64,Vector{Float64}}
     meta::NLPModels.NLPModelMeta{Float64, Vector{Float64}}
     counters::NLPModels.Counters
@@ -51,6 +82,7 @@ function OPFModel(nlp::AbstractNLPEvaluator)
     )
 end
 
+"Query the `AbstractNLPEvaluator` backend used inside the `OPFModel` `m`."
 backend(m::OPFModel) = backend(m.nlp)
 
 function NLPModels.jac_structure!(m::OPFModel, rows::AbstractVector, cols::AbstractVector)

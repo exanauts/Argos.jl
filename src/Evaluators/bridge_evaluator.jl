@@ -11,6 +11,33 @@ struct BridgeBuffers{VT, MT}
     H::MT
 end
 
+"""
+    BridgeDeviceEvaluator{Evaluator, DVT, DMT} <: AbstractNLPEvaluator
+
+Bridge an evaluator `nlp` instantiated on the device to use it on
+the host memory. The bridge evaluator moves the data between the host
+and device automatically.
+
+## Example
+
+```julia-repl
+
+julia> polar = ExaPF.load_polar("case9.m", CUDADevice())
+
+# Load an evaluator on a CUDA GPU
+julia> flp = Argos.FullSpaceEvaluator(polar)
+
+julia> bdg = Argos.bridge(flp)
+
+julia> x = Argos.initial(bdg)
+
+julia> @assert isa(x, Array) # x is defined on the host memory
+
+julia> Argos.objective(bdg, x) # evaluate the objective on the device
+
+```
+
+"""
 struct BridgeDeviceEvaluator{Evaluator, DVT, DMT} <: AbstractNLPEvaluator
     inner::Evaluator
     buffers::BridgeBuffers{DVT, DMT}

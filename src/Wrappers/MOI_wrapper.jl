@@ -5,6 +5,17 @@
 
 Bridge from a [`AbstractNLPEvaluator`](@ref) to a `MOI.AbstractNLPEvaluator`.
 
+## Example
+
+```julia-repl
+julia> datafile = "case9.m"  # specify a path to a MATPOWER instance
+
+julia> nlp = Argos.ReducedSpaceEvaluator(datafile);
+
+julia> ev = Argos.MOIEvaluator(nlp)
+
+```
+
 ## Attributes
 
 * `nlp::AbstractNLPEvaluator`: the underlying `ExaPF` problem.
