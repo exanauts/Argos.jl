@@ -39,17 +39,17 @@ using MadNLP
 solver = MadNLP.MadNLPSolver(model)
 
 ```
-By default, MadNLP is using sparse data structure. This is
+By default, MadNLP is using a sparse data structure. This is
 not appropriate to handle a `ReducedSpaceEvaluator`, which generates
 a dense Jacobian and a dense reduced Hessian. Indeed, by default
-MadNLP generates a sparse KKT system with significant
+MadNLP generates a sparse KKT system with a significant
 number of nonzeroes:
 ```@example reducedmadnlp
 MadNLP.get_kkt(solver.kkt)
 
 ```
 
-### How to parameterize MadNLP to use dense data-structure?
+### How to parameterize MadNLP to use dense data structure?
 Instead, we can parameterize MadNLP to use a dense KKT system.
 The first option is to use a `DENSE_KKT_SYSTEM` in conjunction with
 a dense linear solver (as Lapack):
@@ -63,7 +63,7 @@ MadNLP.get_kkt(solver.kkt)
 
 ```
 The associated KKT system is now represented as a dense matrix, more appropriate
-for dense problem. However, the generated KKT system is still too large, as its
+for a dense problem. However, the generated KKT system is still too large, as its
 size is proportional to both the number of variables and the number of constraints. This
 approach is not tractable on larger problems.
 Fortunately, MadNLP allows to [condense the KKT system](https://madnlp.github.io/MadNLP.jl/dev/lib/kkt/#MadNLP.AbstractCondensedKKTSystem)
@@ -78,7 +78,7 @@ solver = MadNLP.MadNLPSolver(
 MadNLP.get_kkt(solver.kkt)
 
 ```
-This alternative approach permits to compress significantly the size
+This alternative approach permits to significantly compress the size
 of the KKT system, and is the approach used by default in `run_opf`.
 
 Once the problem is written in condensed form inside MadNLP, one
@@ -89,16 +89,16 @@ stats = MadNLP.solve!(solver; tol=1e-6)
 ```
 
 !!! info
-    We recommend to change the default tolerance to be above the tolerance
+We recommend changing the default tolerance to be above the tolerance
     of the Newton-Raphson used inside [`ReducedSpaceEvaluator`](@ref). Indeed,
-    the power-flow is solved only approximately, leading to slightly inaccurate
+    the power flow is solved only approximately, leading to slightly inaccurate
     evaluations and derivatives, impacting the convergence of the interior-point
     algorithm. In general, we recommend setting `tol=1e-5`.
 
 !!! info
     Here, we are using Lapack on the CPU to solve the condensed
     KKT system at each iteration of the interior-point algorithm.
-    However, if a NVIDIA GPU is available, we recommend using
+    However, if an NVIDIA GPU is available, we recommend using
     a CUDA-accelerated Lapack version, more efficient than
     the default Lapack. If `MadNLPGPU` is installed, this amounts to
     ```julia

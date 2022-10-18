@@ -15,8 +15,8 @@ INSTANCES_DIR = joinpath(artifact_path(exadata_hash), "ExaData")
 Argos acts as a layer built on top of [ExaPF](https://github.com/exanauts/ExaPF.jl/)
 to formulate the OPF problem in a form suitable
 for optimization solvers (i.e. by formulating the problems
-with nonlinear callbacks). Depending whether we are working in the full-
-or in the reduced-space, the two principal evaluators are
+with nonlinear callbacks). Depending on whether we are working in the full- or
+the reduced-space, the two principal evaluators are
 the [`FullSpaceEvaluator`](@ref) and the [`ReducedSpaceEvaluator`](@ref).
 
 ## Abstraction
@@ -33,8 +33,12 @@ Argos formulates the OPF problem in abstract form as
 \right.
 ```
 By design, the control variable $u$ (voltage magnitude at PV and REF nodes, active power generations) is dissociated from the state variable $x$ (voltage angle, voltage magnitudes at PQ nodes).
-The function $f$ encodes the [objective function](https://exanauts.github.io/ExaPF.jl/stable/lib/formulations/#Objective), the function $g$ is associated
-to the [power flow equations](https://exanauts.github.io/ExaPF.jl/stable/lib/formulations/#ExaPF.PowerFlowBalance)
+The function $f$ encodes the [objective
+function](https://exanauts.github.io/ExaPF.jl/stable/lib/formulations/#Objective),
+the function $g$ is associated with the
+[power](https://exanauts.github.io/ExaPF.jl/stable/lib/formulations/#ExaPF.PowerFlowBalance)
+flow
+equations](https://exanauts.github.io/ExaPF.jl/stable/lib/formulations/#ExaPF.PowerFlowBalance)
 and $h$ encodes the remaining operational constraints
 ([bounds on reactive power generations](https://exanauts.github.io/ExaPF.jl/stable/lib/formulations/#ExaPF.PowerGenerationBounds),
 [line flow constraints](https://exanauts.github.io/ExaPF.jl/stable/lib/formulations/#ExaPF.LineFlows`)).
@@ -52,8 +56,8 @@ and $h$ encodes the remaining operational constraints
 
 
 ## Usage
-For demonstration purpose, we instantiate a new `FullSpaceEvaluator` object
-associated to `case9`:
+For demonstration purposes, we instantiate a new `FullSpaceEvaluator` object
+associated with `case9`:
 ```@example evaluator
 using ExaPF, Argos
 datafile = joinpath(INSTANCES_DIR, "case9.m")
@@ -86,7 +90,7 @@ Argos.update!(flp, x)
 ```
 
 !!! note
-    Everytime we have a new variable `x`, it is important
+    Every time we have a new variable `x`, it is important
     to refresh the cache by calling explicitly `Argos.update!(flp, x)`
     before calling the other callbacks.
 
@@ -115,7 +119,7 @@ cons
 
 !!! note
     All the callbacks are written to modify the data (constraints, gradient)
-    inplace, to avoid unneeded allocations. In addition Argos provides
+    inplace, to avoid unneeded allocations. In addition, `Argos.jl` provides
     a version allocating automatically the return values:
     ```@example evaluator
     g = Argos.gradient(flp, x)

@@ -33,9 +33,8 @@ on the CPU and, if available, on a CUDA GPU.
 
 ## Quickstart
 
-The function `run_opf` is the entry-point to Argos.
-It takes as input a path to a MATPOWER file and solve
-the associated OPF with MadNLP:
+The function `run_opf` is the entry point to Argos.
+It takes as input a path to a MATPOWER file and solves the associated OPF with MadNLP:
 ```julia
 # Solve in the full-space
 ips = Argos.run_opf("data/case9.m", Argos.FullSpace())
@@ -43,8 +42,10 @@ ips = Argos.run_opf("data/case9.m", Argos.FullSpace())
 ```
 The second argument specifies the formulation used inside MadNLP to solve
 the OPF problem. `FullSpace()` implements the classical full-space formulation,
-(as implemented inside MATPOWER or PowerModels.jl). Alternatively, one may want to solve
-the OPF using the reduced-space formulation of Dommel and Tinney:
+(as implemented inside [MATPOWER](https://matpower.org/) or
+[PowerModels.jl](https://github.com/lanl-ansi/PowerModels.jl)). Alternatively,
+one may want to solve the OPF using the reduced-space formulation of Dommel and
+Tinney:
 ```julia
 # Solve in the reduced-space
 ips = Argos.run_opf("data/case9.m", Argos.DommelTinney())
@@ -71,13 +72,13 @@ An initial optimization variable can be computed as
 ```julia
 u = Argos.initial(nlp)
 ```
-The variable `u` is the control that will be used all throughout the
+The variable `u` is the control that will be used throughout the
 optimization. Once a new point `u` obtained, one can refresh all the structures
 inside `nlp` with:
 ```julia
 Argos.update!(nlp, u)
 ```
-Once the structures refreshed, the other callbacks can be evaluated as well:
+Once the structures are refreshed, the other callbacks can be evaluated as well:
 ```julia
 Argos.objective(nlp, u) # objective
 Argos.gradient(nlp, u)  # reduced gradient
@@ -113,7 +114,7 @@ x0 = NLPModels.get_x0(model)
 obj = NLPModels.obj(model, x0)
 
 ```
-Once the evaluator wrapped inside NLPModels, we can leverage any
+Once the evaluator is wrapped inside NLPModels.jl, we can leverage any
 solver implemented in [JuliaSmoothOptimizers](https://github.com/JuliaSmoothOptimizers/)
 to solve the OPF problem.
 
@@ -132,8 +133,10 @@ nlp = Argos.ReducedSpaceEvaluator("case57.m"; device=CUDADevice())
 When doing so, all kernels are instantiated on the GPU to avoid
 memory transfer between the host and the device. The sparse linear
 algebra operations are handled by `cuSPARSE`, and the sparse factorizations
-are performed using `cusolverRF`. When deporting the computation on the
-GPU, the reduced Hessian can be evaluated in parallel.
+are performed using `cusolverRF` via the Julia wrapper [CUSOLVERRF.jl](https://github.com/exanauts/CUSOLVERRF.jl).
+This package is loaded via the included `ArgosCUDA.jl` package in `/lib`.
+When deporting the computation on the GPU, the reduced Hessian can be evaluated
+in parallel.
 
 
 ### Batch evaluation of the reduced Hessian
@@ -144,6 +147,5 @@ the number of Hessian-vector products to perform in one batch as
 ```julia
 nlp = Argos.ReducedSpaceEvaluator("case57.m"; device=CUDADevice(), nbatch_hessian=8)
 ```
-Note that on large instances, the batch computation can be demanding in term of
-GPU's memory.
+Note that on large instances, the batch computation can be demanding in terms of GPU's memory.
 

@@ -30,7 +30,7 @@ flp = Argos.FullSpaceEvaluator(datafile)
 ```
 
 ## Instantiating MadNLP
-By default MadNLP is using [NLPModels](https://github.com/JuliaSmoothOptimizers/NLPModels.jl/)
+By default, MadNLP is using [NLPModels](https://github.com/JuliaSmoothOptimizers/NLPModels.jl/)
 to represent the nonlinear model internally. Hence,
 one has to convert the `FullSpaceEvaluator` to an `OPFModel`:
 ```@example madnlp
@@ -78,10 +78,10 @@ stack.pgen
 
 !!! info
     The values inside `stack` are used to compute the initial point
-    in the optimization routine. Hence, if one call `solve!` again
+    in the optimization routine. Hence, if one calls `solve!` again
     the optimization would start from the optimal solution found
     in the previous call to `solve!`, leading to a different convergence pattern.
-    If one want to launch a new optimization from scratch without reinitializing
+    If one wants to launch a new optimization from scratch without reinitializing
     all the data structure, we recommend using the [`reset!`](@ref) function:
     ```@example madnlp
     Argos.reset!(flp)
@@ -101,7 +101,7 @@ Most importantly, one may want to use a different sparse linear
 solver than UMFPACK, employed by default in MadNLP.
 We recommend using HSL solvers (the installation procedure is
 detailed [here](https://madnlp.github.io/MadNLP.jl/dev/installation/#HSL-linear-solver)).
-Once HSL installed, one can solve the OPF with:
+Once HSL is installed, one can solve the OPF with:
 ```julia
 using MadNLPHSL
 solver = MadNLP.MadNLPSolver(model; linear_solver=Ma27Solver)

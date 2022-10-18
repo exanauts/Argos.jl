@@ -35,7 +35,7 @@ jobs:
     env:
       CUDA_VISIBLE_DEVICES: 1
       JULIA_DEPOT_PATH: /scratch/github-actions/julia_depot_argos
-      JULIA_CUDA_USE_BINARYBUILDER: true
+      JULIA_CUDA_USE_BINARYBUILDER: false
     runs-on: self-hosted
     strategy:
       matrix:

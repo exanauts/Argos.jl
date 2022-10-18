@@ -17,8 +17,7 @@ to wrap any `AbstractNLPEvaluator` in a `NLPModels.AbstractNLPModel` structure.
 
 ## Initializing
 In Argos, this is provided by the [`OPFModel`](@ref) structure, which
-takes as input any `AbstractNLPEvaluator` and converts it as a
-`NLPModels.AbstractNLPModel`.
+takes as input any `AbstractNLPEvaluator` and converts it as an `NLPModels``.`AbstractNLPModel`.
 
 ```@example nlpmodel
 using NLPModels
@@ -61,10 +60,11 @@ NLPModels.grad(model, x0)
 and so on...
 
 
-## Accelerating the callbacks on a NVIDIA GPU
+## Accelerating the callbacks on an NVIDIA GPU
 
 We can exploit any available NVIDIA GPU to accelerate the evaluation
-of the derivatives. To do so, one first need to [install `ArgosCUDA`](../quickstart/cuda.md).
+of the derivatives. To do so, one first needs to
+[install](../quickstart/cuda.md) `ArgosCUDA`](../quickstart/cuda.md).
 
 Then, we can instantiate a new evaluator on the GPU with:
 ```julia

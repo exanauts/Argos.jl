@@ -13,8 +13,8 @@ optimization problem. Hence, we can solve the
 optimal power flow problem using any nonlinear optimization solver compatible
 with MOI (Ipopt, Knitro, ALGENCAN, ...).
 
-Once the MOI optimizer set up properly, passing the
-optimizer to Argos simply amounts to call the function `Argos.optimize!`.
+Once the MOI optimizer is set up properly, passing the
+optimizer to Argos simply amounts to calling the function `Argos.optimize!`.
 For example, solving an optimal power flow problem in the full-space
 amounts to:
 

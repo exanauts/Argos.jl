@@ -14,12 +14,11 @@ INSTANCES_DIR = joinpath(artifact_path(exadata_hash), "ExaData")
 
 # ReducedSpaceEvaluator
 
-On the contrary to the [`FullSpaceEvaluator`](@ref), the
+As opposed to the [`FullSpaceEvaluator`](@ref), the
 [`ReducedSpaceEvaluator`](@ref) works in the reduced-space
 induced by the power flow equations. Numerically,
-this amounts to solve
-the system of nonlinear equations $g(x, u) =0$ at each iteration,
-in order to find to find a state $x(u)$ satisfying
+this amounts to solving the system of nonlinear equations $g(x, u) =0$ at each iteration,
+in order to find a state $x(u)$ satisfying
 ```math
 g(x(u), u) = 0
 ```
@@ -32,7 +31,7 @@ The OPF problem reformulates in the reduced-space:
 \quad \text{subject to}\quad
                          h_l \leq h(x(u), u) \leq h_u .
 ```
-The state $x$ depends *implicitly* from the control $u$, and is
+The state $x$ depends _implicitly_ on the control $u$, and is
 removed from the optimization variables.
 
 The associated reduced gradient and reduced Hessian can be evaluated
@@ -74,15 +73,14 @@ ReducedSpaceEvaluator(
 
 In detail:
 - The argument `line_constraints` activates the line flows constraints in the model (by default `true`).
-- The option `powerflow_solver` allows to pass a custom [`NewtonRaphson`](https://exanauts.github.io/ExaPF.jl/stable/lib/formulations/#ExaPF.NewtonRaphson) solver with different verbose level or stopping tolerance (by default the tolerance is set to `1e-10`).
-- The option `linear_solver` specifies a custom linear solver to use in the Newton-Raphson algorithm and in the computation of the reduced derivatives. If set to `nothing` (default), Argos fallbacks to UMFPACK on the CPU, [CUSOLVERRF](https://github.com/exanauts/CUSOLVERRF.jl) on CUDA GPU. In addition, one can use any linear-solver compatible with [ExaPF](https://exanauts.github.io/ExaPF.jl/stable/lib/linearsolver/), including [iterative linear solvers](https://exanauts.github.io/ExaPF.jl/stable/lib/linearsolver/#Iterative-solvers).
+- The option `powerflow_solver` allows passing a custom [`NewtonRaphson`](https://exanauts.github.io/ExaPF.jl/stable/lib/formulations/#ExaPF.NewtonRaphson) solver with different verbose level or stopping tolerance (by default the tolerance is set to `1e-10`).
+- The option `linear_solver` specifies a custom linear solver to use in the Newton-Raphson algorithm and in the computation of the reduced derivatives. If set to `nothing` (default), Argos fallbacks to UMFPACK on the CPU, [CUSOLVERRF](https://github.com/exanauts/CUSOLVERRF.jl) on CUDA GPU. In addition, one can use any linear solver compatible with [ExaPF](https://exanauts.github.io/ExaPF.jl/stable/lib/linearsolver/), including [iterative linear solvers](https://exanauts.github.io/ExaPF.jl/stable/lib/linearsolver/#Iterative-solvers).
 - Finally, the argument `nbatch_hessian` specifies the number of right-hand-side used when solving a linear system `A X = B` in parallel (useful to streamline the evaluation of the reduced derivatives).
 
 
 ## Attributes
 
-Querying the attributes of a `ReducedSpaceEvaluator` works similarly
-as with the `FullSpaceEvaluator`.
+Querying the attributes of a `ReducedSpaceEvaluator` works similarly to the `FullSpaceEvaluator`.
 One can query the original ExaPF model with
 ```@example reduced
 model = Argos.model(red)
@@ -133,7 +131,7 @@ u .= 1.1
 Argos.update!(red, u)
 [stack.vmag stack.vang]
 ```
-The values stored in `u` has been copied to the corresponding
+The values stored in `u` have been copied to the corresponding
 entries in `stack` (first three entries in `stack.vmag`, corresponding
 to the voltage magnitudes at the REF and the PV nodes). Then, the voltage
 magnitudes at the PQ nodes and the voltage angles have been updated implicitly
@@ -161,7 +159,7 @@ By calling `update!` again, we get:
 Argos.update!(red, u)
 
 ```
-with a slightly different solution (as we have loosen the tolerance):
+with a slightly different solution (as we have loosened the tolerance):
 ```@example reduced
 stack = red.stack
 [stack.vmag stack.vang]
@@ -172,7 +170,7 @@ As for `update!`, evaluating the reduced gradient is slightly more involved
 in the reduced-space as it involves the solution of one (sparse) linear system
 involving the Jacobian of the power flow $\nabla_x g(x, u)$.
 Putting aside this consideration, evaluating the gradient simply
-amounts to call:
+amounts to calling:
 ```@example reduced
 g = zeros(n)
 Argos.gradient!(red, g, u)
@@ -204,10 +202,10 @@ Hessian can be streamlined on the GPU.
 
 ## Deport on CUDA GPU
 
-Instantiating a `ReducedSpaceEvaluator` on a NVIDIA GPU translates to:
+Instantiating a `ReducedSpaceEvaluator` on an NVIDIA GPU translates to:
 ```julia
 using CUDAKernels # suppose CUDAKernels has been downloaded
 red = Argos.ReducedSpaceEvaluator(datafile; device=CUDADevice(), nbatch_hessian=256)
 ```
-The number of batches `nbatch_hessian` is the number of right-hand-side used
-to streamline the solution of the linear systems.
+The number of batches `nbatch_hessian` is the number of right-hand sides used to
+streamline the solution of the linear systems.

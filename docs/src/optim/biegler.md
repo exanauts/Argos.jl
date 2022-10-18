@@ -14,8 +14,8 @@ INSTANCES_DIR = joinpath(artifact_path(exadata_hash), "ExaData")
 
 # Biegler's method
 
-Solving the OPF in the reduced-space allows to compress
-drastically the size of the OPF problem, but this comes
+Solving the OPF in the reduced-space allows us to compress drastically the size
+of the OPF problem, but this comes
 with several downsides: (1) the power flow equations have to be solved
 at each iteration, (2) we have to evaluate explicitly the
 dense reduced Hessian and dense reduced Jacobian and (3) the

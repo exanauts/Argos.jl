@@ -119,8 +119,8 @@ sparse(h_I, h_J, h_V) # build a SparseMatrixCSC
     For the Hessian, only the lower-triangular are being returned.
 
 ## Deport on CUDA GPU
-Deporting all the operations on a CUDA GPU simply amounts
-to instantiate a [`FullSpaceEvaluator`](@ref) on the GPU, with
+Deporting all the operations on a CUDA GPU simply amounts to instantiating a
+`FullSpaceEvaluator``](@ref) on the GPU, with
 ```julia
 using CUDAKernels # suppose CUDAKernels has been downloaded
 flp = Argos.FullSpaceEvaluator(datafile; device=CUDADevice())
@@ -132,5 +132,5 @@ When using `device=CUDADevice()`, the model is entirely instantiated on the devi
 without data left on the host (hence minimizing the communication
 costs). The computation of the derivatives is streamlined by propagating
 the tangents in parallel, leading to faster evaluations of the callbacks.
-As expected, the larger the model, the more significant is the performance gain.
+As expected, the larger the model, the more significant the performance gain.
 

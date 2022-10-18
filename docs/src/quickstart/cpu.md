@@ -23,7 +23,7 @@ the OPF, all relying on the interior-point method (IPM).
 ---
 
 - **Full-space** and **Biegler** are equivalent in exact arithmetic. **Full-space** solves the original (sparse) KKT system whereas **Biegler** uses a reduction method to find an equivalent (dense) linear system.
-- **Dommel & Tinney** is a port of the [classical algorithm of Dommel and Tinney](https://ieeexplore.ieee.org/abstract/document/4073461) originally developed in 1968. It exploits the structure of the power flow equations to optimize only with relation to the degrees of freedom (the *control*, associated to the voltage at the PV nodes and the power generations). The reduction is the same as in **Biegler**, but **Dommel & Tinney** comprises an additional projection step to recover the dependent variables (the *state*). Currently, **Dommel & Tinney** uses the Newton-Raphson algorithm implemented in ExaPF to compute the projection step.
+- **Dommel & Tinney** is a port of the [classical algorithm of Dommel and Tinney](https://ieeexplore.ieee.org/abstract/document/4073461) originally developed in 1968. It exploits the structure of the power flow equations to optimize only with relation to the degrees of freedom (the *control*, associated with the voltage at the PV nodes and the power generations). The reduction is the same as in **Biegler**, but **Dommel & Tinney** comprises an additional projection step to recover the dependent variables (the *state*). Currently, **Dommel & Tinney** uses the Newton-Raphson algorithm implemented in ExaPF to compute the projection step.
 
 All three methods are described in detail in the
 [Argos paper](https://arxiv.org/abs/2203.11875).

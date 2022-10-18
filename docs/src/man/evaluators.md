@@ -1,6 +1,6 @@
 # Evaluators
 
-Argos wraps [ExaPF](https://github.com/exanauts/ExaPF.jl/) to gather the objective and the constraints
+Argos wraps [ExaPF.jl](https://github.com/exanauts/ExaPF.jl/) to gather the objective and the constraints
 associated to a particular OPF problem inside an `Evaluator`.
 The two principal evaluators are the `ReducedSpaceEvaluator`
 and the `FullSpaceEvaluator`.
@@ -27,15 +27,15 @@ $h: \mathbb{R}^n \to \mathbb{R}^{m_I}$ non-linear inequality constraints.
 
 By design, the implementation
 of [`Argos.AbstractNLPEvaluator`](@ref) shares a similar spirit with the implementations
-introduced in other packages, as
+introduced in other packages, such as
 
 - MathOptInterface.jl's [AbstractNLPEvaluator](https://jump.dev/MathOptInterface.jl/stable/apireference/#MathOptInterface.AbstractNLPEvaluator)
-- NLPModels' [AbstractNLPModel](https://juliasmoothoptimizers.github.io/NLPModels.jl/stable/api/#AbstractNLPModel-functions)
+- NLPModels.jl's [AbstractNLPModel](https://juliasmoothoptimizers.github.io/NLPModels.jl/stable/api/#AbstractNLPModel-functions)
 
 Internally, the evaluator caches all the information needed to evaluate
 the callbacks (e.g. the polar representation of the problem, with voltage
 magnitudes and angles). This cache allows to reduce the number of memory allocations to
-its minimum.
+a minimum.
 Once a new variable $u$ passed to the evaluator
 a function `Argos.update!` is being called to update the cache,
 according to the model specified in the underlying `ExaPF.AbstractFormulation`.
