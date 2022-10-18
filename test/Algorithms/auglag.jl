@@ -10,6 +10,7 @@
         linear_solver=LapackCPUSolver,
         print_level=MadNLP.ERROR,
     )
+    x0 = Argos.initial(aug)
     solver = Argos.AuglagSolver(subsolver; max_iter=3, verbose=0)
     stats = Argos.optimize!(solver, aug, x0)
     @test stats.minimum ≈ 5295.8 rtol=1e-3
