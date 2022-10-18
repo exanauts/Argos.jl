@@ -147,7 +147,7 @@ nlp = Argos.ReducedSpaceEvaluator("case57.m"; device=CUDADevice(), nbatch_hessia
 Note that on large instances, the batch computation can be demanding in terms of GPU's memory.
 
 [docs-stable-img]: https://img.shields.io/badge/docs-latest-blue.svg
-[docs-stable-url]: https://exanauts.github.io/Argos/
+[docs-stable-url]: https://exanauts.github.io/Argos.jl/
 [build-url]: https://github.com/exanauts/Argos.jl/actions?query=workflow
 [build-latest-img]: https://github.com/exanauts/Argos.jl/workflows/Run%20tests/badge.svg?branch=master
 [codecov-latest-img]: https://codecov.io/gh/exanauts/Argos.jl/branch/master/graphs/badge.svg?branch=master
