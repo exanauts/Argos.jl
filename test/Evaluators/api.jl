@@ -279,3 +279,31 @@ function test_evaluator_sparse_callbacks(nlp, device, M; rtol=1e-6)
     @test J_s ≈ J_d rtol=rtol
 end
 
+function test_evaluator_bridged(bdg, device, M; rtol=1e-6)
+    nlp = Argos.backend(bdg)
+    (n, m) = Argos.n_variables(nlp), Argos.n_constraints(nlp)
+
+    u1 = Argos.initial(nlp)
+    # Allocation
+    c1 = similar(u1, m)
+    g1 = similar(u1, n)
+    # Evaluation
+    obj1 = Argos.objective(nlp, u1)
+    Argos.constraint!(nlp, c1, u1)
+    Argos.gradient!(nlp, g1, u1)
+
+    u2 = Argos.initial(bdg)
+    # Allocation
+    c2 = similar(u2, m)
+    g2 = similar(u2, n)
+    # Evaluation
+    obj2 = Argos.objective(bdg, u2)
+    Argos.constraint!(bdg, c2, u2)
+    Argos.gradient!(bdg, g2, u2)
+
+    @test isa(u2, M)
+    @test M(u1) == u2
+    @test M(g1) == g2
+    @test M(c1) == c2
+end
+

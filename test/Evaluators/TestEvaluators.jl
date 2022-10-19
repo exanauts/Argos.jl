@@ -73,7 +73,8 @@ function runtests(datafile, device, AT)
     @testset "BridgeDeviceEvaluator" begin
         nlp = Argos.ReducedSpaceEvaluator(datafile; device=device)
         bdg = Argos.bridge(nlp)
-        test_evaluator_callbacks(bdg, device, AT)
+        test_evaluator_api(bdg, CPU(), Array)
+        test_evaluator_bridged(bdg, CPU(), Array)
     end
     if isa(device, CPU) # Currently supported only on the CPU
         @testset "Argos.FullSpaceEvaluator Interface" begin

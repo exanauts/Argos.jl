@@ -42,11 +42,6 @@ reset!(nlp::BridgeDeviceEvaluator) = reset!(nlp.inner)
 model(nlp::BridgeDeviceEvaluator) = model(nlp.inner)
 backend(nlp::BridgeDeviceEvaluator) = backend(nlp.inner)
 
-# Getters
-get(nlp::BridgeDeviceEvaluator, attr::AbstractNLPAttribute) = get(nlp.inner, attr)
-get(nlp::BridgeDeviceEvaluator, attr::ExaPF.AbstractVariable) = get(nlp.inner, attr)
-get(nlp::BridgeDeviceEvaluator, attr::PS.AbstractNetworkAttribute) = get(nlp.inner, attr)
-
 function bridge(nlp::ReducedSpaceEvaluator{T,VI,VT,MT}) where {T,VI,VT,MT}
     n, m = n_variables(nlp), n_constraints(nlp)
     # Deporting device

@@ -119,22 +119,6 @@ constraints_type(::StochEvaluator) = :inequality
 has_hessian(nlp::StochEvaluator) = true
 has_hessian_lagrangian(nlp::StochEvaluator) = true
 
-# Getters
-Base.get(nlp::StochEvaluator, ::Constraints) = nlp.constraints
-function Base.get(nlp::StochEvaluator, ::State)
-    x = similar(nlp.x_min) ; fill!(x, 0)
-    ExaPF.get!(nlp.model, State(), x, nlp.buffer)
-    return x
-end
-
-# Physics
-Base.get(nlp::StochEvaluator, ::PS.VoltageMagnitude) = nlp.stack.vmag
-Base.get(nlp::StochEvaluator, ::PS.VoltageAngle) = nlp.stack.vang
-Base.get(nlp::StochEvaluator, ::PS.ActivePower) = nlp.stack.pgen
-function Base.get(nlp::StochEvaluator, attr::PS.AbstractNetworkAttribute)
-    return ExaPF.get(nlp.model, attr)
-end
-
 # Initial position
 function initial(nlp::StochEvaluator{T,VI,VT,MT}) where {T,VI,VT,MT}
     x = VT(undef, n_variables(nlp))

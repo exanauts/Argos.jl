@@ -243,22 +243,6 @@ function get_hessian_buffer(nlp::ReducedSpaceEvaluator)
     return nlp.etc[:hess]
 end
 
-# Getters
-Base.get(nlp::ReducedSpaceEvaluator, ::Constraints) = nlp.constraints
-function Base.get(nlp::ReducedSpaceEvaluator, ::State)
-    return nlp.stack.input[nlp.mapx]
-end
-
-# Physics
-Base.get(nlp::ReducedSpaceEvaluator, ::PS.VoltageMagnitude) = nlp.stack.vmag
-Base.get(nlp::ReducedSpaceEvaluator, ::PS.VoltageAngle) = nlp.stack.vang
-Base.get(nlp::ReducedSpaceEvaluator, ::PS.ActivePower) = nlp.stack.pgen
-
-function Base.get(nlp::ReducedSpaceEvaluator, attr::PS.AbstractNetworkAttribute)
-    return ExaPF.get(nlp.model, attr)
-end
-get_nnzh(nlp::ReducedSpaceEvaluator) = n_variables(nlp)^2
-
 # Initial position
 function initial(nlp::ReducedSpaceEvaluator{T, VI, VT, MT}) where {T, VI, VT, MT}
     u = VT(undef, nlp.nu)
