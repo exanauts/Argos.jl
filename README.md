@@ -1,6 +1,6 @@
 # Argos.jl
 
-[![][docs-stable-img]][docs-stable-url] [![][build-latest-img]][build-url] [![][codecov-latest-img]][codecov-latest-url]
+[![][docs-stable-img]][docs-stable-url] [![][build-latest-img]][build-url] [![][codecov-latest-img]][codecov-latest-url] [![DOI][doi-img]][doi-url]
 
 Argos.jl extends the power-system modeler [ExaPF.jl](https://github.com/exanauts/ExaPF.jl)
 and the interior-point solver [MadNLP.jl](https://github.com/MadNLP/MadNLP.jl)
@@ -152,3 +152,5 @@ Note that on large instances, the batch computation can be demanding in terms of
 [build-latest-img]: https://github.com/exanauts/Argos.jl/workflows/Run%20tests/badge.svg?branch=master
 [codecov-latest-img]: https://codecov.io/gh/exanauts/Argos.jl/branch/master/graphs/badge.svg?branch=master
 [codecov-latest-url]: https://codecov.io/github/exanauts/Argos.jl?branch=master
+[doi-img]: https://zenodo.org/badge/307942526.svg
+[doi-url]: https://zenodo.org/badge/latestdoi/307942526
