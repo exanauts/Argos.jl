@@ -42,14 +42,6 @@ function Base.empty!(c::NT) where {NT <: Union{NLPTimers,NLPCounter}}
     end
 end
 
-function Base.sum(c::NLPTimers)
-    acc = 0.0
-    for attr in fieldnames(NLPTimers)
-        acc += getfield(c, attr)
-    end
-    return acc
-end
-
 # Tracker
 struct NLPTracker{VT}
     bounds::Tuple{VT, VT}

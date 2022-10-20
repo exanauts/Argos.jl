@@ -251,22 +251,6 @@ function get_hessian_buffer(nlp::ReducedSpaceEvaluator)
     return nlp.etc[:hess]
 end
 
-# Getters
-Base.get(nlp::ReducedSpaceEvaluator, ::Constraints) = nlp.constraints
-function Base.get(nlp::ReducedSpaceEvaluator, ::State)
-    return nlp.stack.input[nlp.mapx]
-end
-
-# Physics
-Base.get(nlp::ReducedSpaceEvaluator, ::PS.VoltageMagnitude) = nlp.stack.vmag
-Base.get(nlp::ReducedSpaceEvaluator, ::PS.VoltageAngle) = nlp.stack.vang
-Base.get(nlp::ReducedSpaceEvaluator, ::PS.ActivePower) = nlp.stack.pgen
-
-function Base.get(nlp::ReducedSpaceEvaluator, attr::PS.AbstractNetworkAttribute)
-    return ExaPF.get(nlp.model, attr)
-end
-get_nnzh(nlp::ReducedSpaceEvaluator) = n_variables(nlp)^2
-
 # Initial position
 function initial(nlp::ReducedSpaceEvaluator{T, VI, VT, MT}) where {T, VI, VT, MT}
     u = VT(undef, nlp.nu)
@@ -547,6 +531,16 @@ function Base.show(io::IO, nlp::ReducedSpaceEvaluator)
     println(io, "    * #vars: ", n)
     println(io, "    * #cons: ", m)
     print(io, "    * linear solver: ", typeof(nlp.linear_solver))
+end
+
+function primal_infeasibility!(nlp::ReducedSpaceEvaluator, cons, u)
+    constraint!(nlp, cons, u) # Evaluate constraints
+    (n_inf, err_inf, n_sup, err_sup) = _check(cons, nlp.g_min, nlp.g_max)
+    return max(err_inf, err_sup)
+end
+function primal_infeasibility(nlp::ReducedSpaceEvaluator, u)
+    cons = similar(nlp.g_min) ; fill!(cons, 0)
+    return primal_infeasibility!(nlp, cons, u)
 end
 
 function reset!(nlp::ReducedSpaceEvaluator)

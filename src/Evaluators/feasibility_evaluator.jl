@@ -33,16 +33,6 @@ has_hessian(nlp::FeasibilityEvaluator) = has_hessian(nlp.inner)
 has_hessian_lagrangian(nlp::FeasibilityEvaluator) = has_hessian(nlp)
 backend(nlp::FeasibilityEvaluator) = backend(nlp.inner)
 
-# Getters
-Base.get(nlp::FeasibilityEvaluator, attr::AbstractNLPAttribute) = Base.get(nlp.inner, attr)
-Base.get(nlp::FeasibilityEvaluator, attr::ExaPF.AbstractVariable) = Base.get(nlp.inner, attr)
-Base.get(nlp::FeasibilityEvaluator, attr::PS.AbstractNetworkAttribute) = Base.get(nlp.inner, attr)
-
-# Setters
-function setvalues!(nlp::FeasibilityEvaluator, attr::PS.AbstractNetworkValues, values)
-    setvalues!(nlp.inner, attr, values)
-end
-
 # Bounds
 bounds(nlp::FeasibilityEvaluator, ::Variables) = bounds(nlp.inner, Variables())
 bounds(nlp::FeasibilityEvaluator, ::Constraints) = (Float64[], Float64[])

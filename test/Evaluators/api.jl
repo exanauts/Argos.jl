@@ -24,6 +24,7 @@ function test_evaluator_api(nlp, device, M)
 
     @test isa(Argos.has_hessian(nlp), Bool)
     @test isa(Argos.has_hessian_lagrangian(nlp), Bool)
+    @test isa(Argos.backend(nlp), Argos.AbstractNLPEvaluator)
 
     Argos.reset!(nlp)
 end
@@ -91,6 +92,13 @@ function test_evaluator_callbacks(nlp, device, M; rtol=1e-6)
         # Test Jacobian vector product
         Argos.jprod!(nlp, v, u, jv)
         @test isapprox(J * jv, v)
+    else
+        cons = similar(g_min, 0)
+        jac = similar(g_min, 0)
+        Argos.constraint!(nlp, cons, u)
+        jI, jJ = Argos.jacobian_structure(nlp)
+        @test jI == jJ == Int[]
+        Argos.jacobian!(nlp, jac, u)
     end
 
     Argos.reset!(nlp)
@@ -269,5 +277,33 @@ function test_evaluator_sparse_callbacks(nlp, device, M; rtol=1e-6)
 
     J_s = sparse(j_I, j_J, j_V, m, n)
     @test J_s ≈ J_d rtol=rtol
+end
+
+function test_evaluator_bridged(bdg, device, M; rtol=1e-6)
+    nlp = Argos.backend(bdg)
+    (n, m) = Argos.n_variables(nlp), Argos.n_constraints(nlp)
+
+    u1 = Argos.initial(nlp)
+    # Allocation
+    c1 = similar(u1, m)
+    g1 = similar(u1, n)
+    # Evaluation
+    obj1 = Argos.objective(nlp, u1)
+    Argos.constraint!(nlp, c1, u1)
+    Argos.gradient!(nlp, g1, u1)
+
+    u2 = Argos.initial(bdg)
+    # Allocation
+    c2 = similar(u2, m)
+    g2 = similar(u2, n)
+    # Evaluation
+    obj2 = Argos.objective(bdg, u2)
+    Argos.constraint!(bdg, c2, u2)
+    Argos.gradient!(bdg, g2, u2)
+
+    @test isa(u2, M)
+    @test M(u1) == u2
+    @test M(g1) == g2
+    @test M(c1) == c2
 end
 

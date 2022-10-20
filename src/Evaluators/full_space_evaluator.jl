@@ -150,22 +150,6 @@ constraints_type(::FullSpaceEvaluator) = :inequality
 has_hessian(nlp::FullSpaceEvaluator) = true
 has_hessian_lagrangian(nlp::FullSpaceEvaluator) = true
 
-# Getters
-Base.get(nlp::FullSpaceEvaluator, ::Constraints) = nlp.constraints
-function Base.get(nlp::FullSpaceEvaluator, ::State)
-    x = similar(nlp.x_min) ; fill!(x, 0)
-    ExaPF.get!(nlp.model, State(), x, nlp.buffer)
-    return x
-end
-
-# Physics
-Base.get(nlp::FullSpaceEvaluator, ::PS.VoltageMagnitude) = nlp.stack.vmag
-Base.get(nlp::FullSpaceEvaluator, ::PS.VoltageAngle) = nlp.stack.vang
-Base.get(nlp::FullSpaceEvaluator, ::PS.ActivePower) = nlp.stack.pgen
-function Base.get(nlp::FullSpaceEvaluator, attr::PS.AbstractNetworkAttribute)
-    return ExaPF.get(nlp.model, attr)
-end
-
 # Initial position
 function initial(nlp::FullSpaceEvaluator{T,VI,VT,MT}) where {T,VI,VT,MT}
     x = VT(undef, n_variables(nlp))

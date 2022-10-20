@@ -315,5 +315,4 @@ include("bridge_evaluator.jl")
 # Penalty evaluators
 include("penalty.jl")
 include("auglag.jl")
-include("qp_model.jl")
 

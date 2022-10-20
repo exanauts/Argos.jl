@@ -77,16 +77,6 @@ has_hessian(nlp::SlackEvaluator) = has_hessian(nlp.inner)
 backend(nlp::SlackEvaluator) = backend(nlp.inner)
 inner_evaluator(nlp::SlackEvaluator) = inner_evaluator(nlp.inner)
 
-# Getters
-Base.get(nlp::SlackEvaluator, attr::AbstractNLPAttribute) = Base.get(nlp.inner, attr)
-Base.get(nlp::SlackEvaluator, attr::ExaPF.AbstractVariable) = Base.get(nlp.inner, attr)
-Base.get(nlp::SlackEvaluator, attr::PS.AbstractNetworkAttribute) = Base.get(nlp.inner, attr)
-
-# Setters
-function setvalues!(nlp::SlackEvaluator, attr::PS.AbstractNetworkValues, values)
-    setvalues!(nlp.inner, attr, values)
-end
-
 # Bounds
 function bounds(nlp::SlackEvaluator{Ev, T, VT}, ::Variables) where {Ev, T, VT}
     u♭, u♯ = bounds(nlp.inner, Variables())

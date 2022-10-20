@@ -23,24 +23,6 @@ function AuglagSolver(optimizer; options...)
     return AuglagSolver(optimizer, AugLagOptions(; options...))
 end
 
-# Solve subproblem with any MOI compatible solver
-function solve_subproblem!(
-    algo::AuglagSolver{<:MOI.AbstractOptimizer}, aug::AugLagEvaluator, uₖ;
-    tol=-1,
-)
-    n_iter = aug.counter.hessian
-    # Initiate optimizer
-    MOI.empty!(algo.optimizer)
-    MOI.set(algo.optimizer, MOI.RawParameter("tol"), algo.options.ωtol)
-    # Pass the problem to the MOIEvaluator
-    moi_solution = optimize!(algo.optimizer, aug, uₖ)
-    return (
-        status=moi_solution.status,
-        iter=aug.counter.hessian - n_iter,
-        minimizer=moi_solution.minimizer,
-    )
-end
-
 # Solve subproblem with MadNLP
 function solve_subproblem!(
     algo::AuglagSolver{<:MadNLP.MadNLPSolver}, aug::AugLagEvaluator, uₖ;
@@ -62,7 +44,7 @@ function solve_subproblem!(
         end
     end
     # Optimize with IPM
-    res = MadNLP.optimize!(algo.optimizer)
+    res = MadNLP.solve!(algo.optimizer)
     return (
         status=MadNLP.status_moi_dict[res.status],
         iter=aug.counter.hessian - n_iter,
