@@ -46,7 +46,7 @@ function solve_subproblem!(
     # Optimize with IPM
     res = MadNLP.solve!(algo.optimizer)
     return (
-        status=MadNLP.status_moi_dict[res.status],
+        status=MadNLP._STATUS_CODES[res.status],
         iter=aug.counter.hessian - n_iter,
         minimizer=res.solution,
     )
