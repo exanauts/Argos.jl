@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "Cite this paper whenever you use Argos.jl"
+authors:
+  - family-names: Pacaud
+    given-names: François
+  - family-names: Shin
+    given-names: Sungho
+  - family-names: Schanen
+    given-names: Michel
+  - family-names: Maldonado
+    given-names: Daniel Adrian
+  - family-names: Anitescu
+    given-names: Mihai
+title: "Condensed interior-point methods: porting reduced-space approaches on GPU hardware"
+doi: 10.48550/ARXIV.2203.11875
+year: 2022
+publisher:
+  name: "arXiv"
