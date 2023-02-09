@@ -79,15 +79,18 @@ function StochEvaluator(
     s_min, s_max = ExaPF.bounds(blk_model, stack)
     x_min, x_max = s_min[mapz], s_max[mapz]
 
-    # g_min = vcat([ExaPF.bounds(blk_model, f)[1] for f in constraints_expr]...)
-    # g_max = vcat([ExaPF.bounds(blk_model, f)[2] for f in constraints_expr]...)
     g_min, g_max = ExaPF.bounds(blk_model, constraints)
-    # g_max = ExaPF.bounds(blk_model, constraints)
-
-    # Remove bounds below a given threshold
+    # Remove bounds above a given threshold
     g_max = min.(g_max, 1e5)
     # Remove equalities
-    # TODO
+    ggl = @view g_min[nx*nscen+1:end]
+    ggu = @view g_max[nx*nscen+1:end]
+    idx_eq = findall(ggl .== ggu)
+    if length(idx_eq) > 0
+        println("[Argos] Elastic relaxation of operational eq. constraints $(idx_eq)")
+        ggu[idx_eq] .+= 1e-6
+        ggl[idx_eq] .-= 1e-6
+    end
 
     jac = ExaPF.ArrowheadJacobian(blk_model, constraints ∘ basis, ExaPF.AllVariables())
     ExaPF.set_params!(jac, stack)
