@@ -8,7 +8,7 @@ function build_solver(blk::Argos.OPFModel)
         linear_solver=Ma27Solver,
         max_wall_time=1800.0,
         max_iter=250,
-        print_level=MadNLP.DEBUG,
+        print_level=MadNLP.ERROR,
         tol=1e-5,
     )
 end
@@ -53,8 +53,12 @@ function main(cases, nscens, ntrials, save_results)
         model = ExaPF.PolarForm(datafile)
         nbus = PS.get(model, PS.NumberOfBuses())
 
-        r = benchmark_extensive(model, nscens; ntrials=ntrials, gpu_ad=gpu_ad)
-        results[i, :] .= (nbus, nscens, r.iters, r.obj, r.total, r.callbacks, r.linear_solver)
+        try
+            r = benchmark_extensive(model, nscens; ntrials=ntrials, gpu_ad=gpu_ad)
+            results[i, :] .= (nbus, nscens, r.iters, r.obj, r.total, r.callbacks, r.linear_solver)
+        catch
+            println("fail to solve problem $case.")
+        end
         refresh_memory()
     end
 
@@ -71,7 +75,7 @@ end
 cases = [
     "case1354pegase.m",
     "case2869pegase.m",
-    "case8387pegase.m",
+    "case9241pegase.m",
     "case_ACTIVSg500.m",
     "case_ACTIVSg2000.m",
     "case_ACTIVSg10k.m",

@@ -19,7 +19,7 @@ using MadNLPGPU
 
 const PS = ExaPF.PowerSystem
 
-const DATA = "/home/fpacaud/dev/matpower/data/"
+const DATA = "/home/fpacaud/exa/matpower/data/"
 const DEMANDS = joinpath(artifact"ExaData", "ExaData", "mp_demand")
 RESULTS_DIR = "results"
 

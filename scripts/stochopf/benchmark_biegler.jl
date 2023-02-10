@@ -7,7 +7,7 @@ function _build_madnlp_gpu(blk::Argos.OPFModel)
     madnlp_options[:lapack_algorithm] = MadNLP.CHOLESKY
     madnlp_options[:dual_initialized] = true
     madnlp_options[:max_iter] = 250
-    madnlp_options[:print_level] = MadNLP.DEBUG
+    madnlp_options[:print_level] = MadNLP.ERROR
     madnlp_options[:tol] = 1e-5
     opt_ipm, opt_linear, logger = MadNLP.load_options(; madnlp_options...)
     KKT = Argos.BieglerKKTSystem{Float64, CuVector{Int}, CuVector{Float64}, CuMatrix{Float64}}
@@ -54,8 +54,12 @@ function main(cases, nscens, ntrials, save_results)
         model = ExaPF.PolarForm(datafile)
         nbus = PS.get(model, PS.NumberOfBuses())
 
-        r = benchmark_biegler(model, nscens; ntrials=ntrials)
-        results[i, :] .= (nbus, nscens, r.iters, r.obj, r.total, r.callbacks, r.linear_solver)
+        try
+            r = benchmark_biegler(model, nscens; ntrials=ntrials)
+            results[i, :] .= (nbus, nscens, r.iters, r.obj, r.total, r.callbacks, r.linear_solver)
+        catch
+            println("fail to solve problem $case.")
+        end
         refresh_memory()
     end
 
@@ -72,7 +76,7 @@ end
 cases = [
     "case1354pegase.m",
     "case2869pegase.m",
-    "case8387pegase.m",
+    "case9241pegase.m",
     "case_ACTIVSg500.m",
     "case_ACTIVSg2000.m",
     "case_ACTIVSg10k.m",
