@@ -444,7 +444,7 @@ function MadNLP.solve_refine_wrapper!(
     dy .= Λ .* (r₅ .- vj .+ α .* r₃ ./ Σₛ)
     ds .= (r₃ .+ α .* dy) ./ Σₛ
 
-    x[ips.ind_fixed] .= 0
+    x[ips.ind_fixed] .= 0.0
     copyto!(x_h, x)
     return solve_status
 end
