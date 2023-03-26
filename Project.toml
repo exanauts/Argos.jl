@@ -1,7 +1,7 @@
 name = "Argos"
 uuid = "ef244971-cf80-42b0-9762-2c2c832df5d5"
 authors = ["fpacaud <fpacaud@anl.gov>"]
-version = "0.3.1"
+version = "0.3.2"
 
 [deps]
 ExaPF = "0cf0e50c-a82e-488f-ac7e-41ffdff1b8aa"
@@ -20,7 +20,7 @@ ExaPF = "~0.8"
 FiniteDiff = "2.7"
 Ipopt = "1"
 KernelAbstractions = "0.8"
-MadNLP = "~0.5.1"
+MadNLP = "~0.5.2"
 MathOptInterface = "1"
 NLPModels = "0.18"
 julia = "1.6"
