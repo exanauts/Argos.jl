@@ -5,7 +5,7 @@ function _test_results_match(ips1, ips2; atol=1e-10)
     @test ips1.status == ips2.status
     @test ips1.cnt.k == ips2.cnt.k
     @test ips1.obj_val ≈ ips2.obj_val atol=atol
-    @test ips1.x ≈ ips2.x atol=atol
+    @test MadNLP.primal(ips1.x) ≈ MadNLP.primal(ips2.x) atol=atol
     @test ips1.y ≈ ips2.y atol=atol
 end
 
