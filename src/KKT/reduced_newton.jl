@@ -356,7 +356,7 @@ function MadNLP.solve_refine_wrapper!(
     b_h = MadNLP.primal_dual(b_r)
     x = _load_buffer(kkt, x_h, :kkt_x)::VT
     b = _load_buffer(kkt, b_h, :kkt_b)::VT
-    MadNLP.fixed_variable_treatment_vec!(b, ips.ind_fixed)
+    b[ips.ind_fixed] .= 0
     m = ips.m # constraints
     nx, nu = kkt.nx, kkt.nu
     ns = m - nx
@@ -437,7 +437,7 @@ function MadNLP.solve_refine_wrapper!(
     dy .= Λ .* (r₅ .- vj .+ α .* r₃ ./ Σₛ)
     ds .= (r₃ .+ α .* dy) ./ Σₛ
 
-    MadNLP.fixed_variable_treatment_vec!(x, ips.ind_fixed)
+    x[ips.ind_fixed] .= 0
     copyto!(x_h, x)
     return solve_status
 end

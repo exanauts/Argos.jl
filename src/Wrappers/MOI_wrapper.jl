@@ -27,16 +27,20 @@ mutable struct MOIEvaluator{Evaluator<:AbstractNLPEvaluator} <: MOI.AbstractNLPE
     nlp::Evaluator
     hash_x::UInt
     has_hess::Bool
+    counters::NLPModels.Counters
+    timers::NLPTimers
 end
 # MOI needs Hessian of Lagrangian function
 function MOIEvaluator(nlp)
-    return MOIEvaluator(nlp, UInt64(0), has_hessian_lagrangian(nlp))
+    return MOIEvaluator(nlp, UInt64(0), has_hessian_lagrangian(nlp), NLPModels.Counters(), NLPTimers())
 end
 
 function _update!(ev::MOIEvaluator, x)
     hx = hash(x)
     if hx != ev.hash_x
-        update!(ev.nlp, x)
+        ev.timers.update_time += @elapsed begin
+            update!(ev.nlp, x)
+        end
         ev.hash_x = hx
     end
 end
@@ -57,33 +61,51 @@ end
 
 function MOI.eval_objective(ev::MOIEvaluator, x)
     _update!(ev, x)
-    obj = objective(ev.nlp, x)
+    ev.counters.neval_obj += 1
+    ev.timers.obj_time += @elapsed begin
+        obj = objective(ev.nlp, x)
+    end
     return obj
 end
 
 function MOI.eval_objective_gradient(ev::MOIEvaluator, g, x)
     _update!(ev, x)
-    gradient!(ev.nlp, g, x)
+    ev.counters.neval_grad += 1
+    ev.timers.grad_time += @elapsed begin
+        gradient!(ev.nlp, g, x)
+    end
 end
 
 function MOI.eval_constraint(ev::MOIEvaluator, cons, x)
     _update!(ev, x)
-    constraint!(ev.nlp, cons, x)
+    ev.counters.neval_cons += 1
+    ev.timers.cons_time += @elapsed begin
+        constraint!(ev.nlp, cons, x)
+    end
 end
 
 function MOI.eval_constraint_jacobian(ev::MOIEvaluator, jac, x)
     _update!(ev, x)
-    jacobian_coo!(ev.nlp, jac, x)
+    ev.counters.neval_jac += 1
+    ev.timers.jacobian_time += @elapsed begin
+        jacobian_coo!(ev.nlp, jac, x)
+    end
 end
 
 function MOI.eval_hessian_lagrangian(ev::MOIEvaluator, hess, x, σ, μ)
     _update!(ev, x)
-    hessian_lagrangian_coo!(ev.nlp, hess, x, μ, σ)
+    ev.counters.neval_hess += 1
+    ev.timers.hessian_time += @elapsed begin
+        hessian_lagrangian_coo!(ev.nlp, hess, x, μ, σ)
+    end
 end
 
 function MOI.eval_hessian_lagrangian_product(ev::MOIEvaluator, hv, x, v, σ, μ)
     _update!(ev, x)
-    hessian_lagrangian_prod!(ev.nlp, hv, x, μ, σ, v)
+    ev.counters.neval_prod += 1
+    ev.timers.hessprod_time += @elapsed begin
+        hessian_lagrangian_prod!(ev.nlp, hv, x, μ, σ, v)
+    end
 end
 
 function MOI.NLPBlockData(nlp::AbstractNLPEvaluator)

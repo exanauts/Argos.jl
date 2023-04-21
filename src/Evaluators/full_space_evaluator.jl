@@ -108,14 +108,14 @@ function FullSpaceEvaluator(
     x_min, x_max = s_min[mapxu], s_max[mapxu]
 
     g_min, g_max = ExaPF.bounds(model, constraints)
-    # Remove bounds below a given threshold
+    # Remove bounds above a given threshold
     g_max = min.(g_max, 1e5)
     # Remove equalities
     ggl = @view g_min[nx+1:end]
     ggu = @view g_max[nx+1:end]
     idx_eq = findall(ggl .== ggu)
     if length(idx_eq) > 0
-        println("eq found")
+        println("[Argos] Elastic relaxation of operational eq. constraints $(idx_eq)")
         ggu[idx_eq] .+= 1e-6
         ggl[idx_eq] .-= 1e-6
     end
