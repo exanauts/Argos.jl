@@ -24,21 +24,21 @@ end
 
 function Argos.update!(K::Argos.HJDJ, A, D, Σ)
     m = size(A, 1)
-    ev = _scale_transpose_kernel!(CUDADevice())(
+    _scale_transpose_kernel!(CUDABackend())(
         K.Jt.nzVal, A.rowPtr, A.colVal, A.nzVal, D, K.transperm,
         ndrange=(m, 1),
     )
-    wait(ev)
+    KA.synchronize(CUDABackend())
     spgemm!('N', 'N', 1.0, K.Jt, A, 0.0, K.JtJ, 'O')
     K.Σ .= Σ
 end
 function Argos.update!(K::Argos.HJDJ, A, D)
     m = size(A, 1)
-    ev = _scale_transpose_kernel!(CUDADevice())(
+    _scale_transpose_kernel!(CUDABackend())(
         K.Jt.nzVal, A.rowPtr, A.colVal, A.nzVal, D, K.transperm,
         ndrange=(m, 1),
     )
-    wait(ev)
+    KA.synchronize(CUDABackend())
     spgemm!('N', 'N', 1.0, K.Jt, A, 0.0, K.JtJ, 'O')
 end
 

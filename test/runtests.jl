@@ -19,9 +19,8 @@ const CASES = ["case9.m", "case30.m"]
 ARCHS = Any[(CPU(), Array, SparseMatrixCSC)]
 
 if has_cuda_gpu()
-    using CUDAKernels
     using ArgosCUDA
-    CUDA_ARCH = (CUDADevice(), CuArray, nothing)
+    CUDA_ARCH = (CUDABackend(), CuArray, nothing)
     push!(ARCHS, CUDA_ARCH)
 end
 

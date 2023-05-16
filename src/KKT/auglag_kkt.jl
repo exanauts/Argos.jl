@@ -35,7 +35,7 @@ Supports only bound-constrained optimization problem (so no Jacobian).
 [PMSSA2022] Pacaud, François, Daniel Adrian Maldonado, Sungho Shin, Michel Schanen, and Mihai Anitescu. "A feasible reduced space method for real-time optimal power flow." Electric Power Systems Research 212 (2022): 108268.
 
 """
-struct MixedAuglagKKTSystem{T, VT, MT} <: MadNLP.AbstractKKTSystem{T, VT, MT}
+struct MixedAuglagKKTSystem{T, VT, MT} <: MadNLP.AbstractKKTSystem{T, VT, MT, MadNLP.ExactHessian{T, VT}}
     aug::AbstractNLPEvaluator # for Auglag information
     n::Int
     m::Int

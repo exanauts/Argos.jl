@@ -132,7 +132,7 @@ function test_evaluator_hessian(nlp, device, M; rtol=1e-6)
     u0 = u |> Array
     hess_fd = FiniteDiff.finite_difference_hessian(reduced_cost, u0)
 
-    @test H * w == hv
+    @test myisapprox(H * w, hv, rtol=rtol)
     @test myisapprox(H, hess_fd.data, rtol=rtol)
 end
 
@@ -279,7 +279,7 @@ function test_evaluator_sparse_callbacks(nlp, device, M; rtol=1e-6)
     @test J_s ≈ J_d rtol=rtol
 end
 
-function test_evaluator_bridged(bdg, device, M; rtol=1e-6)
+function test_evaluator_bridged(bdg, device, M; rtol=1e-8)
     nlp = Argos.backend(bdg)
     (n, m) = Argos.n_variables(nlp), Argos.n_constraints(nlp)
 
@@ -303,7 +303,8 @@ function test_evaluator_bridged(bdg, device, M; rtol=1e-6)
 
     @test isa(u2, M)
     @test M(u1) == u2
-    @test M(g1) == g2
     @test M(c1) == c2
+    # Gradient is less accurate as it involves the solution of a linear system
+    @test myisapprox(g1, g2; rtol=rtol)
 end
 
