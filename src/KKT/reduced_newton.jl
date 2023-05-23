@@ -443,6 +443,12 @@ function MadNLP.solve_refine_wrapper!(
 end
 
 function MadNLP.set_aug_RR!(kkt::BieglerKKTSystem, ips::MadNLP.MadNLPSolver, RR::MadNLP.RobustRestorer)
-    copyto!(kkt.pr_diag, ips.zl./(ips.x.-ips.xl) .+ ips.zu./(ips.xu.-ips.x) .+ RR.zeta.*RR.D_R.^2)
+    x = MadNLP.full(ips.x)
+    xl = MadNLP.full(ips.xl)
+    xu = MadNLP.full(ips.xu)
+    zl = MadNLP.full(ips.zl)
+    zu = MadNLP.full(ips.zu)
+    copyto!(kkt.pr_diag, zl./(x.-xl) .+ zu./(xu.-x) .+ RR.zeta.*RR.D_R.^2)
     copyto!(kkt.du_diag, .-RR.pp./RR.zp .- RR.nn./RR.zn)
 end
+

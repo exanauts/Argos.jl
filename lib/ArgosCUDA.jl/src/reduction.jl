@@ -47,7 +47,12 @@ function MadNLP.set_aug_diagonal!(kkt::Argos.BieglerKKTSystem{T, VI, VT, MT}, ip
     pr_diag_h = kkt.etc[:pr_diag_host]::Vector{T}
     # Broadcast is not working as MadNLP array are allocated on the CPU,
     # whereas pr_diag is allocated on the GPU
-    pr_diag_h .= ips.zl./(ips.x.-ips.xl) .+ ips.zu./(ips.xu.-ips.x)
+    x = MadNLP.full(ips.x)
+    xl = MadNLP.full(ips.xl)
+    xu = MadNLP.full(ips.xu)
+    zl = MadNLP.full(ips.zl)
+    zu = MadNLP.full(ips.zu)
+    pr_diag_h .= zl./(x.-xl) .+ zu./(xu.-x)
     copyto!(kkt.pr_diag, pr_diag_h)
     fill!(kkt.du_diag, 0.0)
 end
