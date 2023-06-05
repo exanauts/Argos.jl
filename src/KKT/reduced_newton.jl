@@ -431,7 +431,14 @@ function MadNLP.solve_refine_wrapper!(
     dλ .= tx                              # tₓ
     mul!(kh, K, dxu)                      # Kₓₓ dₓ + Kₓᵤ dᵤ
     axpy!(-1.0, khx, dλ)                  # tₓ - Kₓₓ dₓ + Kₓᵤ dᵤ
-    ldiv!(Gxi', dλ)                       # dₗ = Gₓ⁻ᵀ(tₓ - Kₓₓ dₓ + Kₓᵤ dᵤ)
+
+    # TODO: SEGFAULT
+    # ldiv!(Gxi', dλ)                       # dₗ = Gₓ⁻ᵀ(tₓ - Kₓₓ dₓ + Kₓᵤ dᵤ)
+
+    dt = VT(undef, nx) ; fill!(dt, 0.0)
+    copyto!(dt, dλ)
+    ldiv!(Gxi', dt)                       # dₗ = Gₓ⁻ᵀ(tₓ - Kₓₓ dₓ + Kₓᵤ dᵤ)
+    copyto!(dλ, dt)
     # (2) Extract Condensed
     mul!(vj, kkt.A, dxu)                  # Aₓ dₓ + Aᵤ dᵤ
     dy .= Λ .* (r₅ .- vj .+ α .* r₃ ./ Σₛ)
