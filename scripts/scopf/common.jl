@@ -14,9 +14,8 @@ using MadNLP
 using MadNLPHSL
 
 # GPU
-using KernelAbstractions
 using CUDA
-using CUDAKernels
+using KernelAbstractions
 using ArgosCUDA
 using MadNLPGPU
 
@@ -44,11 +43,11 @@ function init_model!(blk)
     return
 end
 
-function build_model(model, lines; use_gpu=false)
+function build_scopf_model(model, lines; use_gpu=false)
     contingencies = [ExaPF.LineContingency(l) for l in lines]
     nblks = length(contingencies) + 1
     if use_gpu
-        model_gpu = PolarForm(model, CUDADevice())
+        model_gpu = PolarForm(model, CUDABackend())
         nlp = Argos.StochEvaluator(model_gpu, nblks; contingencies=contingencies)
         blk = Argos.OPFModel(Argos.bridge(nlp))
     else
