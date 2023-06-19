@@ -2,39 +2,6 @@ include("common.jl")
 include("config.jl")
 include("screening.jl")
 
-function build_madnlp(
-    blk::Argos.OPFModel,
-    ::Argos.FullSpace;
-    max_iter=250,
-    dual_initialized=true,
-    tol=1e-5,
-    print_level=MadNLP.ERROR,
-    linear_solver=Ma27Solver,
-)
-    return MadNLP.MadNLPSolver(blk; max_iter=max_iter, dual_initialized=dual_initialized, tol=tol, print_level=print_level, linear_solver=linear_solver)
-end
-
-function build_madnlp(
-    blk::Argos.OPFModel,
-    ::Argos.BieglerReduction;
-    max_iter=250,
-    dual_initialized=true,
-    tol=1e-5,
-    print_level=MadNLP.ERROR,
-    linear_solver=nothing,
-)
-    madnlp_options = Dict{Symbol, Any}()
-    madnlp_options[:linear_solver] = LapackGPUSolver
-    madnlp_options[:lapack_algorithm] = MadNLP.CHOLESKY
-    madnlp_options[:dual_initialized] = dual_initialized
-    madnlp_options[:max_iter] = max_iter
-    madnlp_options[:print_level] = print_level
-    madnlp_options[:tol] = tol
-    opt_ipm, opt_linear, logger = MadNLP.load_options(; madnlp_options...)
-    KKT = Argos.BieglerKKTSystem{Float64, CuVector{Int}, CuVector{Float64}, CuMatrix{Float64}}
-    return MadNLP.MadNLPSolver{Float64, KKT}(blk, opt_ipm, opt_linear; logger=logger)
-end
-
 function benchmark(model, lines, kkt; use_gpu=false, ntrials=3, options...)
     blk = build_scopf_model(model, lines; use_gpu=use_gpu)
 
