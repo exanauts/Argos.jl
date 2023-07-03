@@ -2,6 +2,7 @@ using Dates
 using DelimitedFiles
 using Graphs
 using LazyArtifacts
+using LinearAlgebra
 using Printf
 using Random
 
@@ -22,6 +23,7 @@ using MadNLPGPU
 const PS = ExaPF.PowerSystem
 
 const DATA = joinpath(artifact"ExaData", "ExaData")
+const MATPOWER = "/home/fpacaud/dev/matpower/data"
 const SCENARIOS = joinpath(artifact"ExaData", "ExaData", "mp_demand")
 RESULTS_DIR = "results"
 
@@ -61,7 +63,7 @@ end
 function build_madnlp(
     blk::Argos.OPFModel,
     ::Argos.FullSpace;
-    max_iter=250,
+    max_iter=max_iter,
     dual_initialized=true,
     tol=1e-5,
     print_level=MadNLP.ERROR,
@@ -73,7 +75,7 @@ end
 function build_madnlp(
     blk::Argos.OPFModel,
     ::Argos.BieglerReduction;
-    max_iter=250,
+    max_iter=max_iter,
     dual_initialized=true,
     tol=1e-5,
     print_level=MadNLP.ERROR,
@@ -92,26 +94,26 @@ function build_madnlp(
 end
 
 # # Custom scaling
-# function MadNLP.scale_objective(nlp::Argos.OPFModel, grad::AbstractVector; max_gradient=1e-8)
-#     return 1e-3
-# end
+function MadNLP.scale_objective(nlp::Argos.OPFModel, grad::AbstractVector; max_gradient=1e-8)
+    return min(1, max_gradient / norm(grad, Inf))
+end
 
-# function MadNLP.scale_constraints!(
-#     nlp::Argos.OPFModel,
-#     con_scale::AbstractVector,
-#     jac::AbstractMatrix;
-#     max_gradient=1e-8,
-# )
-#     blk = Argos.backend(nlp)
-#     ncons = length.(blk.constraints.exprs)
-#     cnt = cumsum(ncons)
+function MadNLP.scale_constraints!(
+    nlp::Argos.OPFModel,
+    con_scale::AbstractVector,
+    jac::AbstractMatrix;
+    max_gradient=1e-8,
+)
+    blk = Argos.backend(nlp)
+    ncons = length.(blk.constraints.exprs)
+    cnt = cumsum(ncons)
 
-#     # Powerflow
-#     con_scale[1:cnt[1]] .= 1e-0
-#     # Power generation
-#     con_scale[cnt[1]+1:cnt[2]] .= 1e-2
-#     # Line flows
-#     con_scale[cnt[2]+1:cnt[3]] .= 1e-2
-#     return
-# end
+    # Powerflow
+    con_scale[1:cnt[1]] .= 1e-0
+    # Power generation
+    con_scale[cnt[1]+1:cnt[2]] .= 1e0
+    # Line flows
+    con_scale[cnt[2]+1:cnt[3]] .= 1e0
+    return
+end
 

@@ -164,7 +164,7 @@ function BieglerKKTSystem{T, VI, VT, MT}(nlp::OPFModel, ind_cons=MadNLP.get_inde
     ind_W_fixed, ind_W_fixed_diag = get_fixed_nnz(W, ind_fixed, true)
 
     # Buffers
-    etc = Dict{Symbol, Any}(:reduction_time=>0.0)
+    etc = Dict{Symbol, Any}(:reduction_time=>0.0, :cond=>Float64[])
 
     return BieglerKKTSystem{T, VI, VT, MT, SMT}(
         K, Wref, W, J, A, Gx, Gu, mapA, mapGx, mapGu,
@@ -344,6 +344,7 @@ function MadNLP.build_kkt!(kkt::BieglerKKTSystem{T, VI, VT, MT}) where {T, VI, V
 
     # Regularize final reduced matrix to ensure it is full-rank
     fixed_diag!(kkt.aug_com, kkt.ind_fixed .- nx, 1.0)
+    return
 end
 
 function MadNLP.solve_refine_wrapper!(
@@ -386,8 +387,6 @@ function MadNLP.solve_refine_wrapper!(
     Σd = view(kkt.du_diag, nx+1:m)
     α = view(kkt.con_scale, nx+1:m)
 
-    Λ = 1.0 ./ (Σd .- α.^2 ./ Σₛ)
-
     # RHS
     r₁₂ = view(b, 1:nx+nu)
     r₁ = view(b, 1:nx)                   # / state
@@ -403,13 +402,20 @@ function MadNLP.solve_refine_wrapper!(
     dλ = view(x, ips.n+1:ips.n+nx)       # / equality cons
     dy = view(x, ips.n+nx+1:ips.n+m)     # / inequality cons
 
+    Λ = Σₛ ./ (Σd .* Σₛ .- α.^2)
+
     # Reduction (1) --- Condensed
-    vj .= Λ .* (r₅ .+ α .* r₃ ./ Σₛ)      # v = (α Σₛ⁻¹ α)⁻¹ * (r₅ + α Σₛ⁻¹ r₃)
-    mul!(jv, kkt.A', vj, -1.0, 0.0)                  # jᵥ = Aᵀ v
+    # vj .= Λ .* (r₅ .+ α .* r₃ ./ Σₛ)      # v = (α Σₛ⁻¹ α)⁻¹ * (r₅ + α Σₛ⁻¹ r₃)
+    vj .= (Σₛ .* r₅ .+ r₃)                # v = (Σₛ r₅ + α r₃)
+    mul!(jv, kkt.A', vj, 1.0, 0.0)        # jᵥ = Aᵀ v
     jv .+= r₁₂                            # r₁₂ - Aᵀv
     # Reduction (2) --- Biegler
     sx1 .= r₄                             # r₄
     ldiv!(Gxi, sx1)                       # Gₓ⁻¹ r₄
+
+    tt = similar(sx1)
+    mul!(tt, kkt.Gx, sx1)
+
     sx2 .= tx                             # tx = jv[1:nx]
     kvx .= sx1 ; kvu .= 0.0
     mul!(kh, K, kv)                       # [Kₓₓ Gₓ⁻¹ r₄ ; Kᵤₓ Gₓ⁻¹ r₄ ]
@@ -433,16 +439,14 @@ function MadNLP.solve_refine_wrapper!(
     axpy!(-1.0, khx, dλ)                  # tₓ - Kₓₓ dₓ + Kₓᵤ dᵤ
 
     # TODO: SEGFAULT
-    # ldiv!(Gxi', dλ)                       # dₗ = Gₓ⁻ᵀ(tₓ - Kₓₓ dₓ + Kₓᵤ dᵤ)
+    ldiv!(Gxi', dλ)                       # dₗ = Gₓ⁻ᵀ(tₓ - Kₓₓ dₓ + Kₓᵤ dᵤ)
 
-    dt = VT(undef, nx) ; fill!(dt, 0.0)
-    copyto!(dt, dλ)
-    ldiv!(Gxi', dt)                       # dₗ = Gₓ⁻ᵀ(tₓ - Kₓₓ dₓ + Kₓᵤ dᵤ)
-    copyto!(dλ, dt)
     # (2) Extract Condensed
     mul!(vj, kkt.A, dxu)                  # Aₓ dₓ + Aᵤ dᵤ
-    dy .= Λ .* (r₅ .- vj .+ α .* r₃ ./ Σₛ)
-    ds .= (r₃ .+ α .* dy) ./ Σₛ
+    # dy .= Λ .* (r₅ .- vj .+ α .* r₃ ./ Σₛ)
+    # ds .= (r₃ .+ α .* dy) ./ Σₛ
+    ds .= (vj .- r₅)
+    dy .= Σₛ .* ds .- r₃
 
     x[ips.ind_fixed] .= 0.0
     copyto!(x_h, x)
