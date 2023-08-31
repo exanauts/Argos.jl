@@ -95,7 +95,7 @@ function StochEvaluator(
     ggu = @view g_max[nx*nscen+1:end]
     idx_eq = findall(ggl .== ggu)
     if length(idx_eq) > 0
-        println("[Argos] Elastic relaxation of operational eq. constraints $(idx_eq)")
+        println("[Argos] Elastic relaxation of $(length(idx_eq)) operational eq. constraints")
         ggu[idx_eq] .+= 1e-6
         ggl[idx_eq] .-= 1e-6
     end

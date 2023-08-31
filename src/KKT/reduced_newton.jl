@@ -344,6 +344,7 @@ function MadNLP.build_kkt!(kkt::BieglerKKTSystem{T, VI, VT, MT}) where {T, VI, V
 
     # Regularize final reduced matrix to ensure it is full-rank
     fixed_diag!(kkt.aug_com, kkt.ind_fixed .- nx, 1.0)
+
     return
 end
 

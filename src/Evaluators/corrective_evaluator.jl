@@ -36,13 +36,11 @@ end
     Ordering: [x1, x2, ..., xN, u]
 =#
 function CorrectiveEvaluator(
-    model::PolarForm{T, VI, VT, MT}, ploads::Array{T, 2}, qloads::Array{T, 2};
+    model::PolarForm{T, VI, VT, MT}, nscen::Int;
+    contingencies=ExaPF.AbstractContingency[],
     relax_eps=1e-6, line_constraints=true, epsilon=1e-4,
     tracking=false, stack_ref=nothing,
 ) where {T, VI, VT, MT}
-    @assert size(ploads, 2) == size(qloads, 2)
-    nscen = size(ploads, 2)
-
     blk_model = ExaPF.PolarFormRecourse(model, nscen)
 
     nx = ExaPF.number(blk_model, State())
@@ -63,20 +61,26 @@ function CorrectiveEvaluator(
     else
         ExaPF.QuadraticCost(blk_model)
     end
-    constraints_expr = Any[
-        ExaPF.PowerFlowRecourse(blk_model; epsilon=epsilon),
-        ExaPF.ReactivePowerBounds(blk_model),
-    ]
-    if line_constraints
-        push!(constraints_expr, ExaPF.LineFlows(blk_model))
+
+    if length(contingencies) >= 1
+        constraints_expr = Any[
+            ExaPF.PowerFlowRecourse(blk_model, contingencies; epsilon=epsilon),
+            ExaPF.ReactivePowerBounds(blk_model, contingencies),
+            ExaPF.LineFlows(blk_model, contingencies),
+        ]
+    else
+        constraints_expr = Any[
+            ExaPF.PowerFlowRecourse(blk_model; epsilon=epsilon),
+            ExaPF.ReactivePowerBounds(blk_model),
+            ExaPF.LineFlows(blk_model),
+        ]
     end
+
     constraints = ExaPF.MultiExpressions(constraints_expr)
     m = length(constraints)
 
     stack = ExaPF.NetworkStack(blk_model)
     ∂stack = ExaPF.NetworkStack(blk_model)
-    ExaPF.set_params!(stack, ploads, qloads)
-    ExaPF.set_params!(∂stack, ploads, qloads)
 
     # Buffers
     obj = VT(undef, nscen)
@@ -91,13 +95,20 @@ function CorrectiveEvaluator(
 
     # Remove bounds below a given threshold
     g_max = min.(g_max, 1e5)
+    # Remove equalities
+    ggl = @view g_min[nx*nscen+1:end]
+    ggu = @view g_max[nx*nscen+1:end]
+    idx_eq = findall(ggl .== ggu)
+    if length(idx_eq) > 0
+        println("[Argos] Elastic relaxation of $(length(idx_eq)) operational eq. constraints")
+        ggu[idx_eq] .+= 1e-6
+        ggl[idx_eq] .-= 1e-6
+    end
 
     jac = ExaPF.ArrowheadJacobian(blk_model, constraints ∘ basis, ExaPF.AllVariables())
-    ExaPF.set_params!(jac, stack)
     lagrangian_expr = [costs; constraints_expr]
     lagrangian = ExaPF.MultiExpressions(lagrangian_expr)
     hess = ExaPF.ArrowheadHessian(blk_model, lagrangian ∘ basis, ExaPF.AllVariables())
-    ExaPF.set_params!(hess, stack)
 
     map2tril = tril_mapping(hess.H)
 
@@ -108,7 +119,31 @@ function CorrectiveEvaluator(
         stack, ∂stack, jac, hess, map2tril,
     )
 end
-function CorrectiveEvaluator(datafile::String, pload, qload; device=ExaPF.CPU(), options...)
+
+function CorrectiveEvaluator(
+    model::PolarForm,
+    ploads::Array{Float64, 2},
+    qloads::Array{Float64, 2};
+    options...
+)
+    @assert size(ploads, 2) == size(qloads, 2)
+    nscen = size(ploads, 2)
+    evaluator = CorrectiveEvaluator(model, nscen; options...)
+    # Set loads as parameters in the model
+    ExaPF.set_params!(evaluator.stack, ploads, qloads)
+    ExaPF.set_params!(evaluator.∂stack, ploads, qloads)
+    ExaPF.set_params!(evaluator.jac, evaluator.stack)
+    ExaPF.set_params!(evaluator.hess, evaluator.stack)
+    return evaluator
+end
+
+function CorrectiveEvaluator(
+    datafile::String,
+    pload::Array{Float64, 2},
+    qload::Array{Float64, 2};
+    device=ExaPF.CPU(),
+    options...
+)
     return CorrectiveEvaluator(ExaPF.PolarForm(datafile, device), pload, qload; options...)
 end
 
@@ -206,7 +241,7 @@ end
 function hessian_lagrangian_coo!(nlp::CorrectiveEvaluator, hess, x, y, σ)
     n = n_variables(nlp)::Int
     m = n_constraints(nlp)
-    nlp._multipliers[1:nlp.nscen] .= σ / nlp.nscen
+    nlp._multipliers[1:nlp.nscen] .= σ / nlp.nscen * 0.01
     copyto!(nlp._multipliers, nlp.nscen + 1, y, 1, m)
     ExaPF.hessian!(nlp.hess, nlp.stack, nlp._multipliers)
     # Keep only lower-triangular part
