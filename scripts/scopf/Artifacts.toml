@@ -1,0 +1,6 @@
+[ExaData]
+git-tree-sha1 = "d0421dd6bbdf0749990fb237f7017eb34b3f90c8"
+lazy = true
+    [[ExaData.download]]
+    url = "https://web.cels.anl.gov/~mschanen/ExaData-affbca6.tar.gz"
+    sha256 = "96126184b0d5ec5c2924855766752f090a5a2e644491d9f5ff2a74c7334fa0aa"

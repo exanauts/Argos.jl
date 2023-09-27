@@ -97,6 +97,20 @@ function runtests(datafile, device, AT)
             test_evaluator_hessian_lagrangian(stoch, device, AT)
             test_evaluator_sparse_callbacks(stoch, device, AT)
         end
+        @testset "Argos.CorrectiveEvaluator Interface" begin
+            nblocks = 5
+            case_name = split(split(datafile, '/')[end], '.')[1]
+            demands = joinpath(artifact"ExaData", "ExaData", "mp_demand")
+            pload = readdlm(joinpath(demands, "$(case_name)_oneweek_168.Pd"))[:, 1:nblocks] ./ 100
+            qload = readdlm(joinpath(demands, "$(case_name)_oneweek_168.Qd"))[:, 1:nblocks] ./ 100
+
+            stoch = Argos.CorrectiveEvaluator(datafile, pload, qload)
+            test_evaluator_api(stoch, device, AT)
+            test_evaluator_callbacks(stoch, device, AT)
+            # TODO: currently broken
+            # test_evaluator_hessian_lagrangian(stoch, device, AT)
+            # test_evaluator_sparse_callbacks(stoch, device, AT)
+        end
     end
 end
 

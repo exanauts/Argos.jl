@@ -5,8 +5,8 @@ end
 function Argos.transfer2tril!(hessvals::AbstractVector, H::CuSparseMatrixCSR, csc2tril)
     Hz = nonzeros(H)
     ndrange = (length(hessvals),)
-    ev = _map2vec_kernel!(CUDADevice())(hessvals, Hz, csc2tril; ndrange=ndrange)
-    wait(ev)
+    _map2vec_kernel!(CUDABackend())(hessvals, Hz, csc2tril; ndrange=ndrange)
+    KA.synchronize(CUDABackend())
 end
 
 
@@ -17,8 +17,8 @@ end
 function Argos.fixed!(dest::CuVector, ind_fixed, val::Number)
     length(ind_fixed) == 0 && return
     g_ind_fixed = ind_fixed |> CuArray
-    ev = _fixed_kernel!(CUDADevice())(dest, g_ind_fixed, val; ndrange=length(ind_fixed))
-    wait(ev)
+    _fixed_kernel!(CUDABackend())(dest, g_ind_fixed, val; ndrange=length(ind_fixed))
+    KA.synchronize(CUDABackend())
 end
 
 
@@ -30,8 +30,8 @@ function Argos.copy_index!(dest::CuVector{T}, src::CuVector{T}, idx) where T
     @assert length(dest) == length(idx)
     ndrange = (length(dest),)
     idx_d = CuVector(idx)
-    ev = _copy_index_kernel!(CUDADevice())(dest, src, idx_d; ndrange=ndrange)
-    wait(ev)
+    _copy_index_kernel!(CUDABackend())(dest, src, idx_d; ndrange=ndrange)
+    KA.synchronize(CUDABackend())
 end
 
 
@@ -43,8 +43,8 @@ end
 function Argos.fixed_diag!(dest::CuMatrix, ind_fixed, val::Number)
     length(ind_fixed) == 0 && return
     g_ind_fixed = ind_fixed |> CuArray
-    ev = _fixed_diag_kernel!(CUDADevice())(dest, g_ind_fixed, val; ndrange=length(ind_fixed))
-    wait(ev)
+    _fixed_diag_kernel!(CUDABackend())(dest, g_ind_fixed, val; ndrange=length(ind_fixed))
+    KA.synchronize(CUDABackend())
 end
 
 @kernel function _transfer_auglag_hessian!(dest, H, J, ρ, n, m)
@@ -70,8 +70,8 @@ function Argos.transfer_auglag_hessian!(
     @assert size(ρ, 1) == m
 
     ndrange = (n+m, n)
-    ev = _transfer_auglag_hessian!(CUDADevice())(dest, H, J, ρ, n, m, ndrange=ndrange, dependencies=Event(CUDADevice()))
-    wait(ev)
+    _transfer_auglag_hessian!(CUDABackend())(dest, H, J, ρ, n, m, ndrange=ndrange)
+    KA.synchronize(CUDABackend())
     return
 end
 
@@ -84,11 +84,11 @@ function Argos.set_batch_tangents!(seeds::CuMatrix, offset, n, n_batches)
     @assert offset + n_batches <= n
     ndrange = (n_batches)
     fill!(seeds, 0.0)
-    ev = _batch_tangents_kernel!(CUDADevice())(
+    _batch_tangents_kernel!(CUDABackend())(
         seeds, offset, n_batches;
-        ndrange=ndrange, dependencies=Event(CUDADevice()),
+        ndrange=ndrange,
     )
-    wait(ev)
+    KA.synchronize(CUDABackend())
     return
 end
 
@@ -115,11 +115,11 @@ function Argos.tgtmul!(
     k = size(z, 2)
     ndrange = (n, k)
     y .*= beta
-    ev = _tgtmul_1_kernel!(CUDADevice())(
+    _tgtmul_1_kernel!(CUDABackend())(
         y, A.rowPtr, A.colVal, A.nzVal, z, w, alpha, nz, nw;
-        ndrange=ndrange, dependencies=Event(CUDADevice()),
+        ndrange=ndrange,
     )
-    wait(ev)
+    KA.synchronize(CUDABackend())
 end
 
 
@@ -150,11 +150,11 @@ function Argos.tgtmul!(
     ndrange = (n, k)
     yx .*= beta
     yu .*= beta
-    ev = _tgtmul_2_kernel!(CUDADevice())(
+    _tgtmul_2_kernel!(CUDABackend())(
         yx, yu, A.rowPtr, A.colVal, A.nzVal, z, w, alpha, nz, nw;
-        ndrange=ndrange, dependencies=Event(CUDADevice()),
+        ndrange=ndrange,
     )
-    wait(ev)
+    KA.synchronize(CUDABackend())
 end
 
 
@@ -171,11 +171,11 @@ end
 
 function Argos.update!(K::Argos.HJDJ, A, D, Σ)
     m = size(A, 1)
-    ev = _scale_transpose_kernel!(CUDADevice())(
+    ev = _scale_transpose_kernel!(CUDABackend())(
         K.Jt.nzVal, A.rowPtr, A.colVal, A.nzVal, D, K.transperm,
         ndrange=(m, 1),
     )
-    wait(ev)
+    KA.synchronize(ev)
     spgemm!('N', 'N', 1.0, K.Jt, A, 0.0, K.JtJ, 'O')
     K.Σ .= Σ
 end

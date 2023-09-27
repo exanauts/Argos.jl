@@ -7,8 +7,8 @@ using CUDA
 using CUDA.CUSPARSE
 using CUSOLVERRF
 
-using KernelAbstractions
-using CUDAKernels
+import KernelAbstractions as KA
+import KernelAbstractions: @kernel, @index
 
 using ExaPF
 const LS = ExaPF.LinearSolvers

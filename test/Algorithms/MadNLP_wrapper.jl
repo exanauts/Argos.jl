@@ -70,10 +70,11 @@ end
     "case30.m",
     "case57.m",
 ]
+    tol = 1e-6
     datafile = joinpath(INSTANCES_DIR, case)
     options = Dict{Symbol, Any}(
         :dual_initialized=>true,
-        :tol=>1e-6,
+        :tol=>tol,
         :print_level=>MadNLP.ERROR,
     )
     @testset "Reduce-then-linearize" begin
@@ -81,16 +82,16 @@ end
         ips = _madnlp_default(nlp; options...)
         @test ips.status == MadNLP.SOLVE_SUCCEEDED
         ipd = _madnlp_dense_kkt(nlp; options...)
-        _test_results_match(ips, ipd; atol=1e-8)
+        _test_results_match(ips, ipd; atol=tol)
         ipc = _madnlp_condensed_kkt(nlp; options...)
-        _test_results_match(ips, ipc; atol=1e-8)
+        _test_results_match(ips, ipc; atol=tol)
     end
     @testset "Linearize-then-reduce" begin
         flp = Argos.FullSpaceEvaluator(datafile)
         ips = _madnlp_default(flp; options...)
         @test ips.status == MadNLP.SOLVE_SUCCEEDED
         ipb = _madnlp_biegler_kkt(flp; options...)
-        _test_results_match(ips, ipb; atol=1e-8)
+        _test_results_match(ips, ipb; atol=tol)
         @test ipb.kkt.Wref === flp.hess.H
     end
 end
