@@ -107,6 +107,7 @@ function runtests(datafile, device, AT)
             stoch = Argos.CorrectiveEvaluator(datafile, pload, qload)
             test_evaluator_api(stoch, device, AT)
             test_evaluator_callbacks(stoch, device, AT)
+            # TODO: currently broken
             # test_evaluator_hessian_lagrangian(stoch, device, AT)
             # test_evaluator_sparse_callbacks(stoch, device, AT)
         end
