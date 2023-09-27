@@ -38,8 +38,10 @@ julia> u = Argos.initial(nlp)
 
 julia> Argos.update!(nlp, u); # solve power-flow
 
-julia> Argos.objective(nlp, u) # get objective
-5438.323706833448
+julia> obj = Argos.objective(nlp, u); # get objective
+
+julia> obj ≈ 5438.323706
+true
 
 ```
 
