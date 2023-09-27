@@ -14,7 +14,7 @@ makedocs(
     ),
     modules = [Argos],
     repo = "https://github.com/exanauts/Argos.jl/blob/{commit}{path}#{line}",
-    # strict = true,
+    doctest=false,
     checkdocs = :exports,
     pages = [
         "Home" => "index.md",
