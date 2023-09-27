@@ -5,6 +5,11 @@ Pkg.develop(PackageSpec(path=joinpath(dirname(@__FILE__), "..")))
 Pkg.instantiate()
 
 using Documenter, Argos
+using Pkg.Artifacts
+
+# Ensure ExaData is installed
+artifact_toml = joinpath(@__DIR__, "..", "Artifacts.toml")
+ensure_artifacts_installed("ExaData", artifact_toml)
 
 makedocs(
     sitename = "Argos.jl",
@@ -14,7 +19,6 @@ makedocs(
     ),
     modules = [Argos],
     repo = "https://github.com/exanauts/Argos.jl/blob/{commit}{path}#{line}",
-    # strict = true,
     checkdocs = :exports,
     pages = [
         "Home" => "index.md",
