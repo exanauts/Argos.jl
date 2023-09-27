@@ -9,7 +9,7 @@ the internal `stack` by calling the function [`update!`](@ref)
 
 ## Examples
 
-```jldoctest; setup=:(using ExaPF, Argos)
+```jldoctest; setup=:(using ExaPF, Argos; ExaPF.load_polar("case9.m"))
 julia> flp = Argos.FullSpaceEvaluator(ExaPF.load_polar("case9.m"))
 A FullSpaceEvaluator object
     * device: CPU()
