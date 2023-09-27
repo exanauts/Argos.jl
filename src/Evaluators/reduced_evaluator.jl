@@ -20,7 +20,7 @@ The reduced evaluator could be instantiated on the host memory, or on a specific
 
 ## Examples
 
-```jldoctest; setup=:(using ExaPF, Argos)
+```jldoctest; setup=:(using ExaPF, Argos; ExaPF.load_polar("case9.m"))
 julia> nlp = Argos.ReducedSpaceEvaluator(ExaPF.load_polar("case9.m"))
 A ReducedSpaceEvaluator object
     * device: CPU()
