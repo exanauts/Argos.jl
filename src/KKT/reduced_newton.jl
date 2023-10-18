@@ -1,3 +1,4 @@
+abstract type AbstractSchurKKTSystem{T, VT, MT} <: MadNLP.AbstractReducedKKTSystem{T, VT, MT, MadNLP.ExactHessian{T, VT}} end
 
 """
     BieglerKKTSystem{T, VI, VT, MT, SMT} <: MadNLP.AbstractReducedKKTSystem{T, VT, MT}
@@ -40,7 +41,7 @@ in the reduction algorithm.
 [PSSMA2022] Pacaud, François, Sungho Shin, Michel Schanen, Daniel Adrian Maldonado, and Mihai Anitescu. "Condensed interior-point methods: porting reduced-space approaches on GPU hardware." arXiv preprint arXiv:2203.11875 (2022).
 
 """
-struct BieglerKKTSystem{T, VI, VT, MT, SMT} <: MadNLP.AbstractReducedKKTSystem{T, VT, MT, MadNLP.ExactHessian{T, VT}}
+struct BieglerKKTSystem{T, VI, VT, MT, SMT, LA} <: AbstractSchurKKTSystem{T, VT, MT}
     K::HJDJ{VI,VT,SMT}
     Wref::SMT
     W::SMT
@@ -61,8 +62,7 @@ struct BieglerKKTSystem{T, VI, VT, MT, SMT} <: MadNLP.AbstractReducedKKTSystem{T
     # Reduced KKT system
     aug_com::MT
     reduction::AbstractReduction
-    # Pivot
-    G_fac::LinearAlgebra.Factorization
+    linear_solver::LA
     # Buffers
     _wxu1::VT
     _wxu2::VT
@@ -85,7 +85,11 @@ struct BieglerKKTSystem{T, VI, VT, MT, SMT} <: MadNLP.AbstractReducedKKTSystem{T
     etc::Dict{Symbol,Any}
 end
 
-function BieglerKKTSystem{T, VI, VT, MT}(nlp::OPFModel, ind_cons=MadNLP.get_index_constraints(nlp); max_batches=256) where {T, VI, VT, MT}
+function BieglerKKTSystem{T, VI, VT, MT}(
+    nlp::OPFModel,
+    ind_cons=MadNLP.get_index_constraints(nlp);
+    max_batches=1,
+) where {T, VI, VT, MT}
     n_slack = length(ind_cons.ind_ineq)
     n = NLPModels.get_nvar(nlp)
     m = NLPModels.get_ncon(nlp)
@@ -128,8 +132,8 @@ function BieglerKKTSystem{T, VI, VT, MT}(nlp::OPFModel, ind_cons=MadNLP.get_inde
     du_diag = VT(undef, m) ; fill!(du_diag, zero(T))
 
     nbatches = min(max_batches, nu)
-    linear_solver = LS.DirectSolver(Gx; nrhs=nbatches)
-    Gxi = linear_solver.factorization
+    # Initiate Krylov wrapper.
+    Gxi = KrylovWrapper{T, VT}(Gx)
     S = ImplicitSensitivity(Gxi, Gu)
     reduction = if nbatches > 1
         BatchReduction(evaluator.model, S, nx, nu, nbatches)
@@ -166,7 +170,7 @@ function BieglerKKTSystem{T, VI, VT, MT}(nlp::OPFModel, ind_cons=MadNLP.get_inde
     # Buffers
     etc = Dict{Symbol, Any}(:reduction_time=>0.0, :cond=>Float64[])
 
-    return BieglerKKTSystem{T, VI, VT, MT, SMT}(
+    return BieglerKKTSystem{T, VI, VT, MT, SMT, typeof(Gxi)}(
         K, Wref, W, J, A, Gx, Gu, mapA, mapGx, mapGu,
         h_V, j_V,
         pr_diag, du_diag,
@@ -300,8 +304,8 @@ function MadNLP.compress_jacobian!(kkt::BieglerKKTSystem)
     copy_index!(nonzeros(kkt.Gu), Jv, kkt.mapGu)
     copy_index!(nonzeros(kkt.A), Jv, kkt.mapA)
 
-    Gxi = kkt.G_fac
-    lu!(Gxi, kkt.Gx)
+    # TODO: KRYLOV
+    # this is the place to update the preconditioner.
 
     fixed!(nonzeros(kkt.Gu), kkt.ind_Gu_fixed, 0.0)
     fixed!(nonzeros(kkt.A), kkt.ind_A_fixed, 0.0)
@@ -380,7 +384,7 @@ function MadNLP.solve_refine_wrapper!(
     khu = view(kh, nx+1:nx+nu)
 
     # Gₓ⁻¹
-    Gxi = kkt.G_fac
+    Gxi = kkt.linear_solver
     Gx = kkt.Gx
     Gu = kkt.Gu
     K = kkt.K
@@ -435,7 +439,7 @@ function MadNLP.solve_refine_wrapper!(
     mul!(kh, K, dxu)                      # Kₓₓ dₓ + Kₓᵤ dᵤ
     axpy!(-1.0, khx, dλ)                  # tₓ - Kₓₓ dₓ + Kₓᵤ dᵤ
 
-    # TODO: SEGFAULT
+    # TODO: SEGFAULT with CUDA 12.*
     ldiv!(Gxi', dλ)                       # dₗ = Gₓ⁻ᵀ(tₓ - Kₓₓ dₓ + Kₓᵤ dᵤ)
 
     # (2) Extract Condensed
