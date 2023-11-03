@@ -6,7 +6,7 @@
     subsolver = MadNLP.MadNLPSolver(
         model;
         tol=1e-5,
-        kkt_system=MadNLP.DENSE_KKT_SYSTEM,
+        kkt_system=MadNLP.DenseKKTSystem,
         linear_solver=LapackCPUSolver,
         print_level=MadNLP.ERROR,
     )

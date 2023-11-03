@@ -13,57 +13,62 @@ end
 function _madnlp_default(nlp; kwargs...)
     Argos.reset!(nlp)
     mnlp = Argos.OPFModel(nlp)
-    ips = MadNLP.MadNLPSolver(mnlp; kwargs...)
-    MadNLP.solve!(ips)
-    return ips
+    solver = MadNLP.MadNLPSolver(mnlp; kwargs...)
+    MadNLP.solve!(solver)
+    return solver
 end
 
 # Solve with DENSE_KKT_SYSTEM
 function _madnlp_dense_kkt(nlp; kwargs...)
     Argos.reset!(nlp)
     mnlp = Argos.OPFModel(nlp)
-    ipd = MadNLP.MadNLPSolver(
+    solver = MadNLP.MadNLPSolver(
         mnlp;
-        kkt_system=MadNLP.DENSE_KKT_SYSTEM,
+        kkt_system=MadNLP.DenseKKTSystem,
         linear_solver=LapackCPUSolver,
         kwargs...
     )
-    MadNLP.solve!(ipd)
-    return ipd
+    MadNLP.solve!(solver)
+    return solver
 end
 
 # Solve with DENSE_CONDENSED_KKT_SYSTEM
 function _madnlp_condensed_kkt(nlp; kwargs...)
     Argos.reset!(nlp)
     mnlp = Argos.OPFModel(nlp)
-    ipc = MadNLP.MadNLPSolver(
+    solver = MadNLP.MadNLPSolver(
         mnlp;
-        kkt_system=MadNLP.DENSE_CONDENSED_KKT_SYSTEM,
+        kkt_system=MadNLP.DenseCondensedKKTSystem,
         linear_solver=LapackCPUSolver,
         kwargs...
     )
-    MadNLP.solve!(ipc)
-    return ipc
+    MadNLP.solve!(solver)
+    return solver
 end
 
 # Solve with BieglerKKTSystem
 function _madnlp_biegler_kkt(nlp; kwargs...)
+    Argos.reset!(nlp)
+    mnlp = Argos.OPFModel(nlp)
+    # options_biegler = Dict{Symbol, Any}(kwargs...)
+    # options_biegler[:linear_solver] = LapackCPUSolver
+    # opt_ipm, opt_linear, logger = MadNLP.load_options(; options_biegler...)
+
+    # KKT = Argos.BieglerKKTSystem{T, VI, VT, MT}
+
     T = Float64
     VI = Vector{Int}
     VT = Vector{T}
     MT = Matrix{T}
-
-    Argos.reset!(nlp)
-    options_biegler = Dict{Symbol, Any}(kwargs...)
-    options_biegler[:linear_solver] = LapackCPUSolver
-    opt_ipm, opt_linear, logger = MadNLP.load_options(; options_biegler...)
-
-    KKT = Argos.BieglerKKTSystem{T, VI, VT, MT}
-
-    mnlp = Argos.OPFModel(nlp)
-    ipb = MadNLP.MadNLPSolver{T, KKT}(mnlp, opt_ipm, opt_linear; logger=logger)
-    MadNLP.solve!(ipb)
-    return ipb
+    solver = MadNLP.MadNLPSolver(
+        mnlp;
+        kkt_system=Argos.BieglerKKTSystem{T, VI, VT, MT},
+        linear_solver=LapackCPUSolver,
+        callback=MadNLP.SparseCallback,
+        kwargs...
+    )
+    MadNLP.solve!(solver)
+    return solver
 end
 
 @testset "MadNLP wrapper: $case" for case in [

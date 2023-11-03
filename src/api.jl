@@ -49,9 +49,9 @@ struct FullSpace <: AbstractOPFFormulation end
 function run_opf(datafile::String, ::FullSpace; options...)
     flp = FullSpaceEvaluator(datafile)
     model = OPFModel(flp)
-    ips = MadNLP.MadNLPSolver(model; options...)
-    MadNLP.solve!(ips)
-    return ips
+    solver = MadNLP.MadNLPSolver(model; options...)
+    MadNLP.solve!(solver)
+    return solver
 end
 
 """
@@ -71,15 +71,17 @@ struct BieglerReduction <: AbstractOPFFormulation end
 function run_opf(datafile::String, ::BieglerReduction; options...)
     flp = FullSpaceEvaluator(datafile)
     model = OPFModel(flp)
-
-    madnlp_options = Dict{Symbol, Any}(options...)
-    madnlp_options[:linear_solver] = MadNLP.LapackCPUSolver
-    opt_ipm, opt_linear, logger = MadNLP.load_options(; madnlp_options...)
-
-    KKT = Argos.BieglerKKTSystem{Float64, Vector{Int}, Vector{Float64}, Matrix{Float64}}
-    ips = MadNLP.MadNLPSolver{Float64, KKT}(model, opt_ipm, opt_linear; logger=logger)
-    MadNLP.solve!(ips)
-    return ips
+    KKT = BieglerKKTSystem{Float64, Vector{Int}, Vector{Float64}, Matrix{Float64}}
+    solver = MadNLP.MadNLPSolver(
+        model;
+        kkt_system=KKT,
+        linear_solver=MadNLP.LapackCPUSolver,
+        lapack_algorithm=MadNLP.CHOLESKY,
+        callback=MadNLP.SparseCallback,
+        options...
+    )
+    MadNLP.solve!(solver)
+    return solver
 end
 
 """
@@ -108,13 +110,14 @@ struct DommelTinney <: AbstractOPFFormulation end
 function run_opf(datafile::String, ::DommelTinney; options...)
     nlp = ReducedSpaceEvaluator(datafile)
     model = OPFModel(nlp)
-    madnlp_options = Dict{Symbol, Any}(options...)
-    madnlp_options[:kkt_system] = MadNLP.DENSE_CONDENSED_KKT_SYSTEM
-    madnlp_options[:linear_solver] = MadNLP.LapackCPUSolver
-    madnlp_options[:lapack_algorithm] = MadNLP.CHOLESKY
-
-    ips = MadNLP.MadNLPSolver(model; madnlp_options...)
-    MadNLP.solve!(ips)
-    return ips
+    solver = MadNLP.MadNLPSolver(
+        model;
+        kkt_system=MadNLP.DenseCondensedKKTSystem,
+        linear_solver=MadNLP.LapackCPUSolver,
+        lapack_algorithm=MadNLP.CHOLESKY,
+        options...,
+    )
+    MadNLP.solve!(solver)
+    return solver
 end
 

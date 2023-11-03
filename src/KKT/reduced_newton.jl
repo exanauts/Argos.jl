@@ -40,7 +40,14 @@ in the reduction algorithm.
 [PSSMA2022] Pacaud, François, Sungho Shin, Michel Schanen, Daniel Adrian Maldonado, and Mihai Anitescu. "Condensed interior-point methods: porting reduced-space approaches on GPU hardware." arXiv preprint arXiv:2203.11875 (2022).
 
 """
-struct BieglerKKTSystem{T, VI, VT, MT, SMT} <: MadNLP.AbstractReducedKKTSystem{T, VT, MT, MadNLP.ExactHessian{T, VT}}
+struct BieglerKKTSystem{
+    T,
+    VI,
+    VT,
+    MT,
+    SMT,
+    LS,
+} <: MadNLP.AbstractReducedKKTSystem{T, VT, MT, MadNLP.ExactHessian{T, VT}}
     K::HJDJ{VI,VT,SMT}
     Wref::SMT
     W::SMT
@@ -56,8 +63,13 @@ struct BieglerKKTSystem{T, VI, VT, MT, SMT} <: MadNLP.AbstractReducedKKTSystem{T
     # Jacobian nzval
     j_V::VT
     # Regularization terms
+    reg::Vector{T}
     pr_diag::VT
-    du_diag::VT
+    du_diag::Vector{T}
+    l_diag::Vector{T}
+    u_diag::Vector{T}
+    l_lower::Vector{T}
+    u_lower::Vector{T}
     # Reduced KKT system
     aug_com::MT
     reduction::AbstractReduction
@@ -70,25 +82,35 @@ struct BieglerKKTSystem{T, VI, VT, MT, SMT} <: MadNLP.AbstractReducedKKTSystem{T
     _wx1::VT
     _wx2::VT
     _wj1::VT
+    _wj2::VT
     # Dimension
     nx::Int
     nu::Int
     # Info
     ind_ineq::Vector{Int}
+    ind_lb::Vector{Int}
+    ind_ub::Vector{Int}
     ind_fixed::Vector{Int}
     ind_Gu_fixed::VI
     ind_A_fixed::VI
     ind_W_fixed_diag::VI
     ind_W_fixed::VI
-    con_scale::VT
     jacobian_scaling::VT
+    linear_solver::LS
     etc::Dict{Symbol,Any}
 end
 
-function BieglerKKTSystem{T, VI, VT, MT}(nlp::OPFModel, ind_cons=MadNLP.get_index_constraints(nlp); max_batches=256) where {T, VI, VT, MT}
+function MadNLP.create_kkt_system(
+    ::Type{BieglerKKTSystem{T, VI, VT, MT}},
+    cb::MadNLP.AbstractCallback{T, Vector{T}},
+    opt, opt_linear_solver, cnt, ind_cons;
+    max_batches=256,
+) where {T, VI, VT, MT}
+    nlp = cb.nlp
     n_slack = length(ind_cons.ind_ineq)
     n = NLPModels.get_nvar(nlp)
     m = NLPModels.get_ncon(nlp)
+    nlb, nub = length(ind_cons.ind_lb), length(ind_cons.ind_ub)
     # Structure
     evaluator = backend(nlp)
     nx = evaluator.nx
@@ -127,6 +149,13 @@ function BieglerKKTSystem{T, VI, VT, MT}(nlp::OPFModel, ind_cons=MadNLP.get_inde
     pr_diag = VT(undef, n + n_slack) ; fill!(pr_diag, zero(T))
     du_diag = VT(undef, m) ; fill!(du_diag, zero(T))
 
+    reg = zeros(n + n_slack)
+
+    l_diag = zeros(nlb)
+    u_diag = zeros(nub)
+    l_lower = zeros(nlb)
+    u_lower = zeros(nub)
+
     nbatches = min(max_batches, nu)
     linear_solver = LS.DirectSolver(Gx; nrhs=nbatches)
     Gxi = linear_solver.factorization
@@ -147,9 +176,9 @@ function BieglerKKTSystem{T, VI, VT, MT}(nlp::OPFModel, ind_cons=MadNLP.get_inde
     _wx1 = VT(undef, nx)     ; fill!(_wx1, 0)
     _wx2 = VT(undef, nx)     ; fill!(_wx2, 0)
     _wj1 = VT(undef, m-nx)   ; fill!(_wj1, 0)
+    _wj2 = VT(undef, m-nx)   ; fill!(_wj2, 0)
 
     # Scaling
-    con_scale = VT(undef, m)           ; fill!(con_scale, one(T))
     jacobian_scaling = VT(undef, nnzj) ; fill!(jacobian_scaling, one(T))
 
     ind_fixed = ind_cons.ind_fixed
@@ -163,19 +192,23 @@ function BieglerKKTSystem{T, VI, VT, MT}(nlp::OPFModel, ind_cons=MadNLP.get_inde
     ind_Gu_fixed, _ = get_fixed_nnz(Gu, ind_fixed .- nx, false)
     ind_W_fixed, ind_W_fixed_diag = get_fixed_nnz(W, ind_fixed, true)
 
+    cnt.linear_solver_time += @elapsed begin
+        linear_solver = opt.linear_solver(aug_com; opt = opt_linear_solver)
+    end
     # Buffers
-    etc = Dict{Symbol, Any}(:reduction_time=>0.0, :cond=>Float64[])
+    etc = Dict{Symbol, Any}(:reduction_time=>0.0, :cond=>Float64[], :scaling_initialized=>false)
 
-    return BieglerKKTSystem{T, VI, VT, MT, SMT}(
+    return BieglerKKTSystem{T, VI, VT, MT, SMT, typeof(linear_solver)}(
         K, Wref, W, J, A, Gx, Gu, mapA, mapGx, mapGu,
         h_V, j_V,
-        pr_diag, du_diag,
+        reg, pr_diag, du_diag,
+        l_diag, u_diag, l_lower, u_lower,
         aug_com, reduction, Gxi,
-        _wxu1, _wxu2, _wxu3, _wx1, _wx2, _wj1,
+        _wxu1, _wxu2, _wxu3, _wx1, _wx2, _wj1, _wj2,
         nx, nu,
-        ind_cons.ind_ineq, ind_fixed,
+        ind_cons.ind_ineq, ind_cons.ind_lb, ind_cons.ind_ub, ind_fixed,
         ind_Gu_fixed, ind_A_fixed, ind_W_fixed_diag, ind_W_fixed,
-        con_scale, jacobian_scaling,
+        jacobian_scaling, linear_solver,
         etc,
     )
 end
@@ -194,26 +227,21 @@ function MadNLP.get_raw_jacobian(kkt::BieglerKKTSystem)
 end
 
 function MadNLP.initialize!(kkt::BieglerKKTSystem)
+    fill!(kkt.reg, 1.0)
     fill!(kkt.pr_diag, 1.0)
     fill!(kkt.du_diag, 0.0)
+    fill!(kkt.l_lower, 0.0)
+    fill!(kkt.u_lower, 0.0)
+    fill!(kkt.l_diag, 1.0)
+    fill!(kkt.u_diag, 1.0)
     fill!(nonzeros(kkt.W), 0.0)
-end
-
-function MadNLP.set_jacobian_scaling!(kkt::BieglerKKTSystem{T,VI,VT,MT}, constraint_scaling::AbstractVector) where {T,VI,VT,MT}
-    _copyto!(kkt.con_scale, 1, constraint_scaling, 1, length(constraint_scaling))
-    nnzJ = length(kkt.j_V)::Int
-    Ji, _, _ = findnz(kkt.J)
-    jscale = zeros(nnzJ)
-    @inbounds for i in 1:nnzJ
-        index = Ji[i]
-        jscale[i] = constraint_scaling[index]
-    end
-    copyto!(kkt.jacobian_scaling, jscale)
 end
 
 function _load_buffer(kkt::BieglerKKTSystem{T,VI,VT,MT}, x::AbstractVector, key::Symbol) where {T,VI,VT,MT}
     haskey(kkt.etc, key) || (kkt.etc[key] = VT(undef, length(x)))
     xb = kkt.etc[key]::VT
+    # Consistency check
+    @assert length(xb) == length(x)
     _copyto!(xb, 1, x, 1, length(x))
     return xb
 end
@@ -222,20 +250,15 @@ function _load_buffer(kkt::BieglerKKTSystem{T,VI,VT,MT}, x::VT, key::Symbol) whe
 end
 
 # Use for inertia-free regularization (require full-space multiplication)
-function _mul_expanded!(y_h, kkt::BieglerKKTSystem{T, VI, VT, MT}, x_h) where {T, VI, VT, MT}
+function _mul_expanded!(y_h, kkt::BieglerKKTSystem{T, VI, VT, MT}, x_h, alpha, beta) where {T, VI, VT, MT}
     x = _load_buffer(kkt, x_h, :hess_x)::VT
     y = _load_buffer(kkt, y_h, :hess_y)::VT
     # Build full-space KKT system
     n = kkt.nx + kkt.nu
-    m = length(kkt.con_scale)
+    m = size(kkt.J, 1)
     ns = length(kkt.ind_ineq)
     W = kkt.W
-    Σₓ = kkt.pr_diag[1:n]
-    Σₛ = kkt.pr_diag[n+1:n+ns]
-    # Jacobian
     Jx = kkt.J
-    Js = view(kkt.con_scale, kkt.nx+1:m)
-    Σᵤ = kkt.du_diag
 
     # Decompose x
     xx = view(x, 1:n)
@@ -247,26 +270,41 @@ function _mul_expanded!(y_h, kkt::BieglerKKTSystem{T, VI, VT, MT}, x_h) where {T
     yz = view(y, n+ns+1:n+ns+m)
 
     # / x (variable)
-    yx .= Σₓ .* xx
-    mul!(yx, W, xx, 1.0, 1.0)
-    mul!(yx, Jx', xz, 1.0, 1.0)
+    mul!(yx, W, xx, alpha, beta)
+    mul!(yx, Jx', xz, alpha, one(T))
     # / s (slack)
-    ys .= Σₛ .* xs
-    ys .-= Js .* xz[kkt.nx+1:m]
+    ys .= beta .* ys .- alpha .* xz[kkt.nx+1:m]
     # / z (multipliers)
-    yz .= Σᵤ .* xz
-    yz[kkt.nx+1:m] .-= Js .* xs
-    mul!(yz, Jx, xx, 1.0, 1.0)
+    mul!(yz, Jx, xx, alpha, beta)
+    yz[kkt.nx+1:m] .-= alpha .* xs
 
     copyto!(y_h, y)
+    return y_h
 end
 
-function MadNLP.mul!(y::AbstractVector, kkt::BieglerKKTSystem, x::AbstractVector)
-    if size(kkt.aug_com, 1) == length(x) == length(y)
-        mul!(y, kkt.aug_com, x)
-    else
-        _mul_expanded!(y, kkt, x)
+function MadNLP.mul!(y::VT, kkt::BieglerKKTSystem, x::VT, alpha, beta) where VT <: MadNLP.AbstractKKTVector
+    _mul_expanded!(y.values, kkt, x.values, alpha, beta)
+    MadNLP._kktmul!(y, x, kkt.reg, kkt.du_diag, kkt.l_lower, kkt.u_lower, kkt.l_diag, kkt.u_diag, alpha, beta)
+    return y
+end
+
+# N.B.: custom wrapper for eval_jac_wrapper
+#       to handle scaling of the Jacobian on the GPU.
+function MadNLP.eval_jac_wrapper!(
+    solver::MadNLP.MadNLPSolver,
+    kkt::BieglerKKTSystem,
+    x::MadNLP.PrimalVector{T},
+) where T
+    if !kkt.etc[:scaling_initialized]
+        copyto!(kkt.jacobian_scaling, solver.cb.jac_scale)
     end
+    jac = MadNLP.get_jacobian(kkt)
+    solver.cnt.eval_function_time += @elapsed begin
+        NLPModels.jac_coord!(solver.cb.nlp, MadNLP.variable(x), jac)
+    end
+    MadNLP.compress_jacobian!(kkt)
+    solver.cnt.con_jac_cnt += 1
+    return jac
 end
 
 function MadNLP.jtprod!(
@@ -283,8 +321,7 @@ function MadNLP.jtprod!(
     mul!(yx, kkt.J', x)
     ys = view(y, n+1:n+ns)
     xs = view(x, kkt.nx+1:m)
-    αs = view(kkt.con_scale, kkt.nx+1:m)
-    ys .= .-xs .* αs
+    ys .= .-xs
 
     copyto!(y_h, y)
 end
@@ -318,13 +355,12 @@ function assemble_condensed_matrix!(kkt::BieglerKKTSystem, K::HJDJ)
     m = size(kkt.J, 1)
     ns = size(kkt.A, 1)
     D = kkt._wj1
-    α   = @view kkt.con_scale[nx+1:m]
     prx = @view kkt.pr_diag[1:nx+nu]
     prs = @view kkt.pr_diag[nx+nu+1:nx+nu+ns]
     Σd = @view kkt.du_diag[nx+1:m]
     # Matrices
     A = kkt.A
-    D .= -1.0 ./ (Σd .- α.^2 ./ prs)
+    D .= prs
     fixed!(prx, kkt.ind_fixed, 0.0)
     update!(K, A, D, prx)
 end
@@ -348,21 +384,19 @@ function MadNLP.build_kkt!(kkt::BieglerKKTSystem{T, VI, VT, MT}) where {T, VI, V
     return
 end
 
-function MadNLP.solve_refine_wrapper!(
-    ips::MadNLP.MadNLPSolver{T, <:BieglerKKTSystem{T,VI,VT,MT}},
-    x_r::MadNLP.AbstractKKTVector,
-    b_r::MadNLP.AbstractKKTVector,
+function MadNLP.solve!(
+    kkt::BieglerKKTSystem{T, VI, VT, MT},
+    w::MadNLP.AbstractKKTVector,
 ) where {T, VI, VT, MT}
-    kkt = ips.kkt
-    x_h = MadNLP.primal_dual(x_r)
-    b_h = MadNLP.primal_dual(b_r)
-    x = _load_buffer(kkt, x_h, :kkt_x)::VT
-    b = _load_buffer(kkt, b_h, :kkt_b)::VT
-    b[ips.ind_fixed] .= 0
-    m = ips.m # constraints
+    nv, m = size(kkt.W, 1), size(kkt.J, 1)
     nx, nu = kkt.nx, kkt.nu
     ns = m - nx
-    @assert length(b) == length(x)
+    n = nv + ns
+
+    # Build reduced KKT vector.
+    MadNLP.reduce_rhs!(w.xp_lr, MadNLP.dual_lb(w), kkt.l_diag, w.xp_ur, MadNLP.dual_ub(w), kkt.u_diag)
+    # Intermediate buffer instantied on the device.
+    x = _load_buffer(kkt, MadNLP.primal_dual(w), :kkt_x)::VT
 
     # Buffers
     jv = kkt._wxu1
@@ -385,73 +419,57 @@ function MadNLP.solve_refine_wrapper!(
     Gu = kkt.Gu
     K = kkt.K
     Σₛ = view(kkt.pr_diag, nx+nu+1:nx+nu+ns)
-    Σd = view(kkt.du_diag, nx+1:m)
-    α = view(kkt.con_scale, nx+1:m)
+    vs = kkt._wj2
 
-    # RHS
-    r₁₂ = view(b, 1:nx+nu)
-    r₁ = view(b, 1:nx)                   # / state
-    r₂ = view(b, 1+nx:nx+nu)             # / control
-    r₃ = view(b, 1+nx+nu:ips.n)          # / slack
-    r₄ = view(b, ips.n+1:ips.n+nx)       # / equality cons
-    r₅ = view(b, ips.n+nx+1:ips.n+m)     # / inequality cons
-    # LHS
+    # Decompose solution
     dxu = view(x, 1:nx+nu)
-    dx = view(x, 1:nx)                   # / state
-    du = view(x, 1+nx:nx+nu)             # / control
-    ds = view(x, 1+nx+nu:ips.n)          # / slack
-    dλ = view(x, ips.n+1:ips.n+nx)       # / equality cons
-    dy = view(x, ips.n+nx+1:ips.n+m)     # / inequality cons
-
-    Λ = Σₛ ./ (Σd .* Σₛ .- α.^2)
+    dx = view(x, 1:nx)           # / state
+    du = view(x, 1+nx:nx+nu)     # / control
+    ds = view(x, 1+nx+nu:n)      # / slack
+    dλ = view(x, n+1:n+nx)       # / equality cons
+    dy = view(x, n+nx+1:n+m)     # / inequality cons
 
     # Reduction (1) --- Condensed
-    # vj .= Λ .* (r₅ .+ α .* r₃ ./ Σₛ)      # v = (α Σₛ⁻¹ α)⁻¹ * (r₅ + α Σₛ⁻¹ r₃)
-    vj .= (Σₛ .* r₅ .+ r₃)                # v = (Σₛ r₅ + α r₃)
-    mul!(jv, kkt.A', vj, 1.0, 0.0)        # jᵥ = Aᵀ v
-    jv .+= r₁₂                            # r₁₂ - Aᵀv
+    vj .= (Σₛ .* dy .+ ds)                # v = (Σₛ r₅ + α r₃)
+    mul!(jv, kkt.A', vj, one(T), zero(T)) # jᵥ = Aᵀ v
+    jv .+= dxu                            # r₁₂ - Aᵀv
     # Reduction (2) --- Biegler
-    sx1 .= r₄                             # r₄
+    sx1 .= dλ                             # r₄
     ldiv!(Gxi, sx1)                       # Gₓ⁻¹ r₄
 
-    tt = similar(sx1)
-    mul!(tt, kkt.Gx, sx1)
-
     sx2 .= tx                             # tx = jv[1:nx]
-    kvx .= sx1 ; kvu .= 0.0
+    kvx .= sx1 ; kvu .= zero(T)
     mul!(kh, K, kv)                       # [Kₓₓ Gₓ⁻¹ r₄ ; Kᵤₓ Gₓ⁻¹ r₄ ]
     sx2 .= khx .- tx                      # sₓ = Kₓₓ Gₓ⁻¹ r₄ - tₓ
     ldiv!(Gxi', sx2)                      # Gₓ⁻ᵀ sₓ
-    mul!(tu, Gu', sx2, 1.0, 1.0)          # tᵤ = tᵤ + Gᵤᵀ Gₓ⁻ᵀ sₓ
-    axpy!(-1.0, khu, tu)                  # tᵤ = tᵤ - Kᵤₓ Gₓ⁻¹ r₄
+    mul!(tu, Gu', sx2, one(T), one(T))    # tᵤ = tᵤ + Gᵤᵀ Gₓ⁻ᵀ sₓ
+    axpy!(-one(T), khu, tu)               # tᵤ = tᵤ - Kᵤₓ Gₓ⁻¹ r₄
 
     du .= tu
-    ips.cnt.linear_solver_time += @elapsed begin
-        MadNLP.solve!(ips.linear_solver, du)
-    end
-    solve_status = true
+    MadNLP.solve!(kkt.linear_solver, du)
 
     # (1) Extract Biegler
-    dx .= r₄                              # r₄
-    mul!(dx, Gu, du, -1.0, 1.0)           # r₄ - Gᵤ dᵤ
+    dx .= dλ                              # r₄
+    mul!(dx, Gu, du, -one(T), one(T))     # r₄ - Gᵤ dᵤ
     ldiv!(Gxi, dx)                        # dₓ = Gₓ⁻¹ (r₄ - Gᵤ dᵤ)
     dλ .= tx                              # tₓ
     mul!(kh, K, dxu)                      # Kₓₓ dₓ + Kₓᵤ dᵤ
-    axpy!(-1.0, khx, dλ)                  # tₓ - Kₓₓ dₓ + Kₓᵤ dᵤ
+    axpy!(-one(T), khx, dλ)               # tₓ - Kₓₓ dₓ - Kₓᵤ dᵤ
 
     # TODO: SEGFAULT
     ldiv!(Gxi', dλ)                       # dₗ = Gₓ⁻ᵀ(tₓ - Kₓₓ dₓ + Kₓᵤ dᵤ)
 
     # (2) Extract Condensed
     mul!(vj, kkt.A, dxu)                  # Aₓ dₓ + Aᵤ dᵤ
-    # dy .= Λ .* (r₅ .- vj .+ α .* r₃ ./ Σₛ)
-    # ds .= (r₃ .+ α .* dy) ./ Σₛ
-    ds .= (vj .- r₅)
-    dy .= Σₛ .* ds .- r₃
+    copyto!(vs, ds)
+    ds .= (vj .- dy)
+    dy .= Σₛ .* ds .- vs
 
-    x[ips.ind_fixed] .= 0.0
-    copyto!(x_h, x)
-    return solve_status
+    # Copy back primal-dual direction to MadNLP.
+    copyto!(MadNLP.primal_dual(w), x)
+    # Recover descents w.r.t. the bounds.
+    MadNLP.finish_aug_solve!(kkt, w)
+    return
 end
 
 function MadNLP.set_aug_RR!(kkt::BieglerKKTSystem, ips::MadNLP.MadNLPSolver, RR::MadNLP.RobustRestorer)
