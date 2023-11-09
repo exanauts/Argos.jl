@@ -133,7 +133,7 @@ function BieglerKKTSystem{T, VI, VT, MT}(
 
     nbatches = min(max_batches, nu)
     # Initiate Krylov wrapper.
-    Gxi = KrylovWrapper{T, VT}(Gx)
+    Gxi = KrylovWrapper{T, VT, MT}(Gx, nx, nbatches)
     S = ImplicitSensitivity(Gxi, Gu)
     reduction = if nbatches > 1
         BatchReduction(evaluator.model, S, nx, nu, nbatches)
