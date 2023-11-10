@@ -80,7 +80,7 @@ function test_biegler_kkt(casename)
     return
 end
 
-@testset "BieglerKKTSystem $case" for case in ["case9.m", "case30.m", "case300.m"]
+@testset "BieglerKKTSystem $case" for case in ["case9.m", "case30.m", "case118.m", "case300.m", "case2869pegase.m", "case1354pegase.m"]
     test_biegler_kkt(case)
 end
 
