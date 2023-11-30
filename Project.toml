@@ -22,7 +22,7 @@ CUSOLVERRF = "a8cc9031-bad2-4722-94f5-40deabb4245c"
 ArgosCUDAExt = ["CUDA", "CUSOLVERRF"]
 
 [compat]
-ExaPF = "~0.9.3"
+ExaPF = "0.10.1"
 KernelAbstractions = "0.9"
 MadNLP = "0.7"
 MathOptInterface = "1"
