@@ -1,3 +1,5 @@
+using KernelAbstractions
+
 struct KrylovWrapper{T, SMT, K1, K2, P}
     Gx::SMT
     solver1::K1
