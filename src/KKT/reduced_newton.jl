@@ -305,7 +305,7 @@ function MadNLP.compress_jacobian!(kkt::BieglerKKTSystem)
     copy_index!(nonzeros(kkt.A), Jv, kkt.mapA)
 
     # Update the block-Jacobi preconditioner
-    LS.update(kkt.linear_solver.preconditioner, kkt.Gx, ExaPF.CPU())
+    KP.update!(kkt.linear_solver.preconditioner, kkt.Gx)
 
     fixed!(nonzeros(kkt.Gu), kkt.ind_Gu_fixed, 0.0)
     fixed!(nonzeros(kkt.A), kkt.ind_A_fixed, 0.0)
