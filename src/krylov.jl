@@ -8,7 +8,8 @@ end
 function KrylovWrapper{T, VT, MT}(Gx, n, p) where {T, VT, MT}
     solver1 = ExaPF.BlockGmresSolver(n, n, p, 1, VT, MT)
     solver2 = Krylov.GmresSolver(n, n, 1, VT)
-    preconditioner = KP.BlockJacobiPreconditioner(Gx, 32)
+    device = KernelAbstractions.get_backend(solver1.X)
+    preconditioner = KP.BlockJacobiPreconditioner(Gx, 32, device)
     return KrylovWrapper{T, typeof(Gx), typeof(solver1), typeof(solver2), typeof(preconditioner)}(Gx, solver1, solver2, preconditioner)
 end
 
