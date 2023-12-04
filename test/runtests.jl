@@ -22,9 +22,9 @@ if has_cuda_gpu()
     using ArgosCUDA
     CUDA_ARCH = (CUDABackend(), CuArray, nothing)
     push!(ARCHS, CUDA_ARCH)
+    CUDA.versioninfo()
 end
 
-CUDA.versioninfo()
 
 # Load test modules
 @isdefined(TestEvaluators) || include("Evaluators/TestEvaluators.jl")
