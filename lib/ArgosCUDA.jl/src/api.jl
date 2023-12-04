@@ -6,7 +6,7 @@ end
 
 
 function run_opf_gpu(datafile::String, ::Argos.FullSpace; options...)
-    flp = Argos.FullSpaceEvaluator(datafile; device=CUDADevice())
+    flp = Argos.FullSpaceEvaluator(datafile; device=CUDABackend())
     model = Argos.OPFModel(Argos.bridge(flp))
     ips = MadNLP.MadNLPSolver(
         model;
@@ -17,7 +17,7 @@ function run_opf_gpu(datafile::String, ::Argos.FullSpace; options...)
 end
 
 function run_opf_gpu(datafile::String, ::Argos.BieglerReduction; options...)
-    flp = Argos.FullSpaceEvaluator(datafile; device=CUDADevice())
+    flp = Argos.FullSpaceEvaluator(datafile; device=CUDABackend())
     model = Argos.OPFModel(Argos.bridge(flp))
 
     madnlp_options = Dict{Symbol, Any}(options...)
@@ -31,7 +31,7 @@ function run_opf_gpu(datafile::String, ::Argos.BieglerReduction; options...)
 end
 
 function run_opf_gpu(datafile::String, ::Argos.DommelTinney; options...)
-    flp = Argos.ReducedSpaceEvaluator(datafile; device=CUDADevice(), nbatch_hessian=256)
+    flp = Argos.ReducedSpaceEvaluator(datafile; device=CUDABackend(), nbatch_hessian=256)
     model = Argos.OPFModel(Argos.bridge(flp))
 
     madnlp_options = Dict{Symbol, Any}(options...)
@@ -42,7 +42,8 @@ function run_opf_gpu(datafile::String, ::Argos.DommelTinney; options...)
 
     opt_ipm, opt_linear, logger = MadNLP.load_options(; madnlp_options...)
 
-    KKT = MadNLP.DenseCondensedKKTSystem{Float64, CuVector{Float64}, CuMatrix{Float64}}
+    QN = MadNLP.ExactHessian{Float64, CuVector{Float64}}
+    KKT = MadNLP.DenseCondensedKKTSystem{Float64, CuVector{Float64}, CuMatrix{Float64}, QN}
     ips = MadNLP.MadNLPSolver{Float64, KKT}(model, opt_ipm, opt_linear; logger=logger)
     MadNLP.solve!(ips)
 
