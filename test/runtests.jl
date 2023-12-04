@@ -24,6 +24,8 @@ if has_cuda_gpu()
     push!(ARCHS, CUDA_ARCH)
 end
 
+CUDA.versioninfo()
+
 # Load test modules
 @isdefined(TestEvaluators) || include("Evaluators/TestEvaluators.jl")
 
