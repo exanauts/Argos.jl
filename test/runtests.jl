@@ -12,6 +12,7 @@ using Argos
 
 using MathOptInterface
 const MOI = MathOptInterface
+CUDA.versioninfo()
 
 # Data
 const INSTANCES_DIR = joinpath(artifact"ExaData", "ExaData")
