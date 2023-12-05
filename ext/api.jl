@@ -4,8 +4,7 @@ function MadNLP._madnlp_unsafe_wrap(vec::CuVector, n, shift=1)
     return vec
 end
 
-
-function run_opf_gpu(datafile::String, ::Argos.FullSpace; options...)
+function Argos.run_opf_gpu(datafile::String, ::Argos.FullSpace; options...)
     flp = Argos.FullSpaceEvaluator(datafile; device=CUDABackend())
     model = Argos.OPFModel(Argos.bridge(flp))
     ips = MadNLP.MadNLPSolver(
@@ -16,7 +15,7 @@ function run_opf_gpu(datafile::String, ::Argos.FullSpace; options...)
     return ips
 end
 
-function run_opf_gpu(datafile::String, ::Argos.BieglerReduction; options...)
+function Argos.run_opf_gpu(datafile::String, ::Argos.BieglerReduction; options...)
     flp = Argos.FullSpaceEvaluator(datafile; device=CUDABackend())
     model = Argos.OPFModel(Argos.bridge(flp))
 
@@ -30,7 +29,7 @@ function run_opf_gpu(datafile::String, ::Argos.BieglerReduction; options...)
     return ips
 end
 
-function run_opf_gpu(datafile::String, ::Argos.DommelTinney; options...)
+function Argos.run_opf_gpu(datafile::String, ::Argos.DommelTinney; options...)
     flp = Argos.ReducedSpaceEvaluator(datafile; device=CUDABackend(), nbatch_hessian=256)
     model = Argos.OPFModel(Argos.bridge(flp))
 

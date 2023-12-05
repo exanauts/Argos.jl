@@ -105,7 +105,7 @@ end
     case = "case9.m"
     datafile = joinpath(INSTANCES_DIR, case)
 
-    ips = Argos.run_opf(
+    solver = Argos.run_opf(
         datafile,
         form;
         tol=1e-5,
@@ -113,8 +113,8 @@ end
         linear_solver=LapackCPUSolver,
         lapack_algorithm=linear_solver_algo,
     )
-    @test isa(ips, MadNLP.MadNLPSolver)
-    @test ips.status == MadNLP.SOLVE_SUCCEEDED
+    @test isa(solver, MadNLP.MadNLPSolver)
+    @test solver.status == MadNLP.SOLVE_SUCCEEDED
 end
 
 if has_cuda_gpu()
@@ -126,7 +126,7 @@ if has_cuda_gpu()
         case = "case9.m"
         datafile = joinpath(INSTANCES_DIR, case)
 
-        ips = ArgosCUDA.run_opf_gpu(
+        solver = Argos.run_opf_gpu(
             datafile,
             form;
             tol=1e-5,
@@ -134,8 +134,8 @@ if has_cuda_gpu()
             lapack_algorithm=linear_solver_algo,
             print_level=MadNLP.ERROR,
         )
-        @test isa(ips, MadNLP.MadNLPSolver)
-        @test ips.status == MadNLP.SOLVE_SUCCEEDED
+        @test isa(solver, MadNLP.MadNLPSolver)
+        @test solver.status == MadNLP.SOLVE_SUCCEEDED
     end
 end
 

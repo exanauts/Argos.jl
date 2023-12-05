@@ -13,10 +13,17 @@ NLPModels = "a4795742-8479-5a88-8948-cc11e1c8c1a6"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
+[weakdeps]
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+CUSOLVERRF = "a8cc9031-bad2-4722-94f5-40deabb4245c"
+
+[extensions]
+ArgosCUDAExt = ["CUDA", "CUSOLVERRF"]
+
 [compat]
 ExaPF = "~0.9.3"
 KernelAbstractions = "0.9"
 MadNLP = "0.7"
 MathOptInterface = "1"
 NLPModels = "0.19, 0.20"
-julia = "1.6"
+julia = "1.9"

@@ -5,6 +5,7 @@ using LinearAlgebra
 using SparseArrays
 
 using CUDA
+using CUSOLVERRF
 using KernelAbstractions
 
 using ExaPF
@@ -19,7 +20,6 @@ const CASES = ["case9.m", "case30.m"]
 ARCHS = Any[(CPU(), Array, SparseMatrixCSC)]
 
 if has_cuda_gpu()
-    using ArgosCUDA
     CUDA_ARCH = (CUDABackend(), CuArray, nothing)
     push!(ARCHS, CUDA_ARCH)
     CUDA.versioninfo()

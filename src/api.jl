@@ -35,6 +35,13 @@ By default, Argos implements three different formulations for the OPF:
 function run_opf end
 
 """
+    run_opf_gpu(datafile::String, ::AbstractOPFFormulation; options...)
+
+Solve the OPF problem associated to `datafile` using MadNLP on the GPU.
+"""
+function run_opf_gpu end
+
+"""
     FullSpace <: AbstractOPFFormulation
 
 The OPF problem formulated in the full-space.
