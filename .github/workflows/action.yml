@@ -52,7 +52,6 @@ jobs:
         with:
           version: ${{ matrix.julia-version }}
           arch: ${{ matrix.julia-arch }}
-      - run: julia --project -e 'using Pkg; Pkg.develop(path="lib/ArgosCUDA.jl")'
-      - uses: julia-actions/julia-buildpkg@latest
-      - uses: julia-actions/julia-runtest@latest
+      - run: julia --project=.ci .ci/setup.jl
+      - run: julia --project=.ci test/runtests.jl
 
