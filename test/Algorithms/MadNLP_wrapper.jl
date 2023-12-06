@@ -1,5 +1,13 @@
 
 using MadNLP
+using MadNLPTests
+
+MADNLP_BACKEND = Any[(CPU(), Array, LapackCPUSolver)]
+if false # GPU interface currently broken
+    using MadNLPGPU
+    CUDA_ARCH = (CUDABackend(), CuArray, nothing)
+    push!(MADNLP_BACKEND, (CUDABackend(), CuArray, LapackGPUSolver))
+end
 
 function _test_results_match(ips1, ips2; atol=1e-10)
     @test ips1.status == ips2.status
@@ -50,11 +58,6 @@ end
 function _madnlp_biegler_kkt(nlp; kwargs...)
     Argos.reset!(nlp)
     mnlp = Argos.OPFModel(nlp)
-    # options_biegler = Dict{Symbol, Any}(kwargs...)
-    # options_biegler[:linear_solver] = LapackCPUSolver
-    # opt_ipm, opt_linear, logger = MadNLP.load_options(; options_biegler...)
-
-    # KKT = Argos.BieglerKKTSystem{T, VI, VT, MT}
 
     T = Float64
     VI = Vector{Int}
@@ -69,6 +72,44 @@ function _madnlp_biegler_kkt(nlp; kwargs...)
     )
     MadNLP.solve!(solver)
     return solver
+end
+
+@testset "BieglerKKTSystem ($(backend))" for (backend, Array_, linear_solver) in MADNLP_BACKEND
+    case = "case9.m"
+    datafile = joinpath(INSTANCES_DIR, case)
+    opf = Argos.FullSpaceEvaluator(datafile; device=backend)
+
+    T = Float64
+    VI = Array_{Int, 1}
+    VT = Array_{T, 1}
+    MT = Array_{T, 2}
+
+    options = MadNLP.MadNLPOptions(; linear_solver=linear_solver)
+    options_linear_solver = MadNLP.LapackOptions(
+        lapack_algorithm=MadNLP.LU,
+    )
+    cnt = MadNLP.MadNLPCounters(; start_time=time())
+
+    nlp = Argos.OPFModel(Argos.bridge(opf))
+    ind_cons = MadNLP.get_index_constraints(
+        nlp,
+        options.fixed_variable_treatment,
+        options.equality_treatment,
+    )
+    cb = MadNLP.create_callback(
+        MadNLP.SparseCallback,
+        nlp,
+        options,
+    )
+    kkt = MadNLP.create_kkt_system(
+        Argos.BieglerKKTSystem{T, VI, VT, MT},
+        cb,
+        options,
+        options_linear_solver,
+        cnt,
+        ind_cons,
+    )
+    MadNLPTests.test_kkt_system(kkt, cb)
 end
 
 @testset "MadNLP wrapper: $case" for case in [

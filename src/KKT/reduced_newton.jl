@@ -217,6 +217,9 @@ MadNLP.num_variables(kkt::BieglerKKTSystem) = kkt.nu
 MadNLP.get_hessian(kkt::BieglerKKTSystem) = kkt.h_V
 MadNLP.get_jacobian(kkt::BieglerKKTSystem) = nonzeros(kkt.J)
 MadNLP.is_reduced(::BieglerKKTSystem) = true
+function MadNLP.is_inertia_correct(kkt::BieglerKKTSystem, n, m, p)
+    return n == size(kkt.aug_com, 1)
+end
 
 # Return SparseMatrixCOO to MadNLP
 function MadNLP.get_raw_jacobian(kkt::BieglerKKTSystem)
@@ -469,7 +472,7 @@ function MadNLP.solve!(
     copyto!(MadNLP.primal_dual(w), x)
     # Recover descents w.r.t. the bounds.
     MadNLP.finish_aug_solve!(kkt, w)
-    return
+    return w
 end
 
 function MadNLP.set_aug_RR!(kkt::BieglerKKTSystem, ips::MadNLP.MadNLPSolver, RR::MadNLP.RobustRestorer)
