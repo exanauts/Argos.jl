@@ -9,7 +9,6 @@ function Argos.transfer2tril!(hessvals::AbstractVector, H::CuSparseMatrixCSR, cs
     KA.synchronize(CUDABackend())
 end
 
-
 @kernel function _fixed_kernel!(dest, fixed, val)
     i = @index(Global, Linear)
     dest[fixed[i]] = val
@@ -20,7 +19,6 @@ function Argos.fixed!(dest::CuVector, ind_fixed, val::Number)
     _fixed_kernel!(CUDABackend())(dest, g_ind_fixed, val; ndrange=length(ind_fixed))
     KA.synchronize(CUDABackend())
 end
-
 
 @kernel function _copy_index_kernel!(dest, src, idx)
     i = @index(Global, Linear)
@@ -33,7 +31,6 @@ function Argos.copy_index!(dest::CuVector{T}, src::CuVector{T}, idx) where T
     _copy_index_kernel!(CUDABackend())(dest, src, idx_d; ndrange=ndrange)
     KA.synchronize(CUDABackend())
 end
-
 
 @kernel function _fixed_diag_kernel!(dest, fixed, val)
     i = @index(Global, Linear)
@@ -75,7 +72,6 @@ function Argos.transfer_auglag_hessian!(
     return
 end
 
-
 @kernel function _batch_tangents_kernel!(seeds, offset, n_batches)
     i = @index(Global, Linear)
     @inbounds seeds[i + offset, i] = 1.0
@@ -91,7 +87,6 @@ function Argos.set_batch_tangents!(seeds::CuMatrix, offset, n, n_batches)
     KA.synchronize(CUDABackend())
     return
 end
-
 
 @kernel function _tgtmul_1_kernel!(y, A_rowPtr, A_colVal, A_nzVal, z, w, alpha, nx, nu)
     i, k = @index(Global, NTuple)
@@ -121,7 +116,6 @@ function Argos.tgtmul!(
     )
     KA.synchronize(CUDABackend())
 end
-
 
 @kernel function _tgtmul_2_kernel!(yx, yu, A_rowPtr, A_colVal, A_nzVal, z, w, alpha, nx, nu)
     i, k = @index(Global, NTuple)
@@ -157,7 +151,6 @@ function Argos.tgtmul!(
     KA.synchronize(CUDABackend())
 end
 
-
 @kernel function _scale_transpose_kernel!(
     Jtz, Jp, Jj, Jz, D, tperm,
 )
@@ -169,13 +162,3 @@ end
     end
 end
 
-function Argos.update!(K::Argos.HJDJ, A, D, Σ)
-    m = size(A, 1)
-    ev = _scale_transpose_kernel!(CUDABackend())(
-        K.Jt.nzVal, A.rowPtr, A.colVal, A.nzVal, D, K.transperm,
-        ndrange=(m, 1),
-    )
-    KA.synchronize(ev)
-    spgemm!('N', 'N', 1.0, K.Jt, A, 0.0, K.JtJ, 'O')
-    K.Σ .= Σ
-end

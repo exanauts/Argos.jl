@@ -1,5 +1,6 @@
 
 using MadNLP
+using MadNLPGPU
 
 function _test_results_match(ips1, ips2; atol=1e-10)
     @test ips1.status == ips2.status
@@ -96,16 +97,45 @@ end
     end
 end
 
-@testset "Solve OPF with $form" for form in [
-    Argos.FullSpace(),
-    Argos.BieglerReduction(),
-    Argos.DommelTinney(),
+@testset "[CPU] Solve OPF with $form" for (form, linear_solver_algo) in [
+    (Argos.FullSpace(), MadNLP.BUNCHKAUFMAN),
+    (Argos.BieglerReduction(), MadNLP.CHOLESKY),
+    (Argos.DommelTinney(), MadNLP.CHOLESKY),
 ]
     case = "case9.m"
     datafile = joinpath(INSTANCES_DIR, case)
 
-    ips = Argos.run_opf(datafile, form; tol=1e-5, print_level=MadNLP.ERROR)
-    @test isa(ips, MadNLP.MadNLPSolver)
-    @test ips.status == MadNLP.SOLVE_SUCCEEDED
+    solver = Argos.run_opf(
+        datafile,
+        form;
+        tol=1e-5,
+        print_level=MadNLP.ERROR,
+        linear_solver=LapackCPUSolver,
+        lapack_algorithm=linear_solver_algo,
+    )
+    @test isa(solver, MadNLP.MadNLPSolver)
+    @test solver.status == MadNLP.SOLVE_SUCCEEDED
+end
+
+if has_cuda_gpu()
+    @testset "[CUDA] Solve OPF with $form" for (form, linear_solver_algo) in [
+        (Argos.FullSpace(), MadNLP.BUNCHKAUFMAN),
+        (Argos.BieglerReduction(), MadNLP.CHOLESKY),
+        (Argos.DommelTinney(), MadNLP.CHOLESKY),
+    ]
+        case = "case9.m"
+        datafile = joinpath(INSTANCES_DIR, case)
+
+        solver = Argos.run_opf_gpu(
+            datafile,
+            form;
+            tol=1e-5,
+            linear_solver=LapackGPUSolver,
+            lapack_algorithm=linear_solver_algo,
+            print_level=MadNLP.ERROR,
+        )
+        @test isa(solver, MadNLP.MadNLPSolver)
+        @test solver.status == MadNLP.SOLVE_SUCCEEDED
+    end
 end
 

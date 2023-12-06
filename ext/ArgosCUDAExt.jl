@@ -1,4 +1,4 @@
-module ArgosCUDA
+module ArgosCUDAExt
 
 using LinearAlgebra
 using SparseArrays
@@ -22,3 +22,4 @@ include("reduction.jl")
 include("api.jl")
 
 end # module
+

@@ -406,16 +406,12 @@ function MadNLP.solve_refine_wrapper!(
     Λ = Σₛ ./ (Σd .* Σₛ .- α.^2)
 
     # Reduction (1) --- Condensed
-    # vj .= Λ .* (r₅ .+ α .* r₃ ./ Σₛ)      # v = (α Σₛ⁻¹ α)⁻¹ * (r₅ + α Σₛ⁻¹ r₃)
-    vj .= (Σₛ .* r₅ .+ r₃)                # v = (Σₛ r₅ + α r₃)
-    mul!(jv, kkt.A', vj, 1.0, 0.0)        # jᵥ = Aᵀ v
+    vj .= Λ .* (r₅ .+ α .* r₃ ./ Σₛ)      # v = (α Σₛ⁻¹ α)⁻¹ * (r₅ + α Σₛ⁻¹ r₃)
+    mul!(jv, kkt.A', vj, -1.0, 0.0)        # jᵥ = Aᵀ v
     jv .+= r₁₂                            # r₁₂ - Aᵀv
     # Reduction (2) --- Biegler
     sx1 .= r₄                             # r₄
     ldiv!(Gxi, sx1)                       # Gₓ⁻¹ r₄
-
-    tt = similar(sx1)
-    mul!(tt, kkt.Gx, sx1)
 
     sx2 .= tx                             # tx = jv[1:nx]
     kvx .= sx1 ; kvu .= 0.0
@@ -444,10 +440,8 @@ function MadNLP.solve_refine_wrapper!(
 
     # (2) Extract Condensed
     mul!(vj, kkt.A, dxu)                  # Aₓ dₓ + Aᵤ dᵤ
-    # dy .= Λ .* (r₅ .- vj .+ α .* r₃ ./ Σₛ)
-    # ds .= (r₃ .+ α .* dy) ./ Σₛ
-    ds .= (vj .- r₅)
-    dy .= Σₛ .* ds .- r₃
+    dy .= Λ .* (r₅ .- vj .+ α .* r₃ ./ Σₛ)
+    ds .= (r₃ .+ α .* dy) ./ Σₛ
 
     x[ips.ind_fixed] .= 0.0
     copyto!(x_h, x)
