@@ -91,10 +91,6 @@ struct BieglerKKTSystem{
     ind_lb::Vector{Int}
     ind_ub::Vector{Int}
     ind_fixed::Vector{Int}
-    ind_Gu_fixed::VI
-    ind_A_fixed::VI
-    ind_W_fixed_diag::VI
-    ind_W_fixed::VI
     jacobian_scaling::VT
     linear_solver::LS
     etc::Dict{Symbol,Any}
@@ -187,10 +183,6 @@ function MadNLP.create_kkt_system(
     if (length(ind_fixed) > 0) && (ind_fixed[1] <= nx)
         error("Found a fixed state variable. Currently not supported as the Jacobian Gₓ becomes non-invertible.")
     end
-    # Get fixed views
-    ind_A_fixed, _ = get_fixed_nnz(A, ind_fixed, false)
-    ind_Gu_fixed, _ = get_fixed_nnz(Gu, ind_fixed .- nx, false)
-    ind_W_fixed, ind_W_fixed_diag = get_fixed_nnz(W, ind_fixed, true)
 
     cnt.linear_solver_time += @elapsed begin
         linear_solver = opt.linear_solver(aug_com; opt = opt_linear_solver)
@@ -207,7 +199,6 @@ function MadNLP.create_kkt_system(
         _wxu1, _wxu2, _wxu3, _wx1, _wx2, _wj1, _wj2,
         nx, nu,
         ind_cons.ind_ineq, ind_cons.ind_lb, ind_cons.ind_ub, ind_fixed,
-        ind_Gu_fixed, ind_A_fixed, ind_W_fixed_diag, ind_W_fixed,
         jacobian_scaling, linear_solver,
         etc,
     )
@@ -305,6 +296,8 @@ function MadNLP.eval_jac_wrapper!(
     solver.cnt.eval_function_time += @elapsed begin
         NLPModels.jac_coord!(solver.cb.nlp, MadNLP.variable(x), jac)
     end
+    MadNLP._treat_fixed_variable_jac_coord!(solver.cb.fixed_handler, solver.cb, MadNLP.variable(x), jac)
+
     MadNLP.compress_jacobian!(kkt)
     solver.cnt.con_jac_cnt += 1
     return jac
@@ -342,9 +335,6 @@ function MadNLP.compress_jacobian!(kkt::BieglerKKTSystem)
 
     Gxi = kkt.G_fac
     lu!(Gxi, kkt.Gx)
-
-    fixed!(nonzeros(kkt.Gu), kkt.ind_Gu_fixed, 0.0)
-    fixed!(nonzeros(kkt.A), kkt.ind_A_fixed, 0.0)
     return
 end
 
@@ -364,14 +354,11 @@ function assemble_condensed_matrix!(kkt::BieglerKKTSystem, K::HJDJ)
     # Matrices
     A = kkt.A
     D .= prs
-    fixed!(prx, kkt.ind_fixed, 0.0)
     update!(K, A, D, prx)
 end
 
 function MadNLP.build_kkt!(kkt::BieglerKKTSystem{T, VI, VT, MT}) where {T, VI, VT, MT}
     nx = kkt.nx
-    fixed!(nonzeros(kkt.W), kkt.ind_W_fixed, 0.0)
-    fixed!(nonzeros(kkt.W), kkt.ind_W_fixed_diag, 1.0)
 
     assemble_condensed_matrix!(kkt, kkt.K)
     fill!(kkt.aug_com, 0.0)
