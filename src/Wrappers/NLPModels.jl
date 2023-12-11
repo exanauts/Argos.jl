@@ -29,12 +29,12 @@ julia> model = Argos.OPFModel(nlp)
 
 
 """
-struct OPFModel{Evaluator} <: NLPModels.AbstractNLPModel{Float64,Vector{Float64}}
-    meta::NLPModels.NLPModelMeta{Float64, Vector{Float64}}
+struct OPFModel{T, VT, Evaluator} <: NLPModels.AbstractNLPModel{T, VT}
+    meta::NLPModels.NLPModelMeta{T, VT}
     counters::NLPModels.Counters
     timers::NLPTimers
     nlp::Evaluator
-    hash_x::Vector{UInt64}
+    hash_x::Vector{Float64}
     # Sparsity pattern
     hrows::Vector{Int}
     hcols::Vector{Int}
@@ -47,12 +47,12 @@ function OPFModel(nlp::AbstractNLPEvaluator)
     n = n_variables(nlp)
     m = n_constraints(nlp)
 
-    # Initial variable
-    y0 = zeros(m)
     # Bounds
     xl, xu = bounds(nlp, Variables())
     gl, gu = bounds(nlp, Constraints())
+    # Initial variable
     x0  = initial(nlp)
+    y0 = similar(x0, m) ; fill!(y0, 0.0)
     # Sparsity
     hrows, hcols = hessian_structure(nlp)
     jrows, jcols = jacobian_structure(nlp)
@@ -61,7 +61,7 @@ function OPFModel(nlp::AbstractNLPEvaluator)
 
     etc = Dict{Symbol, Any}()
 
-    return OPFModel{typeof(nlp)}(
+    return OPFModel{eltype(x0), typeof(x0), typeof(nlp)}(
         NLPModels.NLPModelMeta(
             n,
             ncon = m,
@@ -77,7 +77,7 @@ function OPFModel(nlp::AbstractNLPEvaluator)
         ),
         NLPModels.Counters(),
         NLPTimers(),
-        nlp, UInt64[0],
+        nlp, Float64[0],
         hrows, hcols, jrows, jcols, etc,
     )
 end
@@ -98,7 +98,7 @@ function NLPModels.hess_structure!(m::OPFModel, rows::AbstractVector, cols::Abst
 end
 
 function _update!(m::OPFModel, x::AbstractVector)
-    hx = hash(x)
+    hx = sum(x)
     if hx != m.hash_x[1]
         m.timers.update_time += @elapsed begin
             update!(m.nlp, x)
