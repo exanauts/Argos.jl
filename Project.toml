@@ -4,16 +4,12 @@ authors = ["fpacaud <fpacaud@anl.gov>"]
 version = "0.3.3"
 
 [deps]
-ArgosCUDA = "8946db8d-321b-4174-84ad-48e2f9b69c56"
 ExaPF = "0cf0e50c-a82e-488f-ac7e-41ffdff1b8aa"
-HSL_jll = "017b0a0e-03f4-516a-9b91-836bbd1904dd"
 KernelAbstractions = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
 Krylov = "ba0b0d4f-ebba-5204-a429-3ac8c609bfb7"
 KrylovPreconditioners = "45d422c2-293f-44ce-8315-2cb988662dec"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MadNLP = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
-MadNLPGPU = "d72a61cc-809d-412f-99be-fd81f4b8a598"
-MadNLPHSL = "7fb6135f-58fe-4112-84ca-653cf5be0c77"
 MathOptInterface = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
 NLPModels = "a4795742-8479-5a88-8948-cc11e1c8c1a6"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
@@ -27,10 +23,10 @@ CUSOLVERRF = "a8cc9031-bad2-4722-94f5-40deabb4245c"
 ArgosCUDAExt = ["CUDA", "CUSOLVERRF"]
 
 [compat]
-ExaPF = "0.10.1"
+ExaPF = "0.11"
 KernelAbstractions = "0.9"
-Krylov = "0.9.4"
-KrylovPreconditoners = "0.2.0"
+Krylov = "0.9.5"
+KrylovPreconditoners = "0.2.1"
 MadNLP = "0.7"
 MathOptInterface = "1"
 NLPModels = "0.19, 0.20"
