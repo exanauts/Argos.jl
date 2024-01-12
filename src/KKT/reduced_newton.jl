@@ -99,8 +99,11 @@ end
 function MadNLP.create_kkt_system(
     ::Type{BieglerKKTSystem{T, VI, VT, MT}},
     cb::MadNLP.AbstractCallback{T, Vector{T}},
-    opt, opt_linear_solver, cnt, ind_cons;
+    ind_cons,
+    linear_solver;
     max_batches=256,
+    opt_linear_solver=MadNLP.default_options(linear_solver),
+    hessian_approximation=MadNLP.ExactHessian,
 ) where {T, VI, VT, MT}
     nlp = cb.nlp
     n_slack = length(ind_cons.ind_ineq)
@@ -153,8 +156,8 @@ function MadNLP.create_kkt_system(
     u_lower = zeros(nub)
 
     nbatches = min(max_batches, nu)
-    linear_solver = LS.DirectSolver(Gx; nrhs=nbatches)
-    Gxi = linear_solver.factorization
+    lu_solver = LS.DirectSolver(Gx; nrhs=nbatches)
+    Gxi = lu_solver.factorization
     S = ImplicitSensitivity(Gxi, Gu)
     reduction = if nbatches > 1
         BatchReduction(evaluator.model, S, nx, nu, nbatches)
@@ -184,13 +187,11 @@ function MadNLP.create_kkt_system(
         error("Found a fixed state variable. Currently not supported as the Jacobian Gₓ becomes non-invertible.")
     end
 
-    cnt.linear_solver_time += @elapsed begin
-        linear_solver = opt.linear_solver(aug_com; opt = opt_linear_solver)
-    end
+    linear_solver_ = linear_solver(aug_com; opt = opt_linear_solver)
     # Buffers
     etc = Dict{Symbol, Any}(:reduction_time=>0.0, :cond=>Float64[], :scaling_initialized=>false)
 
-    return BieglerKKTSystem{T, VI, VT, MT, SMT, typeof(linear_solver)}(
+    return BieglerKKTSystem(
         K, Wref, W, J, A, Gx, Gu, mapA, mapGx, mapGu,
         h_V, j_V,
         reg, pr_diag, du_diag,
@@ -199,7 +200,7 @@ function MadNLP.create_kkt_system(
         _wxu1, _wxu2, _wxu3, _wx1, _wx2, _wj1, _wj2,
         nx, nu,
         ind_cons.ind_ineq, ind_cons.ind_lb, ind_cons.ind_ub, ind_fixed,
-        jacobian_scaling, linear_solver,
+        jacobian_scaling, linear_solver_,
         etc,
     )
 end

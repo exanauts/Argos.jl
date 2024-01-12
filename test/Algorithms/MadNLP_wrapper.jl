@@ -92,22 +92,20 @@ end
 
     nlp = Argos.OPFModel(Argos.bridge(opf))
     ind_cons = MadNLP.get_index_constraints(
-        nlp,
-        options.fixed_variable_treatment,
-        options.equality_treatment,
+        nlp;
+        equality_treatment=MadNLP.EnforceEquality,
     )
+
     cb = MadNLP.create_callback(
         MadNLP.SparseCallback,
-        nlp,
-        options,
+        nlp;
     )
     kkt = MadNLP.create_kkt_system(
         Argos.BieglerKKTSystem{T, VI, VT, MT},
         cb,
-        options,
-        options_linear_solver,
-        cnt,
         ind_cons,
+        linear_solver;
+        opt_linear_solver=options_linear_solver,
     )
     MadNLPTests.test_kkt_system(kkt, cb)
 end
