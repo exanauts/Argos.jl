@@ -20,6 +20,7 @@ const CASES = ["case9.m", "case30.m"]
 ARCHS = Any[(CPU(), Array, SparseMatrixCSC)]
 
 if has_cuda_gpu()
+    CUDA.allowscalar(false)
     CUDA_ARCH = (CUDABackend(), CuArray, nothing)
     push!(ARCHS, CUDA_ARCH)
     CUDA.versioninfo()

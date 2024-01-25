@@ -182,10 +182,10 @@ if CUDA.has_cuda_gpu()
         _test_results_match(solver_ref, solver_gpu; atol=1e-6)
     end
 
-    @testset "[CUDA] Solve OPF with $form" for (form, linear_solver_algo) in [
-        (Argos.FullSpace(), MadNLP.BUNCHKAUFMAN),
-        (Argos.BieglerReduction(), MadNLP.CHOLESKY),
-        (Argos.DommelTinney(), MadNLP.CHOLESKY),
+    @testset "[CUDA] Solve OPF with $form" for (form, linear_solver, linear_solver_algo) in [
+        (Argos.FullSpace(), LapackCPUSolver, MadNLP.BUNCHKAUFMAN),
+        (Argos.BieglerReduction(), LapackGPUSolver, MadNLP.CHOLESKY),
+        (Argos.DommelTinney(), LapackGPUSolver, MadNLP.CHOLESKY),
     ]
         case = "case9.m"
         datafile = joinpath(INSTANCES_DIR, case)
@@ -194,9 +194,10 @@ if CUDA.has_cuda_gpu()
             datafile,
             form;
             tol=1e-5,
-            linear_solver=LapackGPUSolver,
+            linear_solver=linear_solver,
             lapack_algorithm=linear_solver_algo,
             print_level=MadNLP.ERROR,
+            max_iter=100,
         )
         @test isa(solver, MadNLP.MadNLPSolver)
         @test solver.status == MadNLP.SOLVE_SUCCEEDED
