@@ -138,22 +138,29 @@ end
     end
 end
 
-@testset "[CPU] Solve OPF with $form" for form in [
-    Argos.FullSpace(),
-    Argos.BieglerReduction(),
-    Argos.DommelTinney(),
+@testset "[CPU] Solve OPF with $form" for (form, linear_solver_algo) in [
+    (Argos.FullSpace(), MadNLP.BUNCHKAUFMAN),
+    (Argos.BieglerReduction(), MadNLP.CHOLESKY),
+    (Argos.DommelTinney(), MadNLP.CHOLESKY),
 ]
     case = "case9.m"
     datafile = joinpath(INSTANCES_DIR, case)
 
-    solver = Argos.run_opf(datafile, form; tol=1e-5, print_level=MadNLP.ERROR)
+    solver = Argos.run_opf(
+        datafile,
+        form;
+        tol=1e-5,
+        print_level=MadNLP.ERROR,
+        linear_solver=LapackCPUSolver,
+        lapack_algorithm=linear_solver_algo,
+    )
     @test isa(solver, MadNLP.MadNLPSolver)
     @test solver.status == MadNLP.SOLVE_SUCCEEDED
 end
 
 if CUDA.has_cuda_gpu()
     # Test BieglerKKTSystem on the GPU.
-    @testset "[CUDA] Solve OPF with BieglerKKTSystem" begin
+    @testset "[CUDA] BieglerKKTSystem" begin
         case = "case9.m"
         datafile = joinpath(INSTANCES_DIR, case)
         opf = Argos.FullSpaceEvaluator(datafile)
@@ -173,6 +180,26 @@ if CUDA.has_cuda_gpu()
         )
         stats = MadNLP.solve!(solver_gpu)
         _test_results_match(solver_ref, solver_gpu; atol=1e-6)
+    end
+
+    @testset "[CUDA] Solve OPF with $form" for (form, linear_solver_algo) in [
+        (Argos.FullSpace(), MadNLP.BUNCHKAUFMAN),
+        (Argos.BieglerReduction(), MadNLP.CHOLESKY),
+        (Argos.DommelTinney(), MadNLP.CHOLESKY),
+    ]
+        case = "case9.m"
+        datafile = joinpath(INSTANCES_DIR, case)
+
+        solver = Argos.run_opf_gpu(
+            datafile,
+            form;
+            tol=1e-5,
+            linear_solver=LapackGPUSolver,
+            lapack_algorithm=linear_solver_algo,
+            print_level=MadNLP.ERROR,
+        )
+        @test isa(solver, MadNLP.MadNLPSolver)
+        @test solver.status == MadNLP.SOLVE_SUCCEEDED
     end
 end
 

@@ -456,9 +456,8 @@ function MadNLP.solve!(
 
     # (2) Extract Condensed
     mul!(vj, kkt.A, dxu)                  # Aₓ dₓ + Aᵤ dᵤ
-    copyto!(vs, ds)
-    ds .= (vj .- dy)
-    dy .= Σₛ .* ds .- vs
+    dy .= Σₛ .* (vj .- dy) .- ds
+    ds .= (ds .+ dy) ./ Σₛ
 
     # Copy back primal-dual direction to MadNLP.
     copyto!(MadNLP.primal_dual(w), x)
