@@ -12,10 +12,15 @@ const PS = PowerSystem
 import MathOptInterface
 const MOI = MathOptInterface
 
+import Krylov
+import KrylovPreconditioners
+const KP = KrylovPreconditioners
+
 using NLPModels
 using MadNLP
 
 include("utils.jl")
+include("krylov.jl")
 include("reduction.jl")
 include("Evaluators/Evaluators.jl")
 

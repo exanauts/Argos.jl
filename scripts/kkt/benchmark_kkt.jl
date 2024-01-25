@@ -22,8 +22,8 @@ end
 cases = [
     "case118.m",
     "case1354pegase.m",
-    "case2869pegase.m",
-    "case9241pegase.m",
+#   "case2869pegase.m",
+#   "case9241pegase.m",
 ]
 
 
