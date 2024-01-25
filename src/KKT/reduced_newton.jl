@@ -55,7 +55,7 @@ struct BieglerKKTSystem{
     A::SMT
     Gx::SMT
     Gu::SMT
-    mapA::VI
+    mapA::VI # FIXME
     mapGx::VI
     mapGu::VI
     # Hessian nzval
@@ -64,7 +64,7 @@ struct BieglerKKTSystem{
     j_V::VT
     # Regularization terms
     reg::Vector{T}
-    pr_diag::VT
+    pr_diag::VT # FIXME
     du_diag::Vector{T}
     l_diag::Vector{T}
     u_diag::Vector{T}
@@ -136,6 +136,10 @@ function MadNLP.create_kkt_system(
     A_h = J_h[nx+1:end, :]
     # Associated mappings
     mapA, mapGx, mapGu = split_jacobian(J, nx, nu)
+    # Transfer to device
+    g_mapA = VI(mapA)
+    g_mapGx = VI(mapGx)
+    g_mapGu = VI(mapGu)
 
     # Transfer to device
     Gx = Gx_h |> SMT
@@ -146,7 +150,7 @@ function MadNLP.create_kkt_system(
     K = HJDJ(W, A)
 
     pr_diag = VT(undef, n + n_slack) ; fill!(pr_diag, zero(T))
-    du_diag = VT(undef, m) ; fill!(du_diag, zero(T))
+    du_diag = zeros(m)
 
     reg = zeros(n + n_slack)
 
@@ -192,7 +196,7 @@ function MadNLP.create_kkt_system(
     etc = Dict{Symbol, Any}(:reduction_time=>0.0, :cond=>Float64[], :scaling_initialized=>false)
 
     return BieglerKKTSystem(
-        K, Wref, W, J, A, Gx, Gu, mapA, mapGx, mapGu,
+        K, Wref, W, J, A, Gx, Gu, g_mapA, g_mapGx, g_mapGu,
         h_V, j_V,
         reg, pr_diag, du_diag,
         l_diag, u_diag, l_lower, u_lower,

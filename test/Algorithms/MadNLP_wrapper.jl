@@ -2,19 +2,16 @@
 using MadNLP
 using MadNLPTests
 
-MADNLP_BACKEND = Any[(CPU(), Array, LapackCPUSolver)]
-if false # GPU interface currently broken
+if CUDA.has_cuda_gpu()
     using MadNLPGPU
-    CUDA_ARCH = (CUDABackend(), CuArray, nothing)
-    push!(MADNLP_BACKEND, (CUDABackend(), CuArray, LapackGPUSolver))
 end
 
-function _test_results_match(ips1, ips2; atol=1e-10)
-    @test ips1.status == ips2.status
-    @test ips1.cnt.k == ips2.cnt.k
-    @test ips1.obj_val ≈ ips2.obj_val atol=atol
-    @test MadNLP.primal(ips1.x) ≈ MadNLP.primal(ips2.x) atol=atol
-    @test ips1.y ≈ ips2.y atol=atol
+function _test_results_match(solver1, solver2; atol=1e-10)
+    @test solver1.status == solver2.status
+    @test solver1.cnt.k == solver2.cnt.k
+    @test solver1.obj_val ≈ solver2.obj_val atol=atol
+    @test MadNLP.primal(solver1.x) ≈ MadNLP.primal(solver2.x) atol=atol
+    @test solver1.y ≈ solver2.y atol=atol
 end
 
 # Solve with default options (reference).
@@ -74,16 +71,17 @@ function _madnlp_biegler_kkt(nlp; kwargs...)
     return solver
 end
 
-@testset "BieglerKKTSystem ($(backend))" for (backend, Array_, linear_solver) in MADNLP_BACKEND
+@testset "[CPU] BieglerKKTSystem" begin
     case = "case9.m"
     datafile = joinpath(INSTANCES_DIR, case)
-    opf = Argos.FullSpaceEvaluator(datafile; device=backend)
+    opf = Argos.FullSpaceEvaluator(datafile)
 
     T = Float64
-    VI = Array_{Int, 1}
-    VT = Array_{T, 1}
-    MT = Array_{T, 2}
+    VI = Array{Int, 1}
+    VT = Array{T, 1}
+    MT = Array{T, 2}
 
+    linear_solver = LapackCPUSolver
     options = MadNLP.MadNLPOptions(; linear_solver=linear_solver)
     options_linear_solver = MadNLP.LapackOptions(
         lapack_algorithm=MadNLP.LU,
@@ -110,7 +108,7 @@ end
     MadNLPTests.test_kkt_system(kkt, cb)
 end
 
-@testset "MadNLP wrapper: $case" for case in [
+@testset "[CPU] MadNLP wrapper: $case" for case in [
     "case30.m",
     "case57.m",
 ]
@@ -123,24 +121,24 @@ end
     )
     @testset "Reduce-then-linearize" begin
         nlp = Argos.ReducedSpaceEvaluator(datafile)
-        ips = _madnlp_default(nlp; options...)
-        @test ips.status == MadNLP.SOLVE_SUCCEEDED
+        solver = _madnlp_default(nlp; options...)
+        @test solver.status == MadNLP.SOLVE_SUCCEEDED
         ipd = _madnlp_dense_kkt(nlp; options...)
-        _test_results_match(ips, ipd; atol=tol)
+        _test_results_match(solver, ipd; atol=tol)
         ipc = _madnlp_condensed_kkt(nlp; options...)
-        _test_results_match(ips, ipc; atol=tol)
+        _test_results_match(solver, ipc; atol=tol)
     end
     @testset "Linearize-then-reduce" begin
         flp = Argos.FullSpaceEvaluator(datafile)
-        ips = _madnlp_default(flp; options...)
-        @test ips.status == MadNLP.SOLVE_SUCCEEDED
+        solver = _madnlp_default(flp; options...)
+        @test solver.status == MadNLP.SOLVE_SUCCEEDED
         ipb = _madnlp_biegler_kkt(flp; options...)
-        _test_results_match(ips, ipb; atol=tol)
+        _test_results_match(solver, ipb; atol=tol)
         @test ipb.kkt.Wref === flp.hess.H
     end
 end
 
-@testset "Solve OPF with $form" for form in [
+@testset "[CPU] Solve OPF with $form" for form in [
     Argos.FullSpace(),
     Argos.BieglerReduction(),
     Argos.DommelTinney(),
@@ -148,8 +146,33 @@ end
     case = "case9.m"
     datafile = joinpath(INSTANCES_DIR, case)
 
-    ips = Argos.run_opf(datafile, form; tol=1e-5, print_level=MadNLP.ERROR)
-    @test isa(ips, MadNLP.MadNLPSolver)
-    @test ips.status == MadNLP.SOLVE_SUCCEEDED
+    solver = Argos.run_opf(datafile, form; tol=1e-5, print_level=MadNLP.ERROR)
+    @test isa(solver, MadNLP.MadNLPSolver)
+    @test solver.status == MadNLP.SOLVE_SUCCEEDED
+end
+
+if CUDA.has_cuda_gpu()
+    # Test BieglerKKTSystem on the GPU.
+    @testset "[CUDA] Solve OPF with BieglerKKTSystem" begin
+        case = "case9.m"
+        datafile = joinpath(INSTANCES_DIR, case)
+        opf = Argos.FullSpaceEvaluator(datafile)
+        solver_ref = _madnlp_default(opf; print_level=MadNLP.ERROR)
+
+        opf_gpu = Argos.FullSpaceEvaluator(datafile; device=CUDABackend())
+        KKT = Argos.BieglerKKTSystem{Float64, CuVector{Int}, CuVector{Float64}, CuMatrix{Float64}}
+        nlp = Argos.OPFModel(Argos.bridge(opf_gpu))
+        solver_gpu = MadNLP.MadNLPSolver(
+            nlp;
+            kkt_system=KKT,
+            linear_solver=LapackGPUSolver,
+            lapack_algorithm=MadNLP.CHOLESKY,
+            callback=MadNLP.SparseCallback,
+            equality_treatment=MadNLP.EnforceEquality,
+            print_level=MadNLP.ERROR,
+        )
+        stats = MadNLP.solve!(solver_gpu)
+        _test_results_match(solver_ref, solver_gpu; atol=1e-6)
+    end
 end
 
