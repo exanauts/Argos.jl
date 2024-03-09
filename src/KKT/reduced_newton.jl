@@ -212,17 +212,8 @@ end
 MadNLP.num_variables(kkt::BieglerKKTSystem) = kkt.nu
 MadNLP.get_hessian(kkt::BieglerKKTSystem) = kkt.h_V
 MadNLP.get_jacobian(kkt::BieglerKKTSystem) = nonzeros(kkt.J)
-MadNLP.is_reduced(::BieglerKKTSystem) = true
 function MadNLP.is_inertia_correct(kkt::BieglerKKTSystem, n, m, p)
     return n == size(kkt.aug_com, 1)
-end
-
-# Return SparseMatrixCOO to MadNLP
-function MadNLP.get_raw_jacobian(kkt::BieglerKKTSystem)
-    m = size(kkt.J, 1)
-    n = kkt.nx + kkt.nu
-    i, j, v = findnz(kkt.J)
-    return MadNLP.SparseMatrixCOO(m, n, i, j, v)
 end
 
 function MadNLP.initialize!(kkt::BieglerKKTSystem)

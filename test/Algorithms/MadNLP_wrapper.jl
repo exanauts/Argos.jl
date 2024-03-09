@@ -82,7 +82,6 @@ end
     MT = Array{T, 2}
 
     linear_solver = LapackCPUSolver
-    options = MadNLP.MadNLPOptions(; linear_solver=linear_solver)
     options_linear_solver = MadNLP.LapackOptions(
         lapack_algorithm=MadNLP.LU,
     )
