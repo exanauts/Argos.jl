@@ -2,7 +2,7 @@
 CUDA = "4.1, 5"
 FiniteDiff = "2.7"
 Ipopt = "1"
-MadNLP = "0.7"
+MadNLP = "0.8"
 
 [deps]
 Argos = "ef244971-cf80-42b0-9762-2c2c832df5d5"
