@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Argos on CPU (default) · Argos.jl</title><meta name="title" content="Argos on CPU (default) · Argos.jl"/><meta property="og:title" content="Argos on CPU (default) · Argos.jl"/><meta property="twitter:title" content="Argos on CPU (default) · Argos.jl"/><meta name="description" content="Documentation for Argos.jl."/><meta property="og:description" content="Documentation for Argos.jl."/><meta property="twitter:description" content="Documentation for Argos.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Argos.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Quickstart</span><ul><li class="is-active"><a class="tocitem" href>Argos on CPU (default)</a><ul class="internal"><li><a class="tocitem" href="#Full-space-method"><span>Full-space method</span></a></li><li><a class="tocitem" href="#Biegler&#39;s-method-(linearize-then-reduce)"><span>Biegler&#39;s method (linearize-then-reduce)</span></a></li><li><a class="tocitem" href="#Dommel-and-Tinney&#39;s-method-(reduce-then-linearize)"><span>Dommel &amp; Tinney&#39;s method (reduce-then-linearize)</span></a></li></ul></li><li><a class="tocitem" href="../cuda/">Argos on NVIDIA GPU</a></li></ul></li><li><span class="tocitem">OPF Model</span><ul><li><a class="tocitem" href="../../man/overview/">Overview</a></li><li><a class="tocitem" href="../../man/fullspace/">Full-space OPF</a></li><li><a class="tocitem" href="../../man/reducedspace/">Reduced-space OPF</a></li></ul></li><li><span class="tocitem">OPF Solution</span><ul><li><a class="tocitem" href="../../optim/fullspace/">Full-space OPF</a></li><li><a class="tocitem" href="../../optim/reducedspace/">Reduced-space OPF</a></li><li><a class="tocitem" href="../../optim/biegler/">Biegler&#39;s method</a></li></ul></li><li><span class="tocitem">Wrappers</span><ul><li><a class="tocitem" href="../../man/moi_wrapper/">MathOptInterface</a></li><li><a class="tocitem" href="../../man/nlpmodel_wrapper/">NLPModels</a></li></ul></li><li><a class="tocitem" href="../../references/">References</a></li><li><span class="tocitem">Library</span><ul><li><a class="tocitem" href="../../lib/api/">Evaluators API</a></li><li><a class="tocitem" href="../../lib/evaluators/">Evaluators Type</a></li><li><a class="tocitem" href="../../lib/kkt/">KKT systems</a></li><li><a class="tocitem" href="../../lib/wrappers/">Wrappers</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Quickstart</a></li><li class="is-active"><a href>Argos on CPU (default)</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Argos on CPU (default)</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/exanauts/Argos.jl/blob/master/docs/src/quickstart/cpu.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Argos-on-CPU-(default)"><a class="docs-heading-anchor" href="#Argos-on-CPU-(default)">Argos on CPU (default)</a><a id="Argos-on-CPU-(default)-1"></a><a class="docs-heading-anchor-permalink" href="#Argos-on-CPU-(default)" title="Permalink"></a></h1><p>Unless explicitly specified, Argos solves the OPF on the CPU. Argos provides 3 different methods to solve the OPF, all relying on the interior-point method (IPM).</p><hr/><table><tr><th style="text-align: right">Method</th><th style="text-align: right">Derivatives</th><th style="text-align: right">KKT system</th></tr><tr><td style="text-align: right"><strong>Full-space</strong></td><td style="text-align: right">Sparse</td><td style="text-align: right">Sparse</td></tr><tr><td style="text-align: right"><strong>Biegler</strong></td><td style="text-align: right">Sparse</td><td style="text-align: right">Dense</td></tr><tr><td style="text-align: right"><strong>Dommel &amp; Tinney</strong></td><td style="text-align: right">Dense</td><td style="text-align: right">Dense</td></tr></table><hr/><ul><li><strong>Full-space</strong> and <strong>Biegler</strong> are equivalent in exact arithmetic. <strong>Full-space</strong> solves the original (sparse) KKT system whereas <strong>Biegler</strong> uses a reduction method to find an equivalent (dense) linear system.</li><li><strong>Dommel &amp; Tinney</strong> is a port of the <a href="https://ieeexplore.ieee.org/abstract/document/4073461">classical algorithm of Dommel and Tinney</a> originally developed in 1968. It exploits the structure of the power flow equations to optimize only with relation to the degrees of freedom (the <em>control</em>, associated with the voltage at the PV nodes and the power generations). The reduction is the same as in <strong>Biegler</strong>, but <strong>Dommel &amp; Tinney</strong> comprises an additional projection step to recover the dependent variables (the <em>state</em>). Currently, <strong>Dommel &amp; Tinney</strong> uses the Newton-Raphson algorithm implemented in ExaPF to compute the projection step.</li></ul><p>All three methods are described in detail in the <a href="https://arxiv.org/abs/2203.11875">Argos paper</a>.</p><p>First, we set up the current Julia environment and choose an OPF instance in our artifact <a href="https://github.com/exanauts/ExaData">ExaData</a>:</p><pre><code class="language-julia hljs">using Argos, MadNLP
+datafile = joinpath(INSTANCES_DIR, &quot;case118.m&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">&quot;/home/runner/.julia/artifacts/fc4d4283fe5bd2327fb1504317feb645a8421f7c/ExaData/case118.m&quot;</code></pre><h2 id="Full-space-method"><a class="docs-heading-anchor" href="#Full-space-method">Full-space method</a><a id="Full-space-method-1"></a><a class="docs-heading-anchor-permalink" href="#Full-space-method" title="Permalink"></a></h2><div class="admonition is-success"><header class="admonition-header">Tip</header><div class="admonition-body"><p>At each iteration of the algorithm, <code>FullSpace</code> solves the KKT system with a sparse linear solver. By default, MadNLP is using Umfpack, but we recommend installing <a href="https://madnlp.github.io/MadNLP.jl/dev/installation/#HSL-linear-solver">MadNLPHSL</a> and uses ma27 (<code>linear_solver=Ma27Solver</code>) or ma57 (<code>linear_solver=Ma57Solver</code>).</p></div></div><pre><code class="language-julia-repl hljs" style="display:block;">julia&gt; Argos.run_opf(datafile, Argos.FullSpace());</code><code class="nohighlight hljs ansi" style="display:block;">This is MadNLP version v0.7.0, running with umfpack
+
+Number of nonzeros in constraint Jacobian............:     3419
+Number of nonzeros in Lagrangian Hessian.............:     1157
+
+Total number of variables............................:      288
+                     variables with only lower bounds:        0
+                variables with lower and upper bounds:      171
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:      181
+Total number of inequality constraints...............:      427
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:       55
+        inequality constraints with only upper bounds:      372
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  1.3280884e+05 1.30e+00 1.81e+00  -1.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  1.3134648e+05 6.28e-01 1.94e+01  -1.0 4.09e+00    -  6.80e-01 5.05e-01h  1
+   2  1.3034878e+05 1.34e-01 3.88e+01  -1.0 4.11e+00    -  9.53e-01 1.00e+00h  1
+   3  1.3096851e+05 3.06e-01 3.69e-01  -1.0 2.91e+00    -  9.90e-01 1.00e+00h  1
+   4  1.3110170e+05 9.37e-03 3.16e-03  -1.0 5.48e-01    -  9.97e-01 1.00e+00h  1
+   5  1.3029147e+05 4.67e-02 3.85e-01  -2.5 1.74e+00    -  8.98e-01 1.00e+00h  1
+   6  1.2996303e+05 4.46e-02 2.02e-02  -2.5 1.33e+00    -  9.63e-01 1.00e+00h  1
+   7  1.2981505e+05 5.20e-02 3.03e-03  -2.5 5.43e-01    -  1.00e+00 1.00e+00h  1
+   8  1.2980960e+05 1.53e-04 2.64e-05  -2.5 6.40e-02    -  1.00e+00 1.00e+00h  1
+   9  1.2971824e+05 2.22e-02 4.70e-03  -5.7 4.46e-01    -  7.63e-01 8.03e-01h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  10  1.2969004e+05 1.27e-02 1.49e-01  -5.7 3.23e-01    -  7.32e-01 4.49e-01h  1
+  11  1.2966972e+05 1.47e-02 8.84e-02  -5.7 4.21e-01    -  6.81e-01 6.00e-01h  1
+  12  1.2966195e+05 1.36e-02 4.23e-02  -5.7 2.53e-01    -  8.18e-01 7.21e-01h  1
+  13  1.2966049e+05 4.83e-03 1.15e-02  -5.7 9.77e-02    -  1.00e+00 8.85e-01h  1
+  14  1.2966068e+05 1.33e-03 7.67e-03  -5.7 2.69e-02    -  1.00e+00 7.28e-01h  1
+  15  1.2966078e+05 5.96e-05 6.08e-06  -5.7 9.21e-03    -  1.00e+00 1.00e+00h  1
+  16  1.2966078e+05 6.82e-07 1.34e-07  -5.7 1.19e-03    -  1.00e+00 1.00e+00h  1
+  17  1.2966070e+05 1.34e-05 2.39e-05  -8.6 4.59e-03    -  9.81e-01 9.71e-01h  1
+  18  1.2966069e+05 8.23e-07 6.55e-08  -8.6 1.48e-03    -  1.00e+00 1.00e+00h  1
+  19  1.2966069e+05 3.53e-09 5.55e-10  -8.6 1.03e-04    -  1.00e+00 1.00e+00h  1
+
+Number of Iterations....: 19
+
+                                   (scaled)                 (unscaled)
+Objective...............:   1.0789722164548267e+02    1.2966069409995303e+05
+Dual infeasibility......:   5.5541700844912512e-10    6.6744772230609257e-07
+Constraint violation....:   3.5293448168334518e-09    3.5293448168334518e-09
+Complementarity.........:   2.3347818911657960e-12    2.8057204436202689e-09
+Overall NLP error.......:   3.5293448168334518e-09    3.5293448168334518e-09
+
+Number of objective function evaluations             = 20
+Number of objective gradient evaluations             = 20
+Number of constraint evaluations                     = 21
+Number of constraint Jacobian evaluations            = 20
+Number of Lagrangian Hessian evaluations             = 19
+Total wall-clock secs in solver (w/o fun. eval./lin. alg.)  =  2.692
+Total wall-clock secs in linear solver                      =  0.069
+Total wall-clock secs in NLP function evaluations           =  4.235
+Total wall-clock secs                                       =  6.996
+
+EXIT: Optimal Solution Found.</code></pre><h2 id="Biegler&#39;s-method-(linearize-then-reduce)"><a class="docs-heading-anchor" href="#Biegler&#39;s-method-(linearize-then-reduce)">Biegler&#39;s method (linearize-then-reduce)</a><a id="Biegler&#39;s-method-(linearize-then-reduce)-1"></a><a class="docs-heading-anchor-permalink" href="#Biegler&#39;s-method-(linearize-then-reduce)" title="Permalink"></a></h2><div class="admonition is-success"><header class="admonition-header">Tip</header><div class="admonition-body"><ul><li>Biegler&#39;s reduction condenses and reduces the KKT linear system to a dense linear system whose size is given by the number of degrees of freedom in the problem. We recommend factorizing the resulting system with the Cholesky factorization shipped with Lapack.</li><li>Note we obtain exactly the same convergence as with the previous <code>FullSpace</code> method, as the two methods are equivalent.</li></ul></div></div><pre><code class="language-julia-repl hljs" style="display:block;">julia&gt; Argos.run_opf(datafile, Argos.BieglerReduction(); lapack_algorithm=MadNLP.CHOLESKY);</code><code class="nohighlight hljs ansi" style="display:block;">This is MadNLP version v0.7.0, running with Lapack-CPU (CHOLESKY)
+
+Number of nonzeros in constraint Jacobian............:     3419
+Number of nonzeros in Lagrangian Hessian.............:     1157
+
+Total number of variables............................:      288
+                     variables with only lower bounds:        0
+                variables with lower and upper bounds:      171
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:      181
+Total number of inequality constraints...............:      427
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:       55
+        inequality constraints with only upper bounds:      372
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  1.3280884e+05 1.30e+00 1.81e+00  -1.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  1.3134648e+05 6.28e-01 1.94e+01  -1.0 4.09e+00    -  6.80e-01 5.05e-01h  1
+   2  1.3034878e+05 1.34e-01 3.88e+01  -1.0 4.11e+00    -  9.53e-01 1.00e+00h  1
+   3  1.3096851e+05 3.06e-01 3.69e-01  -1.0 2.91e+00    -  9.90e-01 1.00e+00h  1
+   4  1.3110170e+05 9.37e-03 3.16e-03  -1.0 5.48e-01    -  9.97e-01 1.00e+00h  1
+   5  1.3029147e+05 4.67e-02 3.85e-01  -2.5 1.74e+00    -  8.98e-01 1.00e+00h  1
+   6  1.2996303e+05 4.46e-02 2.02e-02  -2.5 1.33e+00    -  9.63e-01 1.00e+00h  1
+   7  1.2981505e+05 5.20e-02 3.03e-03  -2.5 5.43e-01    -  1.00e+00 1.00e+00h  1
+   8  1.2980960e+05 1.53e-04 2.64e-05  -2.5 6.40e-02    -  1.00e+00 1.00e+00h  1
+   9  1.2971824e+05 2.22e-02 4.70e-03  -5.7 4.46e-01    -  7.63e-01 8.03e-01h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  10  1.2969004e+05 1.27e-02 1.49e-01  -5.7 3.23e-01    -  7.32e-01 4.49e-01h  1
+  11  1.2966972e+05 1.47e-02 8.84e-02  -5.7 4.21e-01    -  6.81e-01 6.00e-01h  1
+  12  1.2966195e+05 1.36e-02 4.23e-02  -5.7 2.53e-01    -  8.18e-01 7.21e-01h  1
+  13  1.2966049e+05 4.83e-03 1.15e-02  -5.7 9.77e-02    -  1.00e+00 8.85e-01h  1
+  14  1.2966068e+05 1.33e-03 7.67e-03  -5.7 2.69e-02    -  1.00e+00 7.28e-01h  1
+  15  1.2966078e+05 5.96e-05 6.08e-06  -5.7 9.21e-03    -  1.00e+00 1.00e+00h  1
+  16  1.2966078e+05 6.82e-07 1.34e-07  -5.7 1.19e-03    -  1.00e+00 1.00e+00h  1
+  17  1.2966070e+05 1.34e-05 2.39e-05  -8.6 4.59e-03    -  9.81e-01 9.71e-01h  1
+  18  1.2966069e+05 8.23e-07 6.55e-08  -8.6 1.48e-03    -  1.00e+00 1.00e+00h  1
+  19  1.2966069e+05 3.53e-09 5.55e-10  -8.6 1.03e-04    -  1.00e+00 1.00e+00h  1
+
+Number of Iterations....: 19
+
+                                   (scaled)                 (unscaled)
+Objective...............:   1.0789722164548250e+02    1.2966069409995283e+05
+Dual infeasibility......:   5.5541674997760360e-10    6.6744741169942103e-07
+Constraint violation....:   3.5293436109837956e-09    3.5293436109837956e-09
+Complementarity.........:   2.3347818911179108e-12    2.8057204435627248e-09
+Overall NLP error.......:   3.5293436109837956e-09    3.5293436109837956e-09
+
+Number of objective function evaluations             = 20
+Number of objective gradient evaluations             = 20
+Number of constraint evaluations                     = 21
+Number of constraint Jacobian evaluations            = 20
+Number of Lagrangian Hessian evaluations             = 19
+Total wall-clock secs in solver (w/o fun. eval./lin. alg.)  =  3.264
+Total wall-clock secs in linear solver                      =  0.016
+Total wall-clock secs in NLP function evaluations           =  0.013
+Total wall-clock secs                                       =  3.293
+
+EXIT: Optimal Solution Found.</code></pre><h2 id="Dommel-and-Tinney&#39;s-method-(reduce-then-linearize)"><a class="docs-heading-anchor" href="#Dommel-and-Tinney&#39;s-method-(reduce-then-linearize)">Dommel &amp; Tinney&#39;s method (reduce-then-linearize)</a><a id="Dommel-and-Tinney&#39;s-method-(reduce-then-linearize)-1"></a><a class="docs-heading-anchor-permalink" href="#Dommel-and-Tinney&#39;s-method-(reduce-then-linearize)" title="Permalink"></a></h2><div class="admonition is-success"><header class="admonition-header">Tip</header><div class="admonition-body"><ul><li><code>DommelTinney</code> works in the reduced space, and the associated formulation has less variable than in the full space (107 versus 288).</li><li>The reduced Jacobian and reduced Hessian are dense, so <code>DommelTinney</code> can potentially eat a lot of memory on the largest instances.</li><li>As with <code>BieglerReduction</code>, we recommend using Lapack with a Cholesky factorization to solve the KKT system.</li><li>Note that we have to increase MadNLP&#39;s tolerance (parameter <code>tol</code>) as we cannot optimize below the tolerance of the Newton-Raphson employed under the hood (<code>1e-10</code> by default).</li></ul></div></div><pre><code class="language-julia-repl hljs" style="display:block;">julia&gt; Argos.run_opf(datafile, Argos.DommelTinney(); tol=1e-5);</code><code class="nohighlight hljs ansi" style="display:block;">This is MadNLP version v0.7.0, running with Lapack-CPU (CHOLESKY)
+
+Number of nonzeros in constraint Jacobian............:    52537
+Number of nonzeros in Lagrangian Hessian.............:     5778
+
+Total number of variables............................:      107
+                     variables with only lower bounds:        0
+                variables with lower and upper bounds:      107
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:        0
+Total number of inequality constraints...............:      491
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:      119
+        inequality constraints with only upper bounds:      372
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  1.3115105e+05 3.95e-01 6.71e+00  -1.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  1.3081077e+05 3.18e-01 5.56e+00  -1.0 1.37e+00   0.0 2.01e-01 1.85e-01h  1
+   2  1.3031104e+05 1.96e-01 1.32e+01  -1.0 1.97e+00  -0.5 2.73e-01 3.33e-01h  1
+   3  1.2988239e+05 1.33e-01 1.97e+01  -1.0 4.51e+00    -  4.53e-01 5.36e-01h  1
+   4  1.2977953e+05 1.03e-01 1.06e+01  -1.0 1.99e+00    -  9.68e-01 1.00e+00h  1
+   5  1.2977217e+05 5.58e-02 7.17e-02  -1.0 2.82e-01    -  9.90e-01 1.00e+00h  1
+   6  1.2977237e+05 7.85e-05 1.40e-03  -1.0 5.67e-02    -  1.00e+00 1.00e+00h  1
+   7  1.2970882e+05 1.00e-02 1.04e+00  -2.5 3.87e-01    -  8.04e-01 6.92e-01f  1
+   8  1.2968097e+05 2.31e-02 5.30e+00  -2.5 3.56e-01    -  8.14e-01 6.10e-01h  1
+   9  1.2966521e+05 5.73e-02 3.11e-01  -2.5 2.99e-01    -  9.65e-01 9.57e-01h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  10  1.2966361e+05 3.03e-03 2.86e-03  -2.5 8.00e-02    -  1.00e+00 1.00e+00h  1
+  11  1.2966122e+05 3.24e-03 2.93e-01  -3.8 6.43e-02    -  9.46e-01 8.42e-01h  1
+  12  1.2966077e+05 2.50e-04 2.33e-03  -3.8 1.91e-02    -  1.00e+00 1.00e+00h  1
+  13  1.2966076e+05 1.79e-05 1.71e-03  -3.8 4.99e-03    -  1.00e+00 1.00e+00h  1
+  14  1.2966076e+05 2.53e-07 2.48e-05  -3.8 7.99e-04    -  1.00e+00 1.00e+00h  1
+  15  1.2966062e+05 2.50e-05 3.99e-03  -5.7 5.98e-03    -  9.85e-01 9.63e-01h  1
+  16  1.2966062e+05 2.39e-06 1.32e-04  -5.7 2.44e-03    -  1.00e+00 1.00e+00h  1
+  17  1.2966062e+05 2.40e-08 1.27e-06  -5.7 2.69e-04    -  1.00e+00 1.00e+00h  1
+
+Number of Iterations....: 17
+
+                                   (scaled)                 (unscaled)
+Objective...............:   5.3638755717149443e+03    1.2966061609956827e+05
+Dual infeasibility......:   1.2718735842298656e-06    3.0744917611741822e-05
+Constraint violation....:   2.4038016727080322e-08    2.4038016727080322e-08
+Complementarity.........:   7.9458785567291857e-08    1.9207520669396444e-06
+Overall NLP error.......:   1.9207520669396444e-06    1.9207520669396444e-06
+
+Number of objective function evaluations             = 18
+Number of objective gradient evaluations             = 18
+Number of constraint evaluations                     = 19
+Number of constraint Jacobian evaluations            = 18
+Number of Lagrangian Hessian evaluations             = 17
+Total wall-clock secs in solver (w/o fun. eval./lin. alg.)  =  4.534
+Total wall-clock secs in linear solver                      =  0.008
+Total wall-clock secs in NLP function evaluations           =  1.227
+Total wall-clock secs                                       =  5.769
+
+EXIT: Optimal Solution Found.</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../">« Home</a><a class="docs-footer-nextpage" href="../cuda/">Argos on NVIDIA GPU »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.3.0 on <span class="colophon-date" title="Sunday 3 March 2024 01:30">Sunday 3 March 2024</span>. Using Julia version 1.9.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

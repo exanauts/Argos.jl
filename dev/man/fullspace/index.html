@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Full-space OPF · Argos.jl</title><meta name="title" content="Full-space OPF · Argos.jl"/><meta property="og:title" content="Full-space OPF · Argos.jl"/><meta property="twitter:title" content="Full-space OPF · Argos.jl"/><meta name="description" content="Documentation for Argos.jl."/><meta property="og:description" content="Documentation for Argos.jl."/><meta property="twitter:description" content="Documentation for Argos.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Argos.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Quickstart</span><ul><li><a class="tocitem" href="../../quickstart/cpu/">Argos on CPU (default)</a></li><li><a class="tocitem" href="../../quickstart/cuda/">Argos on NVIDIA GPU</a></li></ul></li><li><span class="tocitem">OPF Model</span><ul><li><a class="tocitem" href="../overview/">Overview</a></li><li class="is-active"><a class="tocitem" href>Full-space OPF</a><ul class="internal"><li><a class="tocitem" href="#Initialization"><span>Initialization</span></a></li><li><a class="tocitem" href="#Attributes"><span>Attributes</span></a></li><li><a class="tocitem" href="#Deport-on-CUDA-GPU"><span>Deport on CUDA GPU</span></a></li></ul></li><li><a class="tocitem" href="../reducedspace/">Reduced-space OPF</a></li></ul></li><li><span class="tocitem">OPF Solution</span><ul><li><a class="tocitem" href="../../optim/fullspace/">Full-space OPF</a></li><li><a class="tocitem" href="../../optim/reducedspace/">Reduced-space OPF</a></li><li><a class="tocitem" href="../../optim/biegler/">Biegler&#39;s method</a></li></ul></li><li><span class="tocitem">Wrappers</span><ul><li><a class="tocitem" href="../moi_wrapper/">MathOptInterface</a></li><li><a class="tocitem" href="../nlpmodel_wrapper/">NLPModels</a></li></ul></li><li><a class="tocitem" href="../../references/">References</a></li><li><span class="tocitem">Library</span><ul><li><a class="tocitem" href="../../lib/api/">Evaluators API</a></li><li><a class="tocitem" href="../../lib/evaluators/">Evaluators Type</a></li><li><a class="tocitem" href="../../lib/kkt/">KKT systems</a></li><li><a class="tocitem" href="../../lib/wrappers/">Wrappers</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">OPF Model</a></li><li class="is-active"><a href>Full-space OPF</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Full-space OPF</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/exanauts/Argos.jl/blob/master/docs/src/man/fullspace.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="FullSpaceEvaluator"><a class="docs-heading-anchor" href="#FullSpaceEvaluator">FullSpaceEvaluator</a><a id="FullSpaceEvaluator-1"></a><a class="docs-heading-anchor-permalink" href="#FullSpaceEvaluator" title="Permalink"></a></h1><p><a href="../../lib/evaluators/#Argos.FullSpaceEvaluator"><code>FullSpaceEvaluator</code></a> models the original OPF problem in the full-space.</p><h2 id="Initialization"><a class="docs-heading-anchor" href="#Initialization">Initialization</a><a id="Initialization-1"></a><a class="docs-heading-anchor-permalink" href="#Initialization" title="Permalink"></a></h2><p>A <code>FullSpaceEvaluator</code> can be instantiated both from a MATPOWER file:</p><pre><code class="language-julia hljs">datafile = joinpath(INSTANCES_DIR, &quot;case9.m&quot;)
+flp = Argos.FullSpaceEvaluator(datafile)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">A FullSpaceEvaluator object
+    * device: KernelAbstractions.CPU(false)
+    * #vars: 19
+    * #cons: 36
+</code></pre><p>or equivalently, from a <a href="https://exanauts.github.io/ExaPF.jl/stable/lib/formulations/#ExaPF.PolarForm"><code>ExaPF.PolarForm</code></a> object:</p><pre><code class="language-julia hljs">polar = ExaPF.PolarForm(datafile)
+flp = Argos.FullSpaceEvaluator(polar)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">A FullSpaceEvaluator object
+    * device: KernelAbstractions.CPU(false)
+    * #vars: 19
+    * #cons: 36
+</code></pre><div class="admonition is-info"><header class="admonition-header">Note</header><div class="admonition-body"><p>One can remove the line-flow constraints in the model simply by adding the keyword argument <code>flp = Argos.FullSpaceEvaluator(polar; line_constraints=false)</code>.</p></div></div><h2 id="Attributes"><a class="docs-heading-anchor" href="#Attributes">Attributes</a><a id="Attributes-1"></a><a class="docs-heading-anchor-permalink" href="#Attributes" title="Permalink"></a></h2><p><a href="../../lib/evaluators/#Argos.FullSpaceEvaluator"><code>FullSpaceEvaluator</code></a> is just a thin wrapper on top of ExaPF, and comes with just a few attributes. One can query the original ExaPF model with</p><pre><code class="language-julia hljs">model = Argos.model(flp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Polar formulation (instantiated on device KernelAbstractions.CPU(false))
+Network characteristics:
+    #buses:      9  (#slack: 1  #PV: 2  #PQ: 6)
+    #generators: 3
+    #lines:      9
+giving a mathematical formulation with:
+    #controls:   5
+    #states  :   14</code></pre><p>The initial variable:</p><pre><code class="language-julia hljs">x = Argos.initial(flp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">19-element Vector{Float64}:
+ 0.0
+ 0.0
+ 0.0
+ 0.0
+ 0.0
+ 0.0
+ 0.0
+ 0.0
+ 1.0
+ 1.0
+ 1.0
+ 1.0
+ 1.0
+ 1.0
+ 1.0
+ 1.0
+ 1.0
+ 1.63
+ 0.85</code></pre><p>The dimensions of the problem:</p><pre><code class="language-julia hljs">(n, m) = Argos.n_variables(flp), Argos.n_constraints(flp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(19, 36)</code></pre><p>The bounds on the variables <code>(x, u)</code></p><pre><code class="language-julia hljs">xlb, xub = Argos.bounds(flp, Argos.Variables())
+[xlb xub]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">19×2 Matrix{Float64}:
+ -Inf   Inf
+ -Inf   Inf
+ -Inf   Inf
+ -Inf   Inf
+ -Inf   Inf
+ -Inf   Inf
+ -Inf   Inf
+ -Inf   Inf
+   0.9   1.1
+   0.9   1.1
+   0.9   1.1
+   0.9   1.1
+   0.9   1.1
+   0.9   1.1
+   0.9   1.1
+   0.9   1.1
+   0.9   1.1
+   0.1   3.0
+   0.1   2.7</code></pre><p>The bounds on the constraints:</p><pre><code class="language-julia hljs">clb, cub = Argos.bounds(flp, Argos.Constraints())
+[clb cub]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">36×2 Matrix{Float64}:
+   0.0  0.0
+   0.0  0.0
+   0.0  0.0
+   0.0  0.0
+   0.0  0.0
+   0.0  0.0
+   0.0  0.0
+   0.0  0.0
+   0.0  0.0
+   0.0  0.0
+   ⋮    
+ -Inf   6.25
+ -Inf   6.25
+ -Inf   2.25
+ -Inf   9.0
+ -Inf   2.25
+ -Inf   6.25
+ -Inf   6.25
+ -Inf   6.25
+ -Inf   6.25</code></pre><h3 id="Sparse-Jacobian-and-sparse-Hessian"><a class="docs-heading-anchor" href="#Sparse-Jacobian-and-sparse-Hessian">Sparse Jacobian and sparse Hessian</a><a id="Sparse-Jacobian-and-sparse-Hessian-1"></a><a class="docs-heading-anchor-permalink" href="#Sparse-Jacobian-and-sparse-Hessian" title="Permalink"></a></h3><p>More importantly, <code>FullSpaceEvaluator</code> stores two <a href="https://exanauts.github.io/ExaPF.jl/stable/man/autodiff/">AD backends</a> to evaluate the Jacobian and the Hessian in sparse format using ExaPF.</p><p>For the Hessian, the AD backend is</p><pre><code class="language-julia hljs">flp.hess</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">ExaPF.FullHessian{ExaPF.PolarForm{Float64, Vector{Int64}, Vector{Float64}, Matrix{Float64}}, ExaPF.ComposedExpressions{ExaPF.PolarBasis{Vector{Int64}, SparseArrays.SparseMatrixCSC{Float64, Int64}}, ExaPF.MultiExpressions}, ExaPF.NetworkStack{Vector{Float64}, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}, NamedTuple{(:c, :sfp, :sfq, :stp, :stq, :∂edge_vm_fr, :∂edge_vm_to, :∂edge_va_fr, :∂edge_va_to), NTuple{9, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}}}}, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}, SparseArrays.SparseMatrixCSC{Float64, Int64}, Vector{Int64}}(Polar formulation (instantiated on device KernelAbstractions.CPU(false))
+Network characteristics:
+    #buses:      9  (#slack: 1  #PV: 2  #PQ: 6)
+    #generators: 3
+    #lines:      9
+giving a mathematical formulation with:
+    #controls:   5
+    #states  :   14, ExaPF.ComposedExpressions{ExaPF.PolarBasis{Vector{Int64}, SparseArrays.SparseMatrixCSC{Float64, Int64}}, ExaPF.MultiExpressions}(PolarBasis (AbstractExpression), ExaPF.MultiExpressions(ExaPF.AutoDiff.AbstractExpression[CostFunction (AbstractExpression), PowerFlowBalance (AbstractExpression), PowerGenerationBounds (AbstractExpression), LineFlows (AbstractExpression)])), [11, 12, 13, 14, 15, 16, 17, 18, 4, 5, 6, 7, 8, 9, 1, 2, 3, 20, 21], 21-elements NetworkStack{Vector{ForwardDiff.Dual{Nothing, Float64, 8}}}, 21-elements NetworkStack{Vector{ForwardDiff.Dual{Nothing, Float64, 8}}}, [1, 1, 1, 2, 3, 4, 2, 3, 4, 5, 6, 7, 5, 6, 7, 8, 8, 1, 1], 8, ForwardDiff.Dual{Nothing, Float64, 8}[Dual{Nothing}(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0), Dual{Nothing}(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0), Dual{Nothing}(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0), Dual{Nothing}(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0), Dual{Nothing}(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0), Dual{Nothing}(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0), Dual{Nothing}(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0), Dual{Nothing}(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0), Dual{Nothing}(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0), Dual{Nothing}(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0)  …  Dual{Nothing}(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0), Dual{Nothing}(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0), Dual{Nothing}(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0), Dual{Nothing}(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0), Dual{Nothing}(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0), Dual{Nothing}(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0), Dual{Nothing}(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0), Dual{Nothing}(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0), Dual{Nothing}(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0), Dual{Nothing}(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0)], ForwardDiff.Dual{Nothing, Float64, 8}[Dual{Nothing}(0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0), Dual{Nothing}(0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0), Dual{Nothing}(0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0), Dual{Nothing}(0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0), Dual{Nothing}(0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0), Dual{Nothing}(0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0), Dual{Nothing}(0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0), Dual{Nothing}(0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0), Dual{Nothing}(0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0), Dual{Nothing}(0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0)  …  Dual{Nothing}(0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0), Dual{Nothing}(0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0), Dual{Nothing}(0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0), Dual{Nothing}(0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0), Dual{Nothing}(0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0), Dual{Nothing}(0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0), Dual{Nothing}(0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0), Dual{Nothing}(0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0), Dual{Nothing}(0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0), Dual{Nothing}(0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0,0.0,6.93086265245077e-310,0.0)], sparse([1, 7, 13, 16, 2, 5, 11, 17, 3, 4  …  1, 7, 13, 16, 2, 5, 11, 17, 18, 19], [1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 9, 9, 9, 9, 9, 9, 9, 10, 10, 10, 10, 10, 10, 11, 11, 11, 11, 11, 11, 11, 11, 12, 12, 12, 12, 12, 12, 13, 13, 13, 13, 13, 13, 13, 13, 14, 14, 14, 14, 14, 14, 15, 15, 15, 16, 16, 16, 16, 17, 17, 17, 17, 18, 19], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0  …  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 19, 19))</code></pre><p>generating the matrix</p><pre><code class="language-julia hljs">flp.hess.H</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">19×19 SparseArrays.SparseMatrixCSC{Float64, Int64} with 103 stored entries:
+⎡⠑⣤⡂⠡⣤⡂⠡⠌⠂⠀⎤
+⎢⠌⡈⠻⣦⡈⠻⣦⠠⠁⠀⎥
+⎢⠠⠻⣦⡈⠻⣦⡈⠁⠄⠀⎥
+⎢⡁⠆⠈⡛⠆⠈⡛⢌⠀⠀⎥
+⎣⠈⠀⠁⠀⠀⠁⠀⠀⠑⠄⎦</code></pre><p>and for the Jacobian</p><pre><code class="language-julia hljs">flp.jac</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">A AutoDiff Jacobian for ExaPF.ComposedExpressions{ExaPF.PolarBasis{Vector{Int64}, SparseArrays.SparseMatrixCSC{Float64, Int64}}, ExaPF.MultiExpressions}(PolarBasis (AbstractExpression), ExaPF.MultiExpressions(ExaPF.AutoDiff.AbstractExpression[PowerFlowBalance (AbstractExpression), PowerGenerationBounds (AbstractExpression), LineFlows (AbstractExpression)]))
+Number of Jacobian colors: 8</code></pre><p>generating the matrix</p><pre><code class="language-julia hljs">flp.jac.J</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">36×19 SparseArrays.SparseMatrixCSC{Float64, Int64} with 176 stored entries:
+⎡⠑⣤⡂⠡⣤⡂⠡⠌⠊⠂⎤
+⎢⠌⡈⠻⣦⡈⠻⣦⠠⠁⠀⎥
+⎢⠠⠻⣦⡈⠻⣦⡈⠁⠄⠀⎥
+⎢⠁⡆⠈⠛⡆⠈⠛⡌⠀⠀⎥
+⎢⠑⣄⠂⠁⣄⠂⠁⠌⠂⠀⎥
+⎢⠐⠈⢧⡀⠈⢧⡀⠀⠂⠀⎥
+⎢⠁⡄⠀⠳⡄⠀⠳⡈⠀⠀⎥
+⎢⠠⠙⣆⠀⠙⣆⠀⠀⠄⠀⎥
+⎣⠂⡀⠈⢧⡀⠈⢧⠐⠀⠀⎦</code></pre><p>Both AD backends use coloring to reduce the number of Hessian-vector and Jacobian-vector products required to evaluate the Hessian and Jacobian in sparse format.</p><p>To avoid dealing explicitly with the AD backends, Argos provides a function to query directly the Hessian and Jacobian in COO format:</p><pre><code class="language-julia hljs"># Query sparsity pattern:
+j_I, j_J = Argos.jacobian_structure(flp)
+nnzj = length(j_I)
+j_V = zeros(nnzj)
+Argos.jacobian_coo!(flp, j_V, x)
+sparse(j_I, j_J, j_V) # build a SparseMatrixCSC</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">36×19 SparseArrays.SparseMatrixCSC{Float64, Int64} with 176 stored entries:
+⎡⠑⣤⡂⠡⣤⡂⠡⠌⠊⠂⎤
+⎢⠌⡈⠻⣦⡈⠻⣦⠠⠁⠀⎥
+⎢⠠⠻⣦⡈⠻⣦⡈⠁⠄⠀⎥
+⎢⠁⡆⠈⠛⡆⠈⠛⡌⠀⠀⎥
+⎢⠑⣄⠂⠁⣄⠂⠁⠌⠂⠀⎥
+⎢⠐⠈⢧⡀⠈⢧⡀⠀⠂⠀⎥
+⎢⠁⡄⠀⠳⡄⠀⠳⡈⠀⠀⎥
+⎢⠠⠙⣆⠀⠙⣆⠀⠀⠄⠀⎥
+⎣⠂⡀⠈⢧⡀⠈⢧⠐⠀⠀⎦</code></pre><p>and for the Hessian:</p><pre><code class="language-julia hljs"># Query sparsity pattern:
+h_I, h_J = Argos.hessian_structure(flp)
+nnzh = length(h_I)
+h_V = zeros(nnzh)
+y = rand(m)
+Argos.hessian_lagrangian_coo!(flp, h_V, x, y, 1.0)
+sparse(h_I, h_J, h_V) # build a SparseMatrixCSC</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">19×19 SparseArrays.SparseMatrixCSC{Float64, Int64} with 61 stored entries:
+⎡⠑⣄⠀⠀⠀⠀⠀⠀⠀⠀⎤
+⎢⠌⡈⠳⣄⠀⠀⠀⠀⠀⠀⎥
+⎢⠠⠻⣦⡈⠳⣄⠀⠀⠀⠀⎥
+⎢⡁⠆⠈⡛⠆⠈⡓⢄⠀⠀⎥
+⎣⠈⠀⠁⠀⠀⠁⠀⠀⠑⠄⎦</code></pre><div class="admonition is-info"><header class="admonition-header">Info</header><div class="admonition-body"><p>For the Hessian, only the lower-triangular are being returned.</p></div></div><h2 id="Deport-on-CUDA-GPU"><a class="docs-heading-anchor" href="#Deport-on-CUDA-GPU">Deport on CUDA GPU</a><a id="Deport-on-CUDA-GPU-1"></a><a class="docs-heading-anchor-permalink" href="#Deport-on-CUDA-GPU" title="Permalink"></a></h2><p>Deporting all the operations on a CUDA GPU simply amounts to instantiating a <code>FullSpaceEvaluator</code>`](@ref) on the GPU, with</p><pre><code class="language-julia hljs">using CUDAKernels # suppose CUDAKernels has been downloaded
+flp = Argos.FullSpaceEvaluator(datafile; device=CUDADevice())</code></pre><p>Then, the API remains exactly the same as on the CPU.</p><p>When using <code>device=CUDADevice()</code>, the model is entirely instantiated on the device, without data left on the host (hence minimizing the communication costs). The computation of the derivatives is streamlined by propagating the tangents in parallel, leading to faster evaluations of the callbacks. As expected, the larger the model, the more significant the performance gain.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../overview/">« Overview</a><a class="docs-footer-nextpage" href="../reducedspace/">Reduced-space OPF »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.3.0 on <span class="colophon-date" title="Sunday 3 March 2024 01:30">Sunday 3 March 2024</span>. Using Julia version 1.9.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

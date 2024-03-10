@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>MathOptInterface · Argos.jl</title><meta name="title" content="MathOptInterface · Argos.jl"/><meta property="og:title" content="MathOptInterface · Argos.jl"/><meta property="twitter:title" content="MathOptInterface · Argos.jl"/><meta name="description" content="Documentation for Argos.jl."/><meta property="og:description" content="Documentation for Argos.jl."/><meta property="twitter:description" content="Documentation for Argos.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Argos.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Quickstart</span><ul><li><a class="tocitem" href="../../quickstart/cpu/">Argos on CPU (default)</a></li><li><a class="tocitem" href="../../quickstart/cuda/">Argos on NVIDIA GPU</a></li></ul></li><li><span class="tocitem">OPF Model</span><ul><li><a class="tocitem" href="../overview/">Overview</a></li><li><a class="tocitem" href="../fullspace/">Full-space OPF</a></li><li><a class="tocitem" href="../reducedspace/">Reduced-space OPF</a></li></ul></li><li><span class="tocitem">OPF Solution</span><ul><li><a class="tocitem" href="../../optim/fullspace/">Full-space OPF</a></li><li><a class="tocitem" href="../../optim/reducedspace/">Reduced-space OPF</a></li><li><a class="tocitem" href="../../optim/biegler/">Biegler&#39;s method</a></li></ul></li><li><span class="tocitem">Wrappers</span><ul><li class="is-active"><a class="tocitem" href>MathOptInterface</a></li><li><a class="tocitem" href="../nlpmodel_wrapper/">NLPModels</a></li></ul></li><li><a class="tocitem" href="../../references/">References</a></li><li><span class="tocitem">Library</span><ul><li><a class="tocitem" href="../../lib/api/">Evaluators API</a></li><li><a class="tocitem" href="../../lib/evaluators/">Evaluators Type</a></li><li><a class="tocitem" href="../../lib/kkt/">KKT systems</a></li><li><a class="tocitem" href="../../lib/wrappers/">Wrappers</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Wrappers</a></li><li class="is-active"><a href>MathOptInterface</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>MathOptInterface</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/exanauts/Argos.jl/blob/master/docs/src/man/moi_wrapper.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="MathOptInterface-wrapper"><a class="docs-heading-anchor" href="#MathOptInterface-wrapper">MathOptInterface wrapper</a><a id="MathOptInterface-wrapper-1"></a><a class="docs-heading-anchor-permalink" href="#MathOptInterface-wrapper" title="Permalink"></a></h1><p><code>Argos.jl</code> provides a utility to pass the nonlinear problem encoded by a <a href="../../lib/api/#Argos.AbstractNLPEvaluator"><code>Argos.AbstractNLPEvaluator</code></a> to a <a href="https://github.com/jump-dev/MathOptInterface.jl">MathOptInterface</a> (MOI) optimization problem. Hence, we can solve the optimal power flow problem using any nonlinear optimization solver compatible with MOI (Ipopt, Knitro, ALGENCAN, ...).</p><p>Once the MOI optimizer is set up properly, passing the optimizer to Argos simply amounts to calling the function <code>Argos.optimize!</code>. For example, solving an optimal power flow problem in the full-space amounts to:</p><pre><code class="language-julia hljs">using MathOptInterface
+using Argos, Ipopt
+const MOI = MathOptInterface
+
+# Import data
+datafile = joinpath(INSTANCES_DIR, &quot;case57.m&quot;)
+flp = Argos.FullSpaceEvaluator(datafile)
+# Set-up MOI
+optimizer = Ipopt.Optimizer()
+MOI.set(optimizer, MOI.RawOptimizerAttribute(&quot;print_level&quot;), 5)
+MOI.set(optimizer, MOI.RawOptimizerAttribute(&quot;tol&quot;), 1e-5)
+# Solve
+solution = Argos.optimize!(optimizer, flp)
+MOI.empty!(optimizer)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+This is Ipopt version 3.14.14, running with linear solver MUMPS 5.6.2.
+
+Number of nonzeros in equality constraint Jacobian...:      773
+Number of nonzeros in inequality constraint Jacobian.:      707
+Number of nonzeros in Lagrangian Hessian.............:      503
+
+Total number of variables............................:      119
+                     variables with only lower bounds:        0
+                variables with lower and upper bounds:       63
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:      106
+Total number of inequality constraints...............:      168
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        8
+        inequality constraints with only upper bounds:      160
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  5.1392900e+04 4.58e-01 1.66e+00  -1.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  5.0431136e+04 3.53e-01 1.86e+01  -1.0 7.74e-01    -  6.03e-01 2.26e-01f  1
+   2  4.5340875e+04 9.45e-02 6.25e+01  -1.0 1.77e+00    -  2.89e-01 7.44e-01f  1
+   3  4.2328165e+04 6.47e-03 3.67e+00  -1.0 1.12e+00    -  9.90e-01 1.00e+00f  1
+   4  4.1907573e+04 2.72e-03 1.93e-01  -1.0 4.06e-01    -  9.90e-01 1.00e+00h  1
+   5  4.1934465e+04 3.52e-05 2.83e-03  -1.0 5.60e-02    -  1.00e+00 1.00e+00h  1
+   6  4.1794266e+04 4.19e-04 2.32e+00  -2.5 2.36e-01    -  9.34e-01 1.00e+00h  1
+   7  4.1762805e+04 1.74e-04 4.57e-03  -2.5 2.32e-01    -  1.00e+00 1.00e+00h  1
+   8  4.1748993e+04 3.10e-04 1.14e-01  -3.8 1.76e-01    -  8.65e-01 1.00e+00h  1
+   9  4.1740509e+04 3.73e-04 8.34e-04  -3.8 1.29e-01    -  1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  10  4.1739482e+04 5.72e-05 4.93e-05  -3.8 3.75e-02    -  1.00e+00 1.00e+00h  1
+  11  4.1737919e+04 5.94e-05 1.77e-03  -5.7 3.32e-02    -  9.07e-01 9.83e-01h  1
+  12  4.1737788e+04 1.14e-05 8.12e-06  -5.7 1.26e-02    -  1.00e+00 1.00e+00h  1
+  13  4.1737803e+04 1.11e-06 8.45e-07  -5.7 4.26e-03    -  1.00e+00 1.00e+00h  1
+  14  4.1737787e+04 1.58e-07 3.39e-06  -8.6 1.47e-03    -  9.99e-01 9.97e-01h  1
+  15  4.1737787e+04 3.71e-10 3.05e-10  -8.6 8.02e-05    -  1.00e+00 1.00e+00h  1
+
+Number of Iterations....: 15
+
+                                   (scaled)                 (unscaled)
+Objective...............:   1.2780896042182480e+01    4.1737786745449193e+04
+Dual infeasibility......:   3.0547981267378921e-10    9.9758665075889075e-07
+Constraint violation....:   3.7133185415427761e-10    3.7133185415427761e-10
+Variable bound violation:   3.5252853969325315e-09    3.5252853969325315e-09
+Complementarity.........:   3.1090481493953218e-09    1.0153027472605639e-05
+Overall NLP error.......:   3.1090481493953218e-09    1.0153027472605639e-05
+
+
+Number of objective function evaluations             = 16
+Number of objective gradient evaluations             = 16
+Number of equality constraint evaluations            = 16
+Number of inequality constraint evaluations          = 16
+Number of equality constraint Jacobian evaluations   = 16
+Number of inequality constraint Jacobian evaluations = 16
+Number of Lagrangian Hessian evaluations             = 15
+Total seconds in IPOPT                               = 6.529
+
+EXIT: Optimal Solution Found.</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../optim/biegler/">« Biegler&#39;s method</a><a class="docs-footer-nextpage" href="../nlpmodel_wrapper/">NLPModels »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.3.0 on <span class="colophon-date" title="Sunday 3 March 2024 01:30">Sunday 3 March 2024</span>. Using Julia version 1.9.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

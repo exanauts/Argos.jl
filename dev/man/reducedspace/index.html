@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Reduced-space OPF · Argos.jl</title><meta name="title" content="Reduced-space OPF · Argos.jl"/><meta property="og:title" content="Reduced-space OPF · Argos.jl"/><meta property="twitter:title" content="Reduced-space OPF · Argos.jl"/><meta name="description" content="Documentation for Argos.jl."/><meta property="og:description" content="Documentation for Argos.jl."/><meta property="twitter:description" content="Documentation for Argos.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Argos.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Quickstart</span><ul><li><a class="tocitem" href="../../quickstart/cpu/">Argos on CPU (default)</a></li><li><a class="tocitem" href="../../quickstart/cuda/">Argos on NVIDIA GPU</a></li></ul></li><li><span class="tocitem">OPF Model</span><ul><li><a class="tocitem" href="../overview/">Overview</a></li><li><a class="tocitem" href="../fullspace/">Full-space OPF</a></li><li class="is-active"><a class="tocitem" href>Reduced-space OPF</a><ul class="internal"><li><a class="tocitem" href="#Initialization"><span>Initialization</span></a></li><li><a class="tocitem" href="#Attributes"><span>Attributes</span></a></li><li><a class="tocitem" href="#Deport-on-CUDA-GPU"><span>Deport on CUDA GPU</span></a></li></ul></li></ul></li><li><span class="tocitem">OPF Solution</span><ul><li><a class="tocitem" href="../../optim/fullspace/">Full-space OPF</a></li><li><a class="tocitem" href="../../optim/reducedspace/">Reduced-space OPF</a></li><li><a class="tocitem" href="../../optim/biegler/">Biegler&#39;s method</a></li></ul></li><li><span class="tocitem">Wrappers</span><ul><li><a class="tocitem" href="../moi_wrapper/">MathOptInterface</a></li><li><a class="tocitem" href="../nlpmodel_wrapper/">NLPModels</a></li></ul></li><li><a class="tocitem" href="../../references/">References</a></li><li><span class="tocitem">Library</span><ul><li><a class="tocitem" href="../../lib/api/">Evaluators API</a></li><li><a class="tocitem" href="../../lib/evaluators/">Evaluators Type</a></li><li><a class="tocitem" href="../../lib/kkt/">KKT systems</a></li><li><a class="tocitem" href="../../lib/wrappers/">Wrappers</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">OPF Model</a></li><li class="is-active"><a href>Reduced-space OPF</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Reduced-space OPF</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/exanauts/Argos.jl/blob/master/docs/src/man/reducedspace.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="ReducedSpaceEvaluator"><a class="docs-heading-anchor" href="#ReducedSpaceEvaluator">ReducedSpaceEvaluator</a><a id="ReducedSpaceEvaluator-1"></a><a class="docs-heading-anchor-permalink" href="#ReducedSpaceEvaluator" title="Permalink"></a></h1><p>As opposed to the <a href="../../lib/evaluators/#Argos.FullSpaceEvaluator"><code>FullSpaceEvaluator</code></a>, the <a href="../../lib/evaluators/#Argos.ReducedSpaceEvaluator"><code>ReducedSpaceEvaluator</code></a> works in the reduced-space induced by the power flow equations. Numerically, this amounts to solving the system of nonlinear equations <span>$g(x, u) =0$</span> at each iteration, in order to find a state <span>$x(u)$</span> satisfying</p><p class="math-container">\[g(x(u), u) = 0\]</p><p>In short, the reduced-space method satisfies automatically the power flow equations, at the price of solving a system of nonlinear equations at each iteration. The OPF problem reformulates in the reduced-space:</p><p class="math-container">\[\min_{u } \;              f(x(u), u)
+\quad \text{subject to}\quad
+                         h_l \leq h(x(u), u) \leq h_u .\]</p><p>The state <span>$x$</span> depends <em>implicitly</em> on the control <span>$u$</span>, and is removed from the optimization variables.</p><p>The associated reduced gradient and reduced Hessian can be evaluated using respectively the <em>adjoint</em> and the <em>adjoint-adjoint</em> methods, as described <a href="https://epubs.siam.org/doi/abs/10.1137/1.9781611977141.6">in this paper</a>.</p><div class="admonition is-info"><header class="admonition-header">Info</header><div class="admonition-body"><p>The reduced-space method was one of the first method to solve the OPF, as described in the <a href="https://ieeexplore.ieee.org/abstract/document/4073461">seminal article by Dommel &amp; Tinney</a>.</p></div></div><h2 id="Initialization"><a class="docs-heading-anchor" href="#Initialization">Initialization</a><a id="Initialization-1"></a><a class="docs-heading-anchor-permalink" href="#Initialization" title="Permalink"></a></h2><p>A <code>ReducedSpaceEvaluator</code> can be instantiated both from a MATPOWER file:</p><pre><code class="language-julia hljs">datafile = joinpath(INSTANCES_DIR, &quot;case9.m&quot;)
+red = Argos.ReducedSpaceEvaluator(datafile)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">A ReducedSpaceEvaluator object
+    * device: KernelAbstractions.CPU(false)
+    * #vars: 5
+    * #cons: 28
+    * linear solver: ExaPF.LinearSolvers.DirectSolver{SparseArrays.UMFPACK.UmfpackLU{Float64, Int64}}</code></pre><p>or equivalently, from a <a href="https://exanauts.github.io/ExaPF.jl/stable/lib/formulations/#ExaPF.PolarForm"><code>ExaPF.PolarForm</code></a> object:</p><pre><code class="language-julia hljs">polar = ExaPF.PolarForm(datafile)
+red = Argos.ReducedSpaceEvaluator(polar)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">A ReducedSpaceEvaluator object
+    * device: KernelAbstractions.CPU(false)
+    * #vars: 5
+    * #cons: 28
+    * linear solver: ExaPF.LinearSolvers.DirectSolver{SparseArrays.UMFPACK.UmfpackLU{Float64, Int64}}</code></pre><p>The <code>ReducedSpaceEvaluator</code> is somewhat more complicated than the <code>FullSpaceEvaluator</code>, as it has to solve the power flow equations at each new evaluation. The full signature (with default arguments) is:</p><pre><code class="language-julia hljs">ReducedSpaceEvaluator(
+    model;                    # MATPOWER file or ExaPF.PolarForm object
+    line_constraints=true,
+    powerflow_solver=NewtonRaphson(1e-10),
+    linear_solver=nothing,
+    nbatch_hessian=1,
+)
+</code></pre><p>In detail:</p><ul><li>The argument <code>line_constraints</code> activates the line flows constraints in the model (by default <code>true</code>).</li><li>The option <code>powerflow_solver</code> allows passing a custom <a href="https://exanauts.github.io/ExaPF.jl/stable/lib/formulations/#ExaPF.NewtonRaphson"><code>NewtonRaphson</code></a> solver with different verbose level or stopping tolerance (by default the tolerance is set to <code>1e-10</code>).</li><li>The option <code>linear_solver</code> specifies a custom linear solver to use in the Newton-Raphson algorithm and in the computation of the reduced derivatives. If set to <code>nothing</code> (default), Argos fallbacks to UMFPACK on the CPU, <a href="https://github.com/exanauts/CUSOLVERRF.jl">CUSOLVERRF</a> on CUDA GPU. In addition, one can use any linear solver compatible with <a href="https://exanauts.github.io/ExaPF.jl/stable/lib/linearsolver/">ExaPF</a>, including <a href="https://exanauts.github.io/ExaPF.jl/stable/lib/linearsolver/#Iterative-solvers">iterative linear solvers</a>.</li><li>Finally, the argument <code>nbatch_hessian</code> specifies the number of right-hand-side used when solving a linear system <code>A X = B</code> in parallel (useful to streamline the evaluation of the reduced derivatives).</li></ul><h2 id="Attributes"><a class="docs-heading-anchor" href="#Attributes">Attributes</a><a id="Attributes-1"></a><a class="docs-heading-anchor-permalink" href="#Attributes" title="Permalink"></a></h2><p>Querying the attributes of a <code>ReducedSpaceEvaluator</code> works similarly to the <code>FullSpaceEvaluator</code>. One can query the original ExaPF model with</p><pre><code class="language-julia hljs">model = Argos.model(red)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Polar formulation (instantiated on device KernelAbstractions.CPU(false))
+Network characteristics:
+    #buses:      9  (#slack: 1  #PV: 2  #PQ: 6)
+    #generators: 3
+    #lines:      9
+giving a mathematical formulation with:
+    #controls:   5
+    #states  :   14</code></pre><p>The initial variable:</p><pre><code class="language-julia hljs">u = Argos.initial(red)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">5-element Vector{Float64}:
+ 1.0
+ 1.0
+ 1.0
+ 1.63
+ 0.85</code></pre><p>The dimensions of the problem:</p><pre><code class="language-julia hljs">(n, m) = Argos.n_variables(red), Argos.n_constraints(red)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(5, 28)</code></pre><p>The bounds on the control <code>u</code></p><pre><code class="language-julia hljs">ulb, uub = Argos.bounds(red, Argos.Variables())
+[ulb uub]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">5×2 Matrix{Float64}:
+ 0.9  1.1
+ 0.9  1.1
+ 0.9  1.1
+ 0.1  3.0
+ 0.1  2.7</code></pre><p>The bounds on the constraints:</p><pre><code class="language-julia hljs">clb, cub = Argos.bounds(red, Argos.Constraints())
+[clb cub]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">28×2 Matrix{Float64}:
+   0.9  1.1
+   0.9  1.1
+   0.9  1.1
+   0.9  1.1
+   0.9  1.1
+   0.9  1.1
+   0.1  2.5
+  -3.0  3.0
+  -3.0  3.0
+  -3.0  3.0
+   ⋮    
+ -Inf   6.25
+ -Inf   6.25
+ -Inf   2.25
+ -Inf   9.0
+ -Inf   2.25
+ -Inf   6.25
+ -Inf   6.25
+ -Inf   6.25
+ -Inf   6.25</code></pre><div class="admonition is-info"><header class="admonition-header">Info</header><div class="admonition-body"><p>Note that the number of variables is <code>n=5</code>, compared to <code>n=19</code> for the <code>FullSpaceEvaluator</code>: the state <code>x</code> has been removed from the formulation.</p></div></div><h3 id="Reduced-callback"><a class="docs-heading-anchor" href="#Reduced-callback">Reduced callback</a><a id="Reduced-callback-1"></a><a class="docs-heading-anchor-permalink" href="#Reduced-callback" title="Permalink"></a></h3><p>Let&#39;s have a look at the current cache:</p><pre><code class="language-julia hljs">stack = red.stack
+[stack.vmag stack.vang]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">9×2 Matrix{Float64}:
+ 1.0  0.0
+ 1.0  0.0
+ 1.0  0.0
+ 1.0  0.0
+ 1.0  0.0
+ 1.0  0.0
+ 1.0  0.0
+ 1.0  0.0
+ 1.0  0.0</code></pre><p>The voltages are those specified in the MATPOWER file <code>case9.m</code>.</p><p>Now comes the important part. When we call <a href="../../lib/api/#Argos.update!"><code>update!</code></a> on a <code>FullSpaceEvaluator</code>, we just copy the values in <code>x</code> to the internal cache <code>stack</code>. The behavior is different for <code>ReducedSpaceEvaluator</code>: in addition to copying the values in <code>u</code> to the cache <code>stack</code>, we solve the power flow equations to find the associated implicit state <span>$x(u)$</span>. This is illustrated by the following lines:</p><pre><code class="language-julia hljs">u .= 1.1
+Argos.update!(red, u)
+[stack.vmag stack.vang]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">9×2 Matrix{Float64}:
+ 1.1       0.0
+ 1.1       0.0478953
+ 1.1       0.0593198
+ 1.09708  -0.0468226
+ 1.09017  -0.0728149
+ 1.11036   0.00651984
+ 1.09657  -0.0364106
+ 1.10447  -0.00872308
+ 1.07603  -0.0910253</code></pre><p>The values stored in <code>u</code> have been copied to the corresponding entries in <code>stack</code> (first three entries in <code>stack.vmag</code>, corresponding to the voltage magnitudes at the REF and the PV nodes). Then, the voltage magnitudes at the PQ nodes and the voltage angles have been updated implicitly so that the values stored in <code>stack</code> satisfy the power flow equations.</p><div class="admonition is-info"><header class="admonition-header">Note</header><div class="admonition-body"><p>Calling <a href="../../lib/api/#Argos.update!"><code>update!</code></a> on a <code>ReducedSpaceEvaluator</code> calls a power flow solver under the hood (which uses the Newton-Raphson algorithm <a href="https://exanauts.github.io/ExaPF.jl/stable/lib/formulations/#ExaPF.nlsolve!">implemented in ExaPF</a>).</p></div></div><p>The nonlinear solver can be parameterized when instantiating a new <code>ReducedSpaceEvaluator</code>. For instance, if one wants to display the convergence of the Newton-Raphson algorithm (<code>verbose=1</code>) and loosen the tolerance in the stopping criterion (<code>tol=1e-6</code>), one can simply instantiate <code>red</code> as</p><pre><code class="language-julia hljs">red = Argos.ReducedSpaceEvaluator(
+    datafile;
+    powerflow_solver=NewtonRaphson(tol=1e-6, verbose=1)
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">A ReducedSpaceEvaluator object
+    * device: KernelAbstractions.CPU(false)
+    * #vars: 5
+    * #cons: 28
+    * linear solver: ExaPF.LinearSolvers.DirectSolver{SparseArrays.UMFPACK.UmfpackLU{Float64, Int64}}</code></pre><p>By calling <code>update!</code> again, we get:</p><pre><code class="language-julia-repl hljs" style="display:block;">julia&gt; Argos.update!(red, u)</code><code class="nohighlight hljs ansi" style="display:block;">#it 0: 4.10027e+00
+#it 1: 7.58115e-01
+#it 2: 1.92339e-02
+#it 3: 1.56197e-05
+#it 4: 1.07094e-11
+Power flow has converged: true
+  * #iterations: 4
+  * Time Jacobian (s) ........: 0.0001
+  * Time linear solver (s) ...: 0.0001
+  * Time total (s) ...........: 0.3843</code></pre><p>with a slightly different solution (as we have loosened the tolerance):</p><pre><code class="language-julia hljs">stack = red.stack
+[stack.vmag stack.vang]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">9×2 Matrix{Float64}:
+ 1.1       0.0
+ 1.1       0.0478953
+ 1.1       0.0593198
+ 1.09708  -0.0468226
+ 1.09017  -0.0728149
+ 1.11036   0.00651984
+ 1.09657  -0.0364106
+ 1.10447  -0.00872308
+ 1.07603  -0.0910253</code></pre><h3 id="Reduced-gradient"><a class="docs-heading-anchor" href="#Reduced-gradient">Reduced gradient</a><a id="Reduced-gradient-1"></a><a class="docs-heading-anchor-permalink" href="#Reduced-gradient" title="Permalink"></a></h3><p>As for <code>update!</code>, evaluating the reduced gradient is slightly more involved in the reduced-space as it involves the solution of one (sparse) linear system involving the Jacobian of the power flow <span>$\nabla_x g(x, u)$</span>. Putting aside this consideration, evaluating the gradient simply amounts to calling:</p><pre><code class="language-julia hljs">g = zeros(n)
+Argos.gradient!(red, g, u)
+g</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">5-element Vector{Float64}:
+  -61.61938527066695
+  -59.06891755088506
+  -48.990161386865104
+ -606.4736603611914
+  208.31272436489508</code></pre><h3 id="Reduced-Jacobian-and-Hessian"><a class="docs-heading-anchor" href="#Reduced-Jacobian-and-Hessian">Reduced Jacobian and Hessian</a><a id="Reduced-Jacobian-and-Hessian-1"></a><a class="docs-heading-anchor-permalink" href="#Reduced-Jacobian-and-Hessian" title="Permalink"></a></h3><p>Similarly, evaluating the reduced Jacobian and the reduced Hessian both involve resp. the solution of <span>$n_u$</span> and <span>$2n_u$</span> linear equations.</p><p>Evaluating the (dense) reduced Jacobian translates to</p><pre><code class="language-julia hljs">J = zeros(m, n)
+Argos.jacobian!(red, J, u)
+J</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">28×5 Matrix{Float64}:
+  0.765729    0.154398    0.15288    -0.00498848   -0.00574179
+  0.572926    0.17239     0.370376   -0.00549057   -0.00721226
+  0.151692    0.182267    0.722022   -0.000206518   0.000284287
+  0.162729    0.498828    0.426092    0.000131103  -0.000881197
+  0.163486    0.703651    0.19535    -1.50665e-6   -0.00128601
+  0.586122    0.364173    0.177659   -0.00752157   -0.00689615
+ -0.023188   -0.0222282  -0.0184355  -0.977079     -0.973396
+  4.48662    -2.95284    -2.92365     0.0495878     0.0641623
+ -2.88196     5.09596    -3.44368     0.0567055     0.0226702
+ -2.85143    -3.42617     4.99578     0.00388203    0.0475052
+  ⋮                                                
+  0.251124   -0.234971   -0.225662   -1.90713      -1.89898
+  0.532174    0.0258569  -0.622509   -0.222331     -0.37208
+  1.07485    -0.12881    -0.654414    0.42332       0.715306
+  1.30624     1.56953    -2.3377     -0.00177836    2.22628
+ -0.012056   -1.21248     1.25494    -0.358696      0.383863
+ -0.0114297  -0.225169    0.250583    0.345942     -0.366566
+  0.274084   -0.484641    0.327506    2.19461      -0.00215601
+ -1.09217     1.22837    -0.0288587   0.701128      0.426998
+  0.452878   -0.713994    0.0765493  -0.778092     -0.472015</code></pre><p>and similarly, for the (dense) reduced Hessian</p><pre><code class="language-julia hljs">H = zeros(n, n)
+Argos.hessian!(red, H, u)
+H</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">5×5 Matrix{Float64}:
+  3101.12   -1230.83    -1573.41     100.337    105.971
+ -1230.83    2140.91     -760.654    -60.9243   -11.7018
+ -1573.41    -760.654    2476.81     -21.0085   -94.5838
+   100.337    -60.9243    -21.0085  3922.1     2181.62
+   105.971    -11.7018    -94.5838  2181.62    4668.9</code></pre><p>As we will explain later, the computation of the reduced Jacobian and reduced Hessian can be streamlined on the GPU.</p><h2 id="Deport-on-CUDA-GPU"><a class="docs-heading-anchor" href="#Deport-on-CUDA-GPU">Deport on CUDA GPU</a><a id="Deport-on-CUDA-GPU-1"></a><a class="docs-heading-anchor-permalink" href="#Deport-on-CUDA-GPU" title="Permalink"></a></h2><p>Instantiating a <code>ReducedSpaceEvaluator</code> on an NVIDIA GPU translates to:</p><pre><code class="language-julia hljs">using CUDAKernels # suppose CUDAKernels has been downloaded
+red = Argos.ReducedSpaceEvaluator(datafile; device=CUDADevice(), nbatch_hessian=256)</code></pre><p>The number of batches <code>nbatch_hessian</code> is the number of right-hand sides used to streamline the solution of the linear systems.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fullspace/">« Full-space OPF</a><a class="docs-footer-nextpage" href="../../optim/fullspace/">Full-space OPF »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.3.0 on <span class="colophon-date" title="Sunday 3 March 2024 01:30">Sunday 3 March 2024</span>. Using Julia version 1.9.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

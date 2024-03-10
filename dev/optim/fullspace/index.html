@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Full-space OPF · Argos.jl</title><meta name="title" content="Full-space OPF · Argos.jl"/><meta property="og:title" content="Full-space OPF · Argos.jl"/><meta property="twitter:title" content="Full-space OPF · Argos.jl"/><meta name="description" content="Documentation for Argos.jl."/><meta property="og:description" content="Documentation for Argos.jl."/><meta property="twitter:description" content="Documentation for Argos.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Argos.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Quickstart</span><ul><li><a class="tocitem" href="../../quickstart/cpu/">Argos on CPU (default)</a></li><li><a class="tocitem" href="../../quickstart/cuda/">Argos on NVIDIA GPU</a></li></ul></li><li><span class="tocitem">OPF Model</span><ul><li><a class="tocitem" href="../../man/overview/">Overview</a></li><li><a class="tocitem" href="../../man/fullspace/">Full-space OPF</a></li><li><a class="tocitem" href="../../man/reducedspace/">Reduced-space OPF</a></li></ul></li><li><span class="tocitem">OPF Solution</span><ul><li class="is-active"><a class="tocitem" href>Full-space OPF</a><ul class="internal"><li><a class="tocitem" href="#Instantiating-MadNLP"><span>Instantiating MadNLP</span></a></li><li><a class="tocitem" href="#Querying-the-solution"><span>Querying the solution</span></a></li><li><a class="tocitem" href="#Playing-with-different-parameters"><span>Playing with different parameters</span></a></li></ul></li><li><a class="tocitem" href="../reducedspace/">Reduced-space OPF</a></li><li><a class="tocitem" href="../biegler/">Biegler&#39;s method</a></li></ul></li><li><span class="tocitem">Wrappers</span><ul><li><a class="tocitem" href="../../man/moi_wrapper/">MathOptInterface</a></li><li><a class="tocitem" href="../../man/nlpmodel_wrapper/">NLPModels</a></li></ul></li><li><a class="tocitem" href="../../references/">References</a></li><li><span class="tocitem">Library</span><ul><li><a class="tocitem" href="../../lib/api/">Evaluators API</a></li><li><a class="tocitem" href="../../lib/evaluators/">Evaluators Type</a></li><li><a class="tocitem" href="../../lib/kkt/">KKT systems</a></li><li><a class="tocitem" href="../../lib/wrappers/">Wrappers</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">OPF Solution</a></li><li class="is-active"><a href>Full-space OPF</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Full-space OPF</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/exanauts/Argos.jl/blob/master/docs/src/optim/fullspace.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Full-space-OPF"><a class="docs-heading-anchor" href="#Full-space-OPF">Full-space OPF</a><a id="Full-space-OPF-1"></a><a class="docs-heading-anchor-permalink" href="#Full-space-OPF" title="Permalink"></a></h1><p>Argos is tightly integrated with the nonlinear interior-point solver <a href="https://github.com/MadNLP/MadNLP.jl">MadNLP</a>. By default, Argos relies extensively on MadNLP to solve OPF problems, but other optimization solvers can be called using the <a href="../../man/nlpmodel_wrapper/">NLPModels</a> or the <a href="../../man/moi_wrapper/">MOI</a> interfaces.</p><p>We first detail how to solve the OPF in the full-space. We start by instantiating a <a href="../../lib/evaluators/#Argos.FullSpaceEvaluator"><code>FullSpaceEvaluator</code></a>:</p><pre><code class="language-julia hljs">datafile = joinpath(INSTANCES_DIR, &quot;case9.m&quot;)
+flp = Argos.FullSpaceEvaluator(datafile)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">A FullSpaceEvaluator object
+    * device: KernelAbstractions.CPU(false)
+    * #vars: 19
+    * #cons: 36
+</code></pre><h2 id="Instantiating-MadNLP"><a class="docs-heading-anchor" href="#Instantiating-MadNLP">Instantiating MadNLP</a><a id="Instantiating-MadNLP-1"></a><a class="docs-heading-anchor-permalink" href="#Instantiating-MadNLP" title="Permalink"></a></h2><p>By default, MadNLP is using <a href="https://github.com/JuliaSmoothOptimizers/NLPModels.jl/">NLPModels</a> to represent the nonlinear model internally. Hence, one has to convert the <code>FullSpaceEvaluator</code> to an <code>OPFModel</code>:</p><pre><code class="language-julia hljs">model = Argos.OPFModel(flp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Argos.OPFModel{Argos.FullSpaceEvaluator{Float64, Vector{Int64}, Vector{Float64}, Matrix{Float64}, ExaPF.Jacobian{ExaPF.PolarForm{Float64, Vector{Int64}, Vector{Float64}, Matrix{Float64}}, ExaPF.ComposedExpressions{ExaPF.PolarBasis{Vector{Int64}, SparseArrays.SparseMatrixCSC{Float64, Int64}}, ExaPF.MultiExpressions}, ExaPF.NetworkStack{Vector{Float64}, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}, NamedTuple{(:c, :sfp, :sfq, :stp, :stq, :∂edge_vm_fr, :∂edge_vm_to, :∂edge_va_fr, :∂edge_va_to), NTuple{9, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}}}}, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}, SparseArrays.SparseMatrixCSC{Float64, Int64}, Vector{Int64}}, ExaPF.FullHessian{ExaPF.PolarForm{Float64, Vector{Int64}, Vector{Float64}, Matrix{Float64}}, ExaPF.ComposedExpressions{ExaPF.PolarBasis{Vector{Int64}, SparseArrays.SparseMatrixCSC{Float64, Int64}}, ExaPF.MultiExpressions}, ExaPF.NetworkStack{Vector{Float64}, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}, NamedTuple{(:c, :sfp, :sfq, :stp, :stq, :∂edge_vm_fr, :∂edge_vm_to, :∂edge_va_fr, :∂edge_va_to), NTuple{9, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}}}}, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}, SparseArrays.SparseMatrixCSC{Float64, Int64}, Vector{Int64}}}}
+  Problem name: Generic
+   All variables: ████████████████████ 19     All constraints: ████████████████████ 36    
+            free: █████████⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 8                 free: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+           lower: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                lower: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+           upper: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                upper: ██████████⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 18    
+         low/upp: ████████████⋅⋅⋅⋅⋅⋅⋅⋅ 11             low/upp: ███⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 4     
+           fixed: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                fixed: ████████⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 14    
+          infeas: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0               infeas: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+            nnzh: ( 67.89% sparsity)   61              linear: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+                                                    nonlinear: ████████████████████ 36    
+                                                         nnzj: ( 74.27% sparsity)   176   
+
+  Counters:
+             obj: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                 grad: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                 cons: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+        cons_lin: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0             cons_nln: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                 jcon: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+           jgrad: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                  jac: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0              jac_lin: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+         jac_nln: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                jprod: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0            jprod_lin: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+       jprod_nln: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0               jtprod: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0           jtprod_lin: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+      jtprod_nln: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                 hess: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                hprod: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+           jhess: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0               jhprod: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+</code></pre><p>Then, it remains to build a new <code>MadNLPSolver</code> instance attached to <code>model</code>:</p><pre><code class="language-julia hljs">using MadNLP
+solver = MadNLP.MadNLPSolver(model)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Interior point solver
+
+number of variables......................: 19
+number of constraints....................: 36
+number of nonzeros in lagrangian hessian.: 61
+number of nonzeros in constraint jacobian: 176
+status...................................: INITIAL
+</code></pre><p>It just remains to solve the OPF with MadNLP:</p><pre><code class="language-julia-repl hljs" style="display:block;">julia&gt; stats = MadNLP.solve!(solver)</code><code class="nohighlight hljs ansi" style="display:block;">This is MadNLP version v0.7.0, running with umfpack
+
+Number of nonzeros in constraint Jacobian............:      176
+Number of nonzeros in Lagrangian Hessian.............:       61
+
+Total number of variables............................:       19
+                     variables with only lower bounds:        0
+                variables with lower and upper bounds:       11
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:       14
+Total number of inequality constraints...............:       22
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        4
+        inequality constraints with only upper bounds:       18
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  4.5090275e+03 1.63e+00 1.36e+01  -1.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  5.6815289e+03 2.69e-01 9.94e+01  -1.0 3.30e-01    -  4.12e-02 1.00e+00H  1
+   2  5.3417452e+03 2.18e-01 1.07e+01  -1.0 5.93e-01    -  8.78e-01 1.00e+00h  1
+   3  5.3102810e+03 1.26e-02 4.95e-01  -1.0 2.27e-01    -  1.00e+00 1.00e+00h  1
+   4  5.3082951e+03 4.31e-04 1.11e-01  -1.7 1.72e-02    -  1.00e+00 1.00e+00h  1
+   5  5.2925234e+03 1.17e-02 1.79e+00  -2.5 5.22e-02    -  8.60e-01 1.00e+00h  1
+   6  5.2947390e+03 3.20e-03 5.46e-01  -2.5 3.46e-02    -  1.00e+00 1.00e+00h  1
+   7  5.2979077e+03 6.94e-05 8.13e-04  -2.5 7.49e-03    -  1.00e+00 1.00e+00h  1
+   8  5.2965361e+03 2.43e-04 6.35e-02  -5.7 1.64e-02    -  9.42e-01 7.25e-01h  1
+   9  5.2965861e+03 2.52e-04 6.98e-02  -5.7 2.18e-02    -  9.13e-01 7.12e-01h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  10  5.2966784e+03 7.01e-05 3.39e-02  -5.7 8.61e-03    -  8.89e-01 1.00e+00h  1
+  11  5.2966860e+03 7.29e-06 2.10e-04  -5.7 2.78e-03    -  1.00e+00 1.00e+00h  1
+  12  5.2966867e+03 2.58e-07 7.50e-06  -5.7 5.23e-04    -  1.00e+00 1.00e+00h  1
+  13  5.2966862e+03 1.20e-08 5.67e-07  -8.6 1.14e-04    -  1.00e+00 1.00e+00h  1
+  14  5.2966862e+03 1.18e-12 3.35e-11  -8.6 1.12e-06    -  1.00e+00 1.00e+00h  1
+
+Number of Iterations....: 14
+
+                                   (scaled)                 (unscaled)
+Objective...............:   6.1017825057067014e+01    5.2966862028703999e+03
+Dual infeasibility......:   3.3537617127876729e-11    2.9112514867948547e-09
+Constraint violation....:   1.1765033391952784e-12    1.1765033391952784e-12
+Complementarity.........:   2.8885453188283386e-11    2.5074178114829326e-09
+Overall NLP error.......:   2.5074178114829326e-09    2.5074178114829326e-09
+
+Number of objective function evaluations             = 16
+Number of objective gradient evaluations             = 15
+Number of constraint evaluations                     = 17
+Number of constraint Jacobian evaluations            = 15
+Number of Lagrangian Hessian evaluations             = 14
+Total wall-clock secs in solver (w/o fun. eval./lin. alg.)  =  2.701
+Total wall-clock secs in linear solver                      =  0.405
+Total wall-clock secs in NLP function evaluations           =  0.001
+Total wall-clock secs                                       =  3.107
+
+EXIT: Optimal Solution Found.
+&quot;Execution stats: Optimal Solution Found.&quot;</code></pre><h2 id="Querying-the-solution"><a class="docs-heading-anchor" href="#Querying-the-solution">Querying the solution</a><a id="Querying-the-solution-1"></a><a class="docs-heading-anchor-permalink" href="#Querying-the-solution" title="Permalink"></a></h2><p>MadNLP returns a <code>MadNLPExecutionStats</code> object storing the solution. One can query the optimal objective as:</p><pre><code class="language-julia hljs">stats.objective</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">5296.6862028704</code></pre><p>and the optimal solution:</p><pre><code class="language-julia hljs">stats.solution</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">41-element Vector{Float64}:
+  0.08541019351901082
+  0.05671519595851601
+ -0.04298613531681523
+ -0.06949870510848583
+  0.010522396312977727
+ -0.02087889070093043
+  0.015806276659318795
+ -0.08055111183511189
+  1.0942215071535502
+  1.0844484919148978
+  ⋮
+  0.8145655559162708
+  0.14205697247988583
+  0.36249665909346757
+  0.9616074529857154
+  0.17983405590901103
+  0.38707027371997577
+  1.8042024795633338
+  0.5359062432430314
+  0.3146068177498973</code></pre><p>Also, remind that each time the callback <a href="../../lib/api/#Argos.update!"><code>update!</code></a> is being called, the values are updated internally in the stack stored inside <code>flp</code>. Hence, an alternative way to query the solution is to directly have a look at the values in the stack. For instance, one can query the optimal values of the voltage</p><pre><code class="language-julia hljs">stack = flp.stack
+[stack.vmag stack.vang]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">9×2 Matrix{Float64}:
+ 1.1       0.0
+ 1.09735   0.0854102
+ 1.08662   0.0567152
+ 1.09422  -0.0429861
+ 1.08445  -0.0694987
+ 1.1       0.0105224
+ 1.08949  -0.0208789
+ 1.1       0.0158063
+ 1.07176  -0.0805511</code></pre><p>and of the power generation:</p><pre><code class="language-julia hljs">stack.pgen</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3-element Vector{Float64}:
+ 0.897987076989205
+ 1.3432060073263465
+ 0.9418738041880956</code></pre><div class="admonition is-info"><header class="admonition-header">Info</header><div class="admonition-body"><p>The values inside <code>stack</code> are used to compute the initial point in the optimization routine. Hence, if one calls <code>solve!</code> again the optimization would start from the optimal solution found in the previous call to <code>solve!</code>, leading to a different convergence pattern. If one wants to launch a new optimization from scratch without reinitializing all the data structure, we recommend using the <a href="../../lib/api/#Argos.reset!"><code>reset!</code></a> function:</p><pre><code class="language-julia hljs">Argos.reset!(flp)</code></pre></div></div><h2 id="Playing-with-different-parameters"><a class="docs-heading-anchor" href="#Playing-with-different-parameters">Playing with different parameters</a><a id="Playing-with-different-parameters-1"></a><a class="docs-heading-anchor-permalink" href="#Playing-with-different-parameters" title="Permalink"></a></h2><p>MadNLP has <a href="https://madnlp.github.io/MadNLP.jl/dev/options/">different options</a> we may want to tune when solving the OPF. For instance, we can loosen the tolerance to <code>1e-5</code> and set the maximum number of iterations to <code>5</code> with:</p><pre><code class="language-julia-repl hljs" style="display:block;">julia&gt; solver = MadNLP.MadNLPSolver(model; tol=1e-5, max_iter=5)</code><code class="nohighlight hljs ansi" style="display:block;">Interior point solver
+
+number of variables......................: 19
+number of constraints....................: 36
+number of nonzeros in lagrangian hessian.: 61
+number of nonzeros in constraint jacobian: 176
+status...................................: INITIAL</code><br/><code class="language-julia-repl hljs" style="display:block;">julia&gt; MadNLP.solve!(solver)</code><code class="nohighlight hljs ansi" style="display:block;">This is MadNLP version v0.7.0, running with umfpack
+
+Number of nonzeros in constraint Jacobian............:      176
+Number of nonzeros in Lagrangian Hessian.............:       61
+
+Total number of variables............................:       19
+                     variables with only lower bounds:        0
+                variables with lower and upper bounds:       11
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:       14
+Total number of inequality constraints...............:       22
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        4
+        inequality constraints with only upper bounds:       18
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  4.5090275e+03 1.63e+00 1.36e+01  -1.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  5.6815396e+03 2.69e-01 9.94e+01  -1.0 3.30e-01    -  4.12e-02 1.00e+00H  1
+   2  5.3417426e+03 2.18e-01 1.07e+01  -1.0 5.93e-01    -  8.78e-01 1.00e+00h  1
+   3  5.3102797e+03 1.26e-02 4.95e-01  -1.0 2.27e-01    -  1.00e+00 1.00e+00h  1
+   4  5.3082939e+03 4.31e-04 1.11e-01  -1.7 1.72e-02    -  1.00e+00 1.00e+00h  1
+   5  5.2925192e+03 1.17e-02 1.79e+00  -2.5 5.22e-02    -  8.60e-01 1.00e+00h  1
+
+Number of Iterations....: 5
+
+                                   (scaled)                 (unscaled)
+Objective...............:   6.0969821305974484e+01    5.2925192105880624e+03
+Dual infeasibility......:   1.7862154614980454e+00    1.5505342547726087e+02
+Constraint violation....:   1.1673329416395095e-02    1.1673329416395095e-02
+Complementarity.........:   1.0633817611743072e-04    9.2307444546380832e-03
+Overall NLP error.......:   2.0577202116457485e-02    1.7862154614980454e+00
+
+Number of objective function evaluations             = 7
+Number of objective gradient evaluations             = 6
+Number of constraint evaluations                     = 8
+Number of constraint Jacobian evaluations            = 6
+Number of Lagrangian Hessian evaluations             = 5
+Total wall-clock secs in solver (w/o fun. eval./lin. alg.)  =  0.007
+Total wall-clock secs in linear solver                      =  0.001
+Total wall-clock secs in NLP function evaluations           =  0.000
+Total wall-clock secs                                       =  0.008
+
+EXIT: Maximum Number of Iterations Exceeded.
+&quot;Execution stats: Maximum Number of Iterations Exceeded.&quot;</code></pre><p>Most importantly, one may want to use a different sparse linear solver than UMFPACK, employed by default in MadNLP. We recommend using HSL solvers (the installation procedure is detailed <a href="https://madnlp.github.io/MadNLP.jl/dev/installation/#HSL-linear-solver">here</a>). Once HSL is installed, one can solve the OPF with:</p><pre><code class="language-julia hljs">using MadNLPHSL
+solver = MadNLP.MadNLPSolver(model; linear_solver=Ma27Solver)
+MadNLP.solve!(solver)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../man/reducedspace/">« Reduced-space OPF</a><a class="docs-footer-nextpage" href="../reducedspace/">Reduced-space OPF »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.3.0 on <span class="colophon-date" title="Sunday 3 March 2024 01:30">Sunday 3 March 2024</span>. Using Julia version 1.9.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
