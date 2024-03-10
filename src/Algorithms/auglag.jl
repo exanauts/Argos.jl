@@ -46,7 +46,7 @@ function solve_subproblem!(
     # Optimize with IPM
     res = MadNLP.solve!(algo.optimizer)
     return (
-        status=MadNLP._STATUS_CODES[res.status],
+        status=res.status,
         iter=aug.counter.hessian - n_iter,
         minimizer=res.solution,
     )
@@ -122,7 +122,7 @@ function optimize!(
     end
 
     local solution
-    status = MOI.ITERATION_LIMIT
+    status = MadNLP.MAXIMUM_ITERATIONS_EXCEEDED
     mul = copy(aug.λ)
 
     tic = time()
@@ -131,12 +131,11 @@ function optimize!(
         # Solve inner problem
         solution = solve_subproblem!(algo, aug, uₖ; niter=i_out)
 
-        if (solution.status != MOI.OPTIMAL) &&
-           (solution.status != MOI.LOCALLY_SOLVED)  &&
-           (solution.status != MOI.SLOW_PROGRESS) &&
-           (solution.status != MOI.ITERATION_LIMIT)
+        if (solution.status != MadNLP.SOLVE_SUCCEEDED)  &&
+           (solution.status != MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL) &&
+           (solution.status != MadNLP.MAXIMUM_ITERATIONS_EXCEEDED)
             println("[AugLag] Fail to solve inner subproblem. Status: $(solution.status). Exiting.")
-            status = MOI.NUMERICAL_ERROR
+            status = MadNLP.INTERNAL_ERROR
             break
         end
 
@@ -170,7 +169,7 @@ function optimize!(
         push!(tracer, obj, primal_feas, dual_feas)
 
         if (dual_feas < ε_dual) && (primal_feas < ε_primal)
-            status = MOI.OPTIMAL
+            status = MOI.SOLVE_SUCCEEDED
             break
         end
     end

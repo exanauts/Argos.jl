@@ -42,18 +42,27 @@ function Argos.update!(K::Argos.HJDJ, A, D)
     spgemm!('N', 'N', 1.0, K.Jt, A, 0.0, K.JtJ, 'O')
 end
 
-function MadNLP.set_aug_diagonal!(kkt::Argos.BieglerKKTSystem{T, VI, VT, MT}, ips::MadNLP.MadNLPSolver) where {T, VI<:CuVector{Int}, VT<:CuVector{T}, MT<:CuMatrix{T}}
+function MadNLP.set_aug_diagonal!(kkt::Argos.BieglerKKTSystem{T, VI, VT, MT}, solver::MadNLP.MadNLPSolver{T, Vector{T}}) where {T, VI<:CuVector{Int}, VT<:CuVector{T}, MT<:CuMatrix{T}}
     haskey(kkt.etc, :pr_diag_host) || (kkt.etc[:pr_diag_host] = Vector{T}(undef, length(kkt.pr_diag)))
     pr_diag_h = kkt.etc[:pr_diag_host]::Vector{T}
     # Broadcast is not working as MadNLP array are allocated on the CPU,
     # whereas pr_diag is allocated on the GPU
-    x = MadNLP.full(ips.x)
-    xl = MadNLP.full(ips.xl)
-    xu = MadNLP.full(ips.xu)
-    zl = MadNLP.full(ips.zl)
-    zu = MadNLP.full(ips.zu)
+    x = MadNLP.full(solver.x)
+    xl = MadNLP.full(solver.xl)
+    xu = MadNLP.full(solver.xu)
+    zl = MadNLP.full(solver.zl)
+    zu = MadNLP.full(solver.zu)
 
-    pr_diag_h .= zl ./ (x .- xl) .+ zu ./ (xu .- x)
-    copyto!(kkt.pr_diag, pr_diag_h)
+    fill!(kkt.reg, 0.0)
     fill!(kkt.du_diag, 0.0)
+
+    kkt.l_diag .= solver.xl_r .- solver.x_lr
+    kkt.u_diag .= solver.x_ur .- solver.xu_r
+    copyto!(kkt.l_lower, solver.zl_r)
+    copyto!(kkt.u_lower, solver.zu_r)
+    copyto!(pr_diag_h, kkt.reg)
+    pr_diag_h[kkt.ind_lb] .-= kkt.l_lower ./ kkt.l_diag
+    pr_diag_h[kkt.ind_ub] .-= kkt.u_lower ./ kkt.u_diag
+
+    copyto!(kkt.pr_diag, pr_diag_h)
 end

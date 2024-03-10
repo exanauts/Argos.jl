@@ -153,7 +153,6 @@ end
 
 function jacobian!(nlp::BridgeDeviceEvaluator, jac, w)
     jacobian!(nlp.inner, jac, nlp.buffers.u)
-    # copyto!(jac, nlp.buffers.J)
     return
 end
 
@@ -179,7 +178,6 @@ end
 function hessian_lagrangian!(nlp::BridgeDeviceEvaluator, H, u, y, σ)
     _copyto!(nlp.buffers.wc, 1, y, 1, length(nlp.buffers.wc))
     hessian_lagrangian!(nlp.inner, H, nlp.buffers.u, nlp.buffers.wc, σ)
-    # copyto!(H, nlp.buffers.H)
     return
 end
 
