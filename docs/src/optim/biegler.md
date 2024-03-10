@@ -52,13 +52,17 @@ KKT = Argos.BieglerKKTSystem{Float64, Vector{Int}, Vector{Float64}, Matrix{Float
 and we instantiate MadNLP with:
 ```@example bieglermadnlp
 using MadNLP
-# This syntax is a bit too involved and should be improved in the future.
-madnlp_options = Dict{Symbol, Any}()
-madnlp_options[:linear_solver] = MadNLP.LapackCPUSolver
-opt_ipm, opt_linear, logger = MadNLP.load_options(; madnlp_options...)
 
-KKT = Argos.BieglerKKTSystem{Float64, Vector{Int}, Vector{Float64}, Matrix{Float64}}
-solver = MadNLP.MadNLPSolver{Float64, KKT}(model, opt_ipm, opt_linear; logger=logger)
+T = Float64
+VI = Vector{Int}
+VT = Vector{T}
+MT = Matrix{T}
+solver = MadNLP.MadNLPSolver(
+    model;
+    kkt_system=Argos.BieglerKKTSystem{T, VI, VT, MT},
+    linear_solver=LapackCPUSolver,
+    callback=MadNLP.SparseCallback,
+)
 ```
 Note that we are again using Lapack as linear solver: indeed the resulting Biegler's KKT
 system is dense (we use the same condensification procedure as in the

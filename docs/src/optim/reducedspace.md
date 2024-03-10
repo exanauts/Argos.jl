@@ -56,7 +56,7 @@ a dense linear solver (as Lapack):
 ```@example reducedmadnlp
 solver = MadNLP.MadNLPSolver(
     model;
-    kkt_system=MadNLP.DENSE_KKT_SYSTEM,
+    kkt_system=MadNLP.DenseKKTSystem,
     linear_solver=LapackCPUSolver,
 )
 MadNLP.get_kkt(solver.kkt)
@@ -72,7 +72,7 @@ only proportional to the number of variables (here, `5`):
 ```@example reducedmadnlp
 solver = MadNLP.MadNLPSolver(
     model;
-    kkt_system=MadNLP.DENSE_CONDENSED_KKT_SYSTEM,
+    kkt_system=MadNLP.DenseCondensedKKTSystem,
     linear_solver=LapackCPUSolver,
 )
 MadNLP.get_kkt(solver.kkt)
@@ -105,7 +105,7 @@ We recommend changing the default tolerance to be above the tolerance
     using MadNLPGPU
     solver = MadNLP.MadNLPSolver(
         model;
-        kkt_system=MadNLP.DENSE_CONDENSED_KKT_SYSTEM,
+        kkt_system=MadNLP.DenseCondensedKKTSystem,
         linear_solver=LapackGPUSolver,
         tol=1e=5,
     )

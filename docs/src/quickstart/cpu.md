@@ -36,21 +36,6 @@ datafile = joinpath(INSTANCES_DIR, "case118.m")
 
 ```
 
-## Full-space method
-
-!!! tip
-    At each iteration of the algorithm,
-    `FullSpace` solves the KKT system with a sparse linear solver.
-    By default, MadNLP is using Umfpack, but we recommend installing
-    [MadNLPHSL](https://madnlp.github.io/MadNLP.jl/dev/installation/#HSL-linear-solver)
-    and uses ma27 (`linear_solver=Ma27Solver`) or ma57 (`linear_solver=Ma57Solver`).
-
-
-```@repl quickstart_cpu
-Argos.run_opf(datafile, Argos.FullSpace());
-
-```
-
 ## Biegler's method (linearize-then-reduce)
 
 !!! tip
