@@ -4,7 +4,7 @@ red = Argos.ReducedSpaceEvaluator(datafile)</code></pre><pre class="documenter-e
     * device: KernelAbstractions.CPU(false)
     * #vars: 5
     * #cons: 28
-    * linear solver: ExaPF.LinearSolvers.DirectSolver{SparseArrays.UMFPACK.UmfpackLU{Float64, Int64}}</code></pre><h2 id="Instantiating-MadNLP"><a class="docs-heading-anchor" href="#Instantiating-MadNLP">Instantiating MadNLP</a><a id="Instantiating-MadNLP-1"></a><a class="docs-heading-anchor-permalink" href="#Instantiating-MadNLP" title="Permalink"></a></h2><p>As <a href="../fullspace/">before</a>, we wrap the <code>ReducedSpaceEvaluator</code> object <code>red</code> with an <code>OPFModel</code>:</p><pre><code class="language-julia hljs">model = Argos.OPFModel(red)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Argos.OPFModel{Argos.ReducedSpaceEvaluator{Float64, Vector{Int64}, Vector{Float64}, Matrix{Float64}, ExaPF.Jacobian{ExaPF.PolarForm{Float64, Vector{Int64}, Vector{Float64}, Matrix{Float64}}, ExaPF.ComposedExpressions{ExaPF.PolarBasis{Vector{Int64}, SparseArrays.SparseMatrixCSC{Float64, Int64}}, ExaPF.PowerFlowBalance{Vector{Float64}, SparseArrays.SparseMatrixCSC{Float64, Int64}}}, ExaPF.NetworkStack{Vector{Float64}, Vector{ForwardDiff.Dual{Nothing, Float64, 7}}, NamedTuple{(:c, :sfp, :sfq, :stp, :stq, :∂edge_vm_fr, :∂edge_vm_to, :∂edge_va_fr, :∂edge_va_to), NTuple{9, Vector{ForwardDiff.Dual{Nothing, Float64, 7}}}}}, Vector{ForwardDiff.Dual{Nothing, Float64, 7}}, SparseArrays.SparseMatrixCSC{Float64, Int64}, Vector{Int64}}, ExaPF.Jacobian{ExaPF.PolarForm{Float64, Vector{Int64}, Vector{Float64}, Matrix{Float64}}, ExaPF.ComposedExpressions{ExaPF.PolarBasis{Vector{Int64}, SparseArrays.SparseMatrixCSC{Float64, Int64}}, ExaPF.PowerFlowBalance{Vector{Float64}, SparseArrays.SparseMatrixCSC{Float64, Int64}}}, ExaPF.NetworkStack{Vector{Float64}, Vector{ForwardDiff.Dual{Nothing, Float64, 2}}, NamedTuple{(:c, :sfp, :sfq, :stp, :stq, :∂edge_vm_fr, :∂edge_vm_to, :∂edge_va_fr, :∂edge_va_to), NTuple{9, Vector{ForwardDiff.Dual{Nothing, Float64, 2}}}}}, Vector{ForwardDiff.Dual{Nothing, Float64, 2}}, SparseArrays.SparseMatrixCSC{Float64, Int64}, Vector{Int64}}, ExaPF.Jacobian{ExaPF.PolarForm{Float64, Vector{Int64}, Vector{Float64}, Matrix{Float64}}, ExaPF.ComposedExpressions{ExaPF.PolarBasis{Vector{Int64}, SparseArrays.SparseMatrixCSC{Float64, Int64}}, ExaPF.MultiExpressions}, ExaPF.NetworkStack{Vector{Float64}, Vector{ForwardDiff.Dual{Nothing, Float64, 5}}, NamedTuple{(:c, :sfp, :sfq, :stp, :stq, :∂edge_vm_fr, :∂edge_vm_to, :∂edge_va_fr, :∂edge_va_to), NTuple{9, Vector{ForwardDiff.Dual{Nothing, Float64, 5}}}}}, Vector{ForwardDiff.Dual{Nothing, Float64, 5}}, SparseArrays.SparseMatrixCSC{Float64, Int64}, Vector{Int64}}, ExaPF.FullHessian{ExaPF.PolarForm{Float64, Vector{Int64}, Vector{Float64}, Matrix{Float64}}, ExaPF.ComposedExpressions{ExaPF.PolarBasis{Vector{Int64}, SparseArrays.SparseMatrixCSC{Float64, Int64}}, ExaPF.MultiExpressions}, ExaPF.NetworkStack{Vector{Float64}, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}, NamedTuple{(:c, :sfp, :sfq, :stp, :stq, :∂edge_vm_fr, :∂edge_vm_to, :∂edge_va_fr, :∂edge_va_to), NTuple{9, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}}}}, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}, SparseArrays.SparseMatrixCSC{Float64, Int64}, Vector{Int64}}, Argos.Reduction{Vector{Float64}, Argos.ImplicitSensitivity{SparseArrays.UMFPACK.UmfpackLU{Float64, Int64}, SparseArrays.SparseMatrixCSC{Float64, Int64}}}}}
+    * linear solver: ExaPF.LinearSolvers.DirectSolver{SparseArrays.UMFPACK.UmfpackLU{Float64, Int64}}</code></pre><h2 id="Instantiating-MadNLP"><a class="docs-heading-anchor" href="#Instantiating-MadNLP">Instantiating MadNLP</a><a id="Instantiating-MadNLP-1"></a><a class="docs-heading-anchor-permalink" href="#Instantiating-MadNLP" title="Permalink"></a></h2><p>As <a href="../fullspace/">before</a>, we wrap the <code>ReducedSpaceEvaluator</code> object <code>red</code> with an <code>OPFModel</code>:</p><pre><code class="language-julia hljs">model = Argos.OPFModel(red)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Argos.OPFModel{Float64, Vector{Float64}, Argos.ReducedSpaceEvaluator{Float64, Vector{Int64}, Vector{Float64}, Matrix{Float64}, ExaPF.Jacobian{ExaPF.PolarForm{Float64, Vector{Int64}, Vector{Float64}, Matrix{Float64}}, ExaPF.ComposedExpressions{ExaPF.PolarBasis{Vector{Int64}, SparseArrays.SparseMatrixCSC{Float64, Int64}}, ExaPF.PowerFlowBalance{Vector{Float64}, SparseArrays.SparseMatrixCSC{Float64, Int64}}}, ExaPF.NetworkStack{Vector{Float64}, Vector{ForwardDiff.Dual{Nothing, Float64, 7}}, NamedTuple{(:c, :sfp, :sfq, :stp, :stq, :∂edge_vm_fr, :∂edge_vm_to, :∂edge_va_fr, :∂edge_va_to), NTuple{9, Vector{ForwardDiff.Dual{Nothing, Float64, 7}}}}}, Vector{ForwardDiff.Dual{Nothing, Float64, 7}}, SparseArrays.SparseMatrixCSC{Float64, Int64}, Vector{Int64}}, ExaPF.Jacobian{ExaPF.PolarForm{Float64, Vector{Int64}, Vector{Float64}, Matrix{Float64}}, ExaPF.ComposedExpressions{ExaPF.PolarBasis{Vector{Int64}, SparseArrays.SparseMatrixCSC{Float64, Int64}}, ExaPF.PowerFlowBalance{Vector{Float64}, SparseArrays.SparseMatrixCSC{Float64, Int64}}}, ExaPF.NetworkStack{Vector{Float64}, Vector{ForwardDiff.Dual{Nothing, Float64, 2}}, NamedTuple{(:c, :sfp, :sfq, :stp, :stq, :∂edge_vm_fr, :∂edge_vm_to, :∂edge_va_fr, :∂edge_va_to), NTuple{9, Vector{ForwardDiff.Dual{Nothing, Float64, 2}}}}}, Vector{ForwardDiff.Dual{Nothing, Float64, 2}}, SparseArrays.SparseMatrixCSC{Float64, Int64}, Vector{Int64}}, ExaPF.Jacobian{ExaPF.PolarForm{Float64, Vector{Int64}, Vector{Float64}, Matrix{Float64}}, ExaPF.ComposedExpressions{ExaPF.PolarBasis{Vector{Int64}, SparseArrays.SparseMatrixCSC{Float64, Int64}}, ExaPF.MultiExpressions}, ExaPF.NetworkStack{Vector{Float64}, Vector{ForwardDiff.Dual{Nothing, Float64, 5}}, NamedTuple{(:c, :sfp, :sfq, :stp, :stq, :∂edge_vm_fr, :∂edge_vm_to, :∂edge_va_fr, :∂edge_va_to), NTuple{9, Vector{ForwardDiff.Dual{Nothing, Float64, 5}}}}}, Vector{ForwardDiff.Dual{Nothing, Float64, 5}}, SparseArrays.SparseMatrixCSC{Float64, Int64}, Vector{Int64}}, ExaPF.FullHessian{ExaPF.PolarForm{Float64, Vector{Int64}, Vector{Float64}, Matrix{Float64}}, ExaPF.ComposedExpressions{ExaPF.PolarBasis{Vector{Int64}, SparseArrays.SparseMatrixCSC{Float64, Int64}}, ExaPF.MultiExpressions}, ExaPF.NetworkStack{Vector{Float64}, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}, NamedTuple{(:c, :sfp, :sfq, :stp, :stq, :∂edge_vm_fr, :∂edge_vm_to, :∂edge_va_fr, :∂edge_va_to), NTuple{9, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}}}}, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}, SparseArrays.SparseMatrixCSC{Float64, Int64}, Vector{Int64}}, Argos.Reduction{Vector{Float64}, Argos.ImplicitSensitivity{SparseArrays.UMFPACK.UmfpackLU{Float64, Int64}, SparseArrays.SparseMatrixCSC{Float64, Int64}}}}}
   Problem name: Generic
    All variables: ████████████████████ 5      All constraints: ████████████████████ 28    
             free: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                 free: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
@@ -33,25 +33,14 @@ number of constraints....................: 28
 number of nonzeros in lagrangian hessian.: 15
 number of nonzeros in constraint jacobian: 140
 status...................................: INITIAL
-</code></pre><p>By default, MadNLP is using a sparse data structure. This is not appropriate to handle a <code>ReducedSpaceEvaluator</code>, which generates a dense Jacobian and a dense reduced Hessian. Indeed, by default MadNLP generates a sparse KKT system with a significant number of nonzeroes:</p><pre><code class="language-julia hljs">MadNLP.get_kkt(solver.kkt)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">61×61 SparseArrays.SparseMatrixCSC{Float64, Int32} with 239 stored entries:
-⎡⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎤
-⎢⠉⠉⠑⢄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
-⎢⠀⠀⠀⠀⠑⢄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
-⎢⠀⠀⠀⠀⠀⠀⠑⢄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
-⎢⠀⠀⠀⠀⠀⠀⠀⠀⠑⢄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
-⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠑⢄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
-⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠑⢄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
-⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠑⢄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
-⎢⣶⣶⡖⢄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠑⢄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
-⎢⣿⣿⡇⠀⠑⢄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠑⢄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
-⎢⣿⣿⡇⠀⠀⠀⠑⢄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠑⢄⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
-⎢⣿⣿⡇⠀⠀⠀⠀⠀⠑⢄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠑⢄⠀⠀⠀⠀⠀⠀⠀⎥
-⎢⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠑⢄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠑⢄⠀⠀⠀⠀⠀⎥
-⎢⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠑⢄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠑⢄⠀⠀⠀⎥
-⎢⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠑⢄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠑⢄⠀⎥
-⎣⠉⠉⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠁⎦</code></pre><h3 id="How-to-parameterize-MadNLP-to-use-dense-data-structure?"><a class="docs-heading-anchor" href="#How-to-parameterize-MadNLP-to-use-dense-data-structure?">How to parameterize MadNLP to use dense data structure?</a><a id="How-to-parameterize-MadNLP-to-use-dense-data-structure?-1"></a><a class="docs-heading-anchor-permalink" href="#How-to-parameterize-MadNLP-to-use-dense-data-structure?" title="Permalink"></a></h3><p>Instead, we can parameterize MadNLP to use a dense KKT system. The first option is to use a <code>DENSE_KKT_SYSTEM</code> in conjunction with a dense linear solver (as Lapack):</p><pre><code class="language-julia hljs">solver = MadNLP.MadNLPSolver(
+</code></pre><p>By default, MadNLP is using a sparse data structure. This is not appropriate to handle a <code>ReducedSpaceEvaluator</code>, which generates a dense Jacobian and a dense reduced Hessian. Indeed, by default MadNLP generates a sparse KKT system with a significant number of nonzeroes:</p><pre><code class="language-julia hljs">MadNLP.get_kkt(solver.kkt)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">5×5 Matrix{Float64}:
+ 0.0  0.0  0.0  0.0  0.0
+ 0.0  0.0  0.0  0.0  0.0
+ 0.0  0.0  0.0  0.0  0.0
+ 0.0  0.0  0.0  0.0  0.0
+ 0.0  0.0  0.0  0.0  0.0</code></pre><h3 id="How-to-parameterize-MadNLP-to-use-dense-data-structure?"><a class="docs-heading-anchor" href="#How-to-parameterize-MadNLP-to-use-dense-data-structure?">How to parameterize MadNLP to use dense data structure?</a><a id="How-to-parameterize-MadNLP-to-use-dense-data-structure?-1"></a><a class="docs-heading-anchor-permalink" href="#How-to-parameterize-MadNLP-to-use-dense-data-structure?" title="Permalink"></a></h3><p>Instead, we can parameterize MadNLP to use a dense KKT system. The first option is to use a <code>DENSE_KKT_SYSTEM</code> in conjunction with a dense linear solver (as Lapack):</p><pre><code class="language-julia hljs">solver = MadNLP.MadNLPSolver(
     model;
-    kkt_system=MadNLP.DENSE_KKT_SYSTEM,
+    kkt_system=MadNLP.DenseKKTSystem,
     linear_solver=LapackCPUSolver,
 )
 MadNLP.get_kkt(solver.kkt)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">61×61 Matrix{Float64}:
@@ -76,7 +65,7 @@ MadNLP.get_kkt(solver.kkt)</code></pre><pre class="documenter-example-output"><c
  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0     0.0  0.0  0.0  0.0  0.0  0.0  0.0
  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  …  0.0  0.0  0.0  0.0  0.0  0.0  0.0</code></pre><p>The associated KKT system is now represented as a dense matrix, more appropriate for a dense problem. However, the generated KKT system is still too large, as its size is proportional to both the number of variables and the number of constraints. This approach is not tractable on larger problems. Fortunately, MadNLP allows to <a href="https://madnlp.github.io/MadNLP.jl/dev/lib/kkt/#MadNLP.AbstractCondensedKKTSystem">condense the KKT system</a> using a Schur complement approach. By doing so, the size of the KKT system is only proportional to the number of variables (here, <code>5</code>):</p><pre><code class="language-julia hljs">solver = MadNLP.MadNLPSolver(
     model;
-    kkt_system=MadNLP.DENSE_CONDENSED_KKT_SYSTEM,
+    kkt_system=MadNLP.DenseCondensedKKTSystem,
     linear_solver=LapackCPUSolver,
 )
 MadNLP.get_kkt(solver.kkt)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">5×5 Matrix{Float64}:
@@ -85,7 +74,7 @@ MadNLP.get_kkt(solver.kkt)</code></pre><pre class="documenter-example-output"><c
  0.0  0.0  0.0  0.0  0.0
  0.0  0.0  0.0  0.0  0.0
  0.0  0.0  0.0  0.0  0.0</code></pre><p>This alternative approach permits to significantly compress the size of the KKT system, and is the approach used by default in <code>run_opf</code>.</p><p>Once the problem is written in condensed form inside MadNLP, one can solve the OPF in the reduced-space with:</p><pre><code class="language-julia-repl hljs" style="display:block;">julia&gt; stats = MadNLP.solve!(solver; tol=1e-6)</code><code class="nohighlight hljs ansi" style="display:block;">The options set during resolve may not have an effect
-This is MadNLP version v0.7.0, running with Lapack-CPU (BUNCHKAUFMAN)
+This is MadNLP version v0.8.0, running with Lapack-CPU (BUNCHKAUFMAN)
 
 Number of nonzeros in constraint Jacobian............:      140
 Number of nonzeros in Lagrangian Hessian.............:       15
@@ -102,79 +91,67 @@ Total number of inequality constraints...............:       28
 
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
    0  5.4383237e+03 0.00e+00 1.23e+01  -1.0 0.00e+00    -  0.00e+00 0.00e+00   0
-   1  5.3033618e+03 1.17e-01 1.30e+01  -1.0 1.05e+00    -  7.82e-01 1.00e+00f  1
-   2  5.3032966e+03 5.30e-02 1.17e+00  -1.0 2.19e-01    -  1.00e+00 1.00e+00h  1
-   3  5.3016836e+03 2.38e-03 1.08e-02  -1.0 6.85e-02    -  1.00e+00 1.00e+00h  1
-   4  5.2976941e+03 1.04e-03 3.45e-02  -2.5 3.03e-02    -  8.59e-01 1.00e+00h  1
-   5  5.2969208e+03 3.97e-04 8.89e-01  -2.5 1.66e-02    -  1.00e+00 6.31e-01h  1
-   6  5.2967721e+03 5.64e-04 2.38e-03  -2.5 2.33e-02    -  1.00e+00 1.00e+00h  1
-   7  5.2967138e+03 1.97e-04 1.04e+00  -3.8 6.48e-03    -  1.00e+00 6.63e-01h  1
-   8  5.2966917e+03 2.99e-05 2.77e-04  -3.8 5.24e-03    -  1.00e+00 1.00e+00h  1
-   9  5.2966863e+03 2.52e-06 1.11e-03  -5.7 1.50e-03    -  1.00e+00 9.97e-01h  1
+   1  5.4083555e+03 2.86e-03 1.02e+01  -1.0 1.02e-01   2.0 9.89e-01 1.00e+00f  1
+   2  5.3563152e+03 1.15e-02 7.73e+00  -1.0 2.32e-01   1.5 1.00e+00 1.00e+00h  1
+   3  5.3424883e+03 1.21e-03 5.74e+00  -1.0 6.45e-02   1.9 1.00e+00 1.00e+00h  1
+   4  5.3217784e+03 3.35e-03 4.26e+00  -1.0 1.44e-01   1.5 1.00e+00 1.00e+00h  1
+   5  5.3055202e+03 8.48e-03 3.13e+00  -1.0 2.06e-01   1.0 1.00e+00 1.00e+00h  1
+   6  5.3014051e+03 2.30e-04 1.31e+01  -1.0 4.08e-01    -  6.63e-01 1.00e+00H  1
+   7  5.3005684e+03 7.75e-02 6.98e-01  -1.0 2.67e-01    -  8.42e-01 1.00e+00h  1
+   8  5.2981109e+03 1.60e-03 2.74e-02  -1.7 8.00e-02    -  1.00e+00 1.00e+00h  1
+   9  5.2968550e+03 6.92e-04 3.67e-01  -3.8 2.15e-02    -  9.41e-01 7.31e-01h  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  10  5.2966861e+03 3.31e-08 6.74e-05  -5.7 1.75e-04    -  1.00e+00 1.00e+00h  1
-  11  5.2966861e+03 4.09e-12 3.44e-04  -5.7 2.12e-06    -  1.00e+00 1.00e+00h  1
-  12  5.2966861e+03 1.40e-12 3.07e-04  -5.7 3.32e-07    -  1.00e+00 1.00e+00h  1
-  13  5.2966861e+03 3.19e-14 7.26e-05  -5.7 3.23e-07    -  1.00e+00 1.00e+00h  1
-  14  5.2966861e+03 9.32e-15 3.36e-05  -5.7 1.77e-08    -  1.00e+00 1.00e+00h  1
-  15  5.2966861e+03 1.75e-14 3.03e-06  -5.7 8.08e-09    -  1.00e+00 1.00e+00h  1
-  16  5.2966860e+03 8.65e-11 1.78e-03  -8.6 9.91e-06    -  1.00e+00 1.00e+00h  1
-  17  5.2966860e+03 4.27e-11 1.58e-03  -8.6 1.84e-06    -  1.00e+00 1.00e+00h  1
-  18  5.2966860e+03 1.01e-12 3.96e-04  -8.6 1.80e-06    -  1.00e+00 1.00e+00h  1
-  19  5.2966860e+03 7.62e-14 1.85e-04  -8.6 9.29e-08    -  1.00e+00 1.00e+00h  1
+  10  5.2967296e+03 4.34e-04 7.80e-01  -3.8 2.09e-02    -  9.42e-01 6.60e-01h  1
+  11  5.2966970e+03 1.62e-04 2.32e-01  -3.8 1.23e-02    -  8.86e-01 1.00e+00h  1
+  12  5.2966910e+03 1.01e-05 2.37e-04  -3.8 3.07e-03    -  1.00e+00 1.00e+00h  1
+  13  5.2966862e+03 1.55e-06 5.50e-04  -5.7 1.18e-03    -  1.00e+00 9.96e-01h  1
+  14  5.2966861e+03 1.42e-08 4.36e-05  -5.7 1.15e-04    -  1.00e+00 1.00e+00h  1
+  15  5.2966861e+03 7.56e-13 1.50e-04  -5.7 9.17e-07    -  1.00e+00 1.00e+00h  1
+  16  5.2966861e+03 2.67e-13 1.34e-04  -5.7 1.44e-07    -  1.00e+00 1.00e+00h  1
+  17  5.2966861e+03 8.10e-15 3.14e-05  -5.7 1.40e-07    -  1.00e+00 1.00e+00h  1
+  18  5.2966861e+03 9.86e-15 1.46e-05  -5.7 7.65e-09    -  1.00e+00 1.00e+00H  1
+  19  5.2966860e+03 8.58e-11 1.78e-03  -8.0 9.88e-06    -  1.00e+00 1.00e+00h  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  20  5.2966860e+03 9.35e-15 1.47e-05  -8.6 4.29e-08    -  1.00e+00 1.00e+00h  1
-  21  5.2966860e+03 5.80e-15 4.27e-06  -8.6 3.42e-09    -  1.00e+00 1.00e+00h  1
-  22  5.2966860e+03 4.88e-15 4.78e-07  -8.6 9.93e-10    -  1.00e+00 1.00e+00h  1
+  20  5.2966860e+03 4.24e-11 1.58e-03  -8.0 1.84e-06    -  1.00e+00 1.00e+00h  1
+  21  5.2966860e+03 9.99e-13 3.94e-04  -8.0 1.79e-06    -  1.00e+00 1.00e+00h  1
+  22  5.2966860e+03 8.14e-14 1.84e-04  -8.0 9.25e-08    -  1.00e+00 1.00e+00h  1
+  23  5.2966860e+03 7.52e-15 1.46e-05  -8.0 4.27e-08    -  1.00e+00 1.00e+00h  1
+  24  5.2966860e+03 4.33e-15 4.26e-06  -8.0 3.41e-09    -  1.00e+00 1.00e+00h  1
+  25  5.2966860e+03 7.06e-15 4.77e-07  -8.0 9.91e-10    -  1.00e+00 1.00e+00H  1
 
-Number of Iterations....: 22
+Number of Iterations....: 25
 
                                    (scaled)                 (unscaled)
-Objective...............:   5.8305314550179332e+02    5.2966860267229767e+03
-Dual infeasibility......:   4.7764641086800452e-07    4.3391294424483290e-06
-Constraint violation....:   4.8849813083506888e-15    4.8849813083506888e-15
-Complementarity.........:   2.7584700044974747e-10    2.5059035596801015e-09
-Overall NLP error.......:   5.2578771120125061e-08    4.7764641086800452e-07
+Objective...............:   5.8305314552427592e+02    5.2966860269272174e+03
+Dual infeasibility......:   4.7657338564377483e-07    4.3293816557236605e-06
+Constraint violation....:   7.0573972013598940e-15    7.0573972013598940e-15
+Complementarity.........:   1.1007886737022546e-09    1.0000000911333248e-08
+Overall NLP error.......:   5.2460653729546606e-08    4.7657338564377483e-07
 
-Number of objective function evaluations             = 23
-Number of objective gradient evaluations             = 23
-Number of constraint evaluations                     = 24
-Number of constraint Jacobian evaluations            = 23
-Number of Lagrangian Hessian evaluations             = 22
-Total wall-clock secs in solver (w/o fun. eval./lin. alg.)  =  6.042
-Total wall-clock secs in linear solver                      =  0.007
-Total wall-clock secs in NLP function evaluations           =  0.360
-Total wall-clock secs                                       =  6.409
+Number of objective function evaluations             = 29
+Number of objective gradient evaluations             = 26
+Number of constraint evaluations                     = 29
+Number of constraint Jacobian evaluations            = 26
+Number of Lagrangian Hessian evaluations             = 25
+Total wall-clock secs in solver (w/o fun. eval./lin. alg.)  =  3.092
+Total wall-clock secs in linear solver                      =  0.000
+Total wall-clock secs in NLP function evaluations           =  0.349
+Total wall-clock secs                                       =  3.441
 
-EXIT: Optimal Solution Found.
-&quot;Execution stats: Optimal Solution Found.&quot;</code></pre><div class="admonition is-info"><header class="admonition-header">Info</header><div class="admonition-body"></div></div><p>We recommend changing the default tolerance to be above the tolerance     of the Newton-Raphson used inside <a href="../../lib/evaluators/#Argos.ReducedSpaceEvaluator"><code>ReducedSpaceEvaluator</code></a>. Indeed,     the power flow is solved only approximately, leading to slightly inaccurate     evaluations and derivatives, impacting the convergence of the interior-point     algorithm. In general, we recommend setting <code>tol=1e-5</code>.</p><div class="admonition is-info"><header class="admonition-header">Info</header><div class="admonition-body"><p>Here, we are using Lapack on the CPU to solve the condensed KKT system at each iteration of the interior-point algorithm. However, if an NVIDIA GPU is available, we recommend using a CUDA-accelerated Lapack version, more efficient than the default Lapack. If <code>MadNLPGPU</code> is installed, this amounts to</p><pre><code class="language-julia hljs">using MadNLPGPU
+EXIT: Optimal Solution Found (tol = 1.0e-06).
+&quot;Execution stats: Optimal Solution Found (tol = 1.0e-06).&quot;</code></pre><div class="admonition is-info"><header class="admonition-header">Info</header><div class="admonition-body"></div></div><p>We recommend changing the default tolerance to be above the tolerance     of the Newton-Raphson used inside <a href="../../lib/evaluators/#Argos.ReducedSpaceEvaluator"><code>ReducedSpaceEvaluator</code></a>. Indeed,     the power flow is solved only approximately, leading to slightly inaccurate     evaluations and derivatives, impacting the convergence of the interior-point     algorithm. In general, we recommend setting <code>tol=1e-5</code>.</p><div class="admonition is-info"><header class="admonition-header">Info</header><div class="admonition-body"><p>Here, we are using Lapack on the CPU to solve the condensed KKT system at each iteration of the interior-point algorithm. However, if an NVIDIA GPU is available, we recommend using a CUDA-accelerated Lapack version, more efficient than the default Lapack. If <code>MadNLPGPU</code> is installed, this amounts to</p><pre><code class="language-julia hljs">using MadNLPGPU
 solver = MadNLP.MadNLPSolver(
     model;
-    kkt_system=MadNLP.DENSE_CONDENSED_KKT_SYSTEM,
+    kkt_system=MadNLP.DenseCondensedKKTSystem,
     linear_solver=LapackGPUSolver,
     tol=1e=5,
 )
-MadNLP.solve!(solver)</code></pre></div></div><h2 id="Querying-the-solution"><a class="docs-heading-anchor" href="#Querying-the-solution">Querying the solution</a><a id="Querying-the-solution-1"></a><a class="docs-heading-anchor-permalink" href="#Querying-the-solution" title="Permalink"></a></h2><p>As <a href="../fullspace/">before</a>, we can query the solution returned by MadNLP with:</p><pre><code class="language-julia hljs">stats.objective</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">5296.686026722977</code></pre><p>and</p><pre><code class="language-julia hljs">stats.solution</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">33-element Vector{Float64}:
- 1.1000010972291876
- 1.0973556412829082
- 1.0866213386767745
- 1.3432060068527474
- 0.9418737997635938
- 1.0942226718209513
- 1.0844496830529233
- 1.1000010996982046
- 1.089490612912278
- 1.1000010997065217
- ⋮
- 0.8145652870371638
- 0.14205696774568777
- 0.36249710694246123
- 0.9616082489287042
- 0.17983408206273965
- 0.3870702590343534
- 1.8042024772407041
- 0.5359062608107569
- 0.3146066600092286</code></pre><p>Or, alternatively, one can look directly at the values in the <code>stack</code> stored inside <code>red</code>:</p><pre><code class="language-julia hljs">stack = red.stack
+MadNLP.solve!(solver)</code></pre></div></div><h2 id="Querying-the-solution"><a class="docs-heading-anchor" href="#Querying-the-solution">Querying the solution</a><a id="Querying-the-solution-1"></a><a class="docs-heading-anchor-permalink" href="#Querying-the-solution" title="Permalink"></a></h2><p>As <a href="../fullspace/">before</a>, we can query the solution returned by MadNLP with:</p><pre><code class="language-julia hljs">stats.objective</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">5296.686026927217</code></pre><p>and</p><pre><code class="language-julia hljs">stats.solution</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">5-element Vector{Float64}:
+ 1.1000010889428922
+ 1.0973556418640533
+ 1.0866213390199266
+ 1.3432060069202107
+ 0.941873799868245</code></pre><p>Or, alternatively, one can look directly at the values in the <code>stack</code> stored inside <code>red</code>:</p><pre><code class="language-julia hljs">stack = red.stack
 [stack.vmag stack.vang]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">9×2 Matrix{Float64}:
  1.1       0.0
  1.09736   0.08541
@@ -184,4 +161,4 @@ MadNLP.solve!(solver)</code></pre></div></div><h2 id="Querying-the-solution"><a 
  1.1       0.0105224
  1.08949  -0.0208788
  1.1       0.0158063
- 1.07176  -0.0805509</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fullspace/">« Full-space OPF</a><a class="docs-footer-nextpage" href="../biegler/">Biegler&#39;s method »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.3.0 on <span class="colophon-date" title="Sunday 3 March 2024 01:30">Sunday 3 March 2024</span>. Using Julia version 1.9.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+ 1.07176  -0.0805509</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fullspace/">« Full-space OPF</a><a class="docs-footer-nextpage" href="../biegler/">Biegler&#39;s method »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.3.0 on <span class="colophon-date" title="Sunday 10 March 2024 18:05">Sunday 10 March 2024</span>. Using Julia version 1.9.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

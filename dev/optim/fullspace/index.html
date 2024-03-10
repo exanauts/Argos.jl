@@ -4,7 +4,7 @@ flp = Argos.FullSpaceEvaluator(datafile)</code></pre><pre class="documenter-exam
     * device: KernelAbstractions.CPU(false)
     * #vars: 19
     * #cons: 36
-</code></pre><h2 id="Instantiating-MadNLP"><a class="docs-heading-anchor" href="#Instantiating-MadNLP">Instantiating MadNLP</a><a id="Instantiating-MadNLP-1"></a><a class="docs-heading-anchor-permalink" href="#Instantiating-MadNLP" title="Permalink"></a></h2><p>By default, MadNLP is using <a href="https://github.com/JuliaSmoothOptimizers/NLPModels.jl/">NLPModels</a> to represent the nonlinear model internally. Hence, one has to convert the <code>FullSpaceEvaluator</code> to an <code>OPFModel</code>:</p><pre><code class="language-julia hljs">model = Argos.OPFModel(flp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Argos.OPFModel{Argos.FullSpaceEvaluator{Float64, Vector{Int64}, Vector{Float64}, Matrix{Float64}, ExaPF.Jacobian{ExaPF.PolarForm{Float64, Vector{Int64}, Vector{Float64}, Matrix{Float64}}, ExaPF.ComposedExpressions{ExaPF.PolarBasis{Vector{Int64}, SparseArrays.SparseMatrixCSC{Float64, Int64}}, ExaPF.MultiExpressions}, ExaPF.NetworkStack{Vector{Float64}, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}, NamedTuple{(:c, :sfp, :sfq, :stp, :stq, :∂edge_vm_fr, :∂edge_vm_to, :∂edge_va_fr, :∂edge_va_to), NTuple{9, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}}}}, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}, SparseArrays.SparseMatrixCSC{Float64, Int64}, Vector{Int64}}, ExaPF.FullHessian{ExaPF.PolarForm{Float64, Vector{Int64}, Vector{Float64}, Matrix{Float64}}, ExaPF.ComposedExpressions{ExaPF.PolarBasis{Vector{Int64}, SparseArrays.SparseMatrixCSC{Float64, Int64}}, ExaPF.MultiExpressions}, ExaPF.NetworkStack{Vector{Float64}, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}, NamedTuple{(:c, :sfp, :sfq, :stp, :stq, :∂edge_vm_fr, :∂edge_vm_to, :∂edge_va_fr, :∂edge_va_to), NTuple{9, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}}}}, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}, SparseArrays.SparseMatrixCSC{Float64, Int64}, Vector{Int64}}}}
+</code></pre><h2 id="Instantiating-MadNLP"><a class="docs-heading-anchor" href="#Instantiating-MadNLP">Instantiating MadNLP</a><a id="Instantiating-MadNLP-1"></a><a class="docs-heading-anchor-permalink" href="#Instantiating-MadNLP" title="Permalink"></a></h2><p>By default, MadNLP is using <a href="https://github.com/JuliaSmoothOptimizers/NLPModels.jl/">NLPModels</a> to represent the nonlinear model internally. Hence, one has to convert the <code>FullSpaceEvaluator</code> to an <code>OPFModel</code>:</p><pre><code class="language-julia hljs">model = Argos.OPFModel(flp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Argos.OPFModel{Float64, Vector{Float64}, Argos.FullSpaceEvaluator{Float64, Vector{Int64}, Vector{Float64}, Matrix{Float64}, ExaPF.Jacobian{ExaPF.PolarForm{Float64, Vector{Int64}, Vector{Float64}, Matrix{Float64}}, ExaPF.ComposedExpressions{ExaPF.PolarBasis{Vector{Int64}, SparseArrays.SparseMatrixCSC{Float64, Int64}}, ExaPF.MultiExpressions}, ExaPF.NetworkStack{Vector{Float64}, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}, NamedTuple{(:c, :sfp, :sfq, :stp, :stq, :∂edge_vm_fr, :∂edge_vm_to, :∂edge_va_fr, :∂edge_va_to), NTuple{9, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}}}}, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}, SparseArrays.SparseMatrixCSC{Float64, Int64}, Vector{Int64}}, ExaPF.FullHessian{ExaPF.PolarForm{Float64, Vector{Int64}, Vector{Float64}, Matrix{Float64}}, ExaPF.ComposedExpressions{ExaPF.PolarBasis{Vector{Int64}, SparseArrays.SparseMatrixCSC{Float64, Int64}}, ExaPF.MultiExpressions}, ExaPF.NetworkStack{Vector{Float64}, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}, NamedTuple{(:c, :sfp, :sfq, :stp, :stq, :∂edge_vm_fr, :∂edge_vm_to, :∂edge_va_fr, :∂edge_va_to), NTuple{9, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}}}}, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}, SparseArrays.SparseMatrixCSC{Float64, Int64}, Vector{Int64}}}}
   Problem name: Generic
    All variables: ████████████████████ 19     All constraints: ████████████████████ 36    
             free: █████████⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 8                 free: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
@@ -33,7 +33,7 @@ number of constraints....................: 36
 number of nonzeros in lagrangian hessian.: 61
 number of nonzeros in constraint jacobian: 176
 status...................................: INITIAL
-</code></pre><p>It just remains to solve the OPF with MadNLP:</p><pre><code class="language-julia-repl hljs" style="display:block;">julia&gt; stats = MadNLP.solve!(solver)</code><code class="nohighlight hljs ansi" style="display:block;">This is MadNLP version v0.7.0, running with umfpack
+</code></pre><p>It just remains to solve the OPF with MadNLP:</p><pre><code class="language-julia-repl hljs" style="display:block;">julia&gt; stats = MadNLP.solve!(solver)</code><code class="nohighlight hljs ansi" style="display:block;">This is MadNLP version v0.8.0, running with Lapack-CPU (BUNCHKAUFMAN)
 
 Number of nonzeros in constraint Jacobian............:      176
 Number of nonzeros in Lagrangian Hessian.............:       61
@@ -64,49 +64,48 @@ iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
   11  5.2966860e+03 7.29e-06 2.10e-04  -5.7 2.78e-03    -  1.00e+00 1.00e+00h  1
   12  5.2966867e+03 2.58e-07 7.50e-06  -5.7 5.23e-04    -  1.00e+00 1.00e+00h  1
   13  5.2966862e+03 1.20e-08 5.67e-07  -8.6 1.14e-04    -  1.00e+00 1.00e+00h  1
-  14  5.2966862e+03 1.18e-12 3.35e-11  -8.6 1.12e-06    -  1.00e+00 1.00e+00h  1
+  14  5.2966862e+03 1.18e-12 3.33e-11  -8.6 1.12e-06    -  1.00e+00 1.00e+00h  1
 
 Number of Iterations....: 14
 
                                    (scaled)                 (unscaled)
-Objective...............:   6.1017825057067014e+01    5.2966862028703999e+03
-Dual infeasibility......:   3.3537617127876729e-11    2.9112514867948547e-09
-Constraint violation....:   1.1765033391952784e-12    1.1765033391952784e-12
-Complementarity.........:   2.8885453188283386e-11    2.5074178114829326e-09
-Overall NLP error.......:   2.5074178114829326e-09    2.5074178114829326e-09
+Objective...............:   6.1017825057066993e+01    5.2966862028703981e+03
+Dual infeasibility......:   3.3310243452433497e-11    2.8915141885792965e-09
+Constraint violation....:   1.1769474284051284e-12    1.1769474284051284e-12
+Complementarity.........:   2.8885453188273948e-11    2.5074178114821132e-09
+Overall NLP error.......:   2.5074178114821132e-09    2.5074178114821132e-09
 
 Number of objective function evaluations             = 16
 Number of objective gradient evaluations             = 15
-Number of constraint evaluations                     = 17
+Number of constraint evaluations                     = 16
 Number of constraint Jacobian evaluations            = 15
 Number of Lagrangian Hessian evaluations             = 14
-Total wall-clock secs in solver (w/o fun. eval./lin. alg.)  =  2.701
-Total wall-clock secs in linear solver                      =  0.405
-Total wall-clock secs in NLP function evaluations           =  0.001
-Total wall-clock secs                                       =  3.107
+Total wall-clock secs in solver (w/o fun. eval./lin. alg.)  =  6.064
+Total wall-clock secs in linear solver                      =  0.007
+Total wall-clock secs in NLP function evaluations           =  0.009
+Total wall-clock secs                                       =  6.081
 
-EXIT: Optimal Solution Found.
-&quot;Execution stats: Optimal Solution Found.&quot;</code></pre><h2 id="Querying-the-solution"><a class="docs-heading-anchor" href="#Querying-the-solution">Querying the solution</a><a id="Querying-the-solution-1"></a><a class="docs-heading-anchor-permalink" href="#Querying-the-solution" title="Permalink"></a></h2><p>MadNLP returns a <code>MadNLPExecutionStats</code> object storing the solution. One can query the optimal objective as:</p><pre><code class="language-julia hljs">stats.objective</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">5296.6862028704</code></pre><p>and the optimal solution:</p><pre><code class="language-julia hljs">stats.solution</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">41-element Vector{Float64}:
-  0.08541019351901082
-  0.05671519595851601
- -0.04298613531681523
- -0.06949870510848583
-  0.010522396312977727
- -0.02087889070093043
-  0.015806276659318795
- -0.08055111183511189
-  1.0942215071535502
-  1.0844484919148978
-  ⋮
-  0.8145655559162708
-  0.14205697247988583
-  0.36249665909346757
-  0.9616074529857154
-  0.17983405590901103
-  0.38707027371997577
-  1.8042024795633338
-  0.5359062432430314
-  0.3146068177498973</code></pre><p>Also, remind that each time the callback <a href="../../lib/api/#Argos.update!"><code>update!</code></a> is being called, the values are updated internally in the stack stored inside <code>flp</code>. Hence, an alternative way to query the solution is to directly have a look at the values in the stack. For instance, one can query the optimal values of the voltage</p><pre><code class="language-julia hljs">stack = flp.stack
+EXIT: Optimal Solution Found (tol = 1.0e-08).
+&quot;Execution stats: Optimal Solution Found (tol = 1.0e-08).&quot;</code></pre><h2 id="Querying-the-solution"><a class="docs-heading-anchor" href="#Querying-the-solution">Querying the solution</a><a id="Querying-the-solution-1"></a><a class="docs-heading-anchor-permalink" href="#Querying-the-solution" title="Permalink"></a></h2><p>MadNLP returns a <code>MadNLPExecutionStats</code> object storing the solution. One can query the optimal objective as:</p><pre><code class="language-julia hljs">stats.objective</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">5296.686202870398</code></pre><p>and the optimal solution:</p><pre><code class="language-julia hljs">stats.solution</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">19-element Vector{Float64}:
+  0.08541019351901039
+  0.05671519595851559
+ -0.04298613531681531
+ -0.06949870510848599
+  0.01052239631297736
+ -0.02087889070093082
+  0.015806276659318386
+ -0.0805511118351121
+  1.0942215071535495
+  1.0844484919148971
+  1.1000000081162027
+  1.0894894924541931
+  1.100000008195669
+  1.0717554446903736
+  1.0999999845093242
+  1.0973546364490543
+  1.0866203145709057
+  1.3432060073263459
+  0.9418738041880946</code></pre><p>Also, remind that each time the callback <a href="../../lib/api/#Argos.update!"><code>update!</code></a> is being called, the values are updated internally in the stack stored inside <code>flp</code>. Hence, an alternative way to query the solution is to directly have a look at the values in the stack. For instance, one can query the optimal values of the voltage</p><pre><code class="language-julia hljs">stack = flp.stack
 [stack.vmag stack.vang]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">9×2 Matrix{Float64}:
  1.1       0.0
  1.09735   0.0854102
@@ -117,15 +116,15 @@ EXIT: Optimal Solution Found.
  1.08949  -0.0208789
  1.1       0.0158063
  1.07176  -0.0805511</code></pre><p>and of the power generation:</p><pre><code class="language-julia hljs">stack.pgen</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3-element Vector{Float64}:
- 0.897987076989205
- 1.3432060073263465
- 0.9418738041880956</code></pre><div class="admonition is-info"><header class="admonition-header">Info</header><div class="admonition-body"><p>The values inside <code>stack</code> are used to compute the initial point in the optimization routine. Hence, if one calls <code>solve!</code> again the optimization would start from the optimal solution found in the previous call to <code>solve!</code>, leading to a different convergence pattern. If one wants to launch a new optimization from scratch without reinitializing all the data structure, we recommend using the <a href="../../lib/api/#Argos.reset!"><code>reset!</code></a> function:</p><pre><code class="language-julia hljs">Argos.reset!(flp)</code></pre></div></div><h2 id="Playing-with-different-parameters"><a class="docs-heading-anchor" href="#Playing-with-different-parameters">Playing with different parameters</a><a id="Playing-with-different-parameters-1"></a><a class="docs-heading-anchor-permalink" href="#Playing-with-different-parameters" title="Permalink"></a></h2><p>MadNLP has <a href="https://madnlp.github.io/MadNLP.jl/dev/options/">different options</a> we may want to tune when solving the OPF. For instance, we can loosen the tolerance to <code>1e-5</code> and set the maximum number of iterations to <code>5</code> with:</p><pre><code class="language-julia-repl hljs" style="display:block;">julia&gt; solver = MadNLP.MadNLPSolver(model; tol=1e-5, max_iter=5)</code><code class="nohighlight hljs ansi" style="display:block;">Interior point solver
+ 0.8979870769892062
+ 1.3432060073263459
+ 0.9418738041880946</code></pre><div class="admonition is-info"><header class="admonition-header">Info</header><div class="admonition-body"><p>The values inside <code>stack</code> are used to compute the initial point in the optimization routine. Hence, if one calls <code>solve!</code> again the optimization would start from the optimal solution found in the previous call to <code>solve!</code>, leading to a different convergence pattern. If one wants to launch a new optimization from scratch without reinitializing all the data structure, we recommend using the <a href="../../lib/api/#Argos.reset!"><code>reset!</code></a> function:</p><pre><code class="language-julia hljs">Argos.reset!(flp)</code></pre></div></div><h2 id="Playing-with-different-parameters"><a class="docs-heading-anchor" href="#Playing-with-different-parameters">Playing with different parameters</a><a id="Playing-with-different-parameters-1"></a><a class="docs-heading-anchor-permalink" href="#Playing-with-different-parameters" title="Permalink"></a></h2><p>MadNLP has <a href="https://madnlp.github.io/MadNLP.jl/dev/options/">different options</a> we may want to tune when solving the OPF. For instance, we can loosen the tolerance to <code>1e-5</code> and set the maximum number of iterations to <code>5</code> with:</p><pre><code class="language-julia-repl hljs" style="display:block;">julia&gt; solver = MadNLP.MadNLPSolver(model; tol=1e-5, max_iter=5)</code><code class="nohighlight hljs ansi" style="display:block;">Interior point solver
 
 number of variables......................: 19
 number of constraints....................: 36
 number of nonzeros in lagrangian hessian.: 61
 number of nonzeros in constraint jacobian: 176
-status...................................: INITIAL</code><br/><code class="language-julia-repl hljs" style="display:block;">julia&gt; MadNLP.solve!(solver)</code><code class="nohighlight hljs ansi" style="display:block;">This is MadNLP version v0.7.0, running with umfpack
+status...................................: INITIAL</code><br/><code class="language-julia-repl hljs" style="display:block;">julia&gt; MadNLP.solve!(solver)</code><code class="nohighlight hljs ansi" style="display:block;">This is MadNLP version v0.8.0, running with Lapack-CPU (BUNCHKAUFMAN)
 
 Number of nonzeros in constraint Jacobian............:      176
 Number of nonzeros in Lagrangian Hessian.............:       61
@@ -151,23 +150,23 @@ iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
 Number of Iterations....: 5
 
                                    (scaled)                 (unscaled)
-Objective...............:   6.0969821305974484e+01    5.2925192105880624e+03
-Dual infeasibility......:   1.7862154614980454e+00    1.5505342547726087e+02
+Objective...............:   6.0969821305974421e+01    5.2925192105880569e+03
+Dual infeasibility......:   1.7862154614981591e+00    1.5505342547727074e+02
 Constraint violation....:   1.1673329416395095e-02    1.1673329416395095e-02
-Complementarity.........:   1.0633817611743072e-04    9.2307444546380832e-03
-Overall NLP error.......:   2.0577202116457485e-02    1.7862154614980454e+00
+Complementarity.........:   1.0633817611743055e-04    9.2307444546380676e-03
+Overall NLP error.......:   2.0577202116458793e-02    1.7862154614981591e+00
 
 Number of objective function evaluations             = 7
 Number of objective gradient evaluations             = 6
-Number of constraint evaluations                     = 8
+Number of constraint evaluations                     = 7
 Number of constraint Jacobian evaluations            = 6
 Number of Lagrangian Hessian evaluations             = 5
 Total wall-clock secs in solver (w/o fun. eval./lin. alg.)  =  0.007
-Total wall-clock secs in linear solver                      =  0.001
-Total wall-clock secs in NLP function evaluations           =  0.000
-Total wall-clock secs                                       =  0.008
+Total wall-clock secs in linear solver                      =  0.000
+Total wall-clock secs in NLP function evaluations           =  0.003
+Total wall-clock secs                                       =  0.011
 
 EXIT: Maximum Number of Iterations Exceeded.
 &quot;Execution stats: Maximum Number of Iterations Exceeded.&quot;</code></pre><p>Most importantly, one may want to use a different sparse linear solver than UMFPACK, employed by default in MadNLP. We recommend using HSL solvers (the installation procedure is detailed <a href="https://madnlp.github.io/MadNLP.jl/dev/installation/#HSL-linear-solver">here</a>). Once HSL is installed, one can solve the OPF with:</p><pre><code class="language-julia hljs">using MadNLPHSL
 solver = MadNLP.MadNLPSolver(model; linear_solver=Ma27Solver)
-MadNLP.solve!(solver)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../man/reducedspace/">« Reduced-space OPF</a><a class="docs-footer-nextpage" href="../reducedspace/">Reduced-space OPF »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.3.0 on <span class="colophon-date" title="Sunday 3 March 2024 01:30">Sunday 3 March 2024</span>. Using Julia version 1.9.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+MadNLP.solve!(solver)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../man/reducedspace/">« Reduced-space OPF</a><a class="docs-footer-nextpage" href="../reducedspace/">Reduced-space OPF »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.3.0 on <span class="colophon-date" title="Sunday 10 March 2024 18:05">Sunday 10 March 2024</span>. Using Julia version 1.9.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

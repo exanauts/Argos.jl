@@ -4,7 +4,7 @@ flp = Argos.FullSpaceEvaluator(datafile)</code></pre><pre class="documenter-exam
     * device: KernelAbstractions.CPU(false)
     * #vars: 19
     * #cons: 36
-</code></pre><p>and wrap the resulting evaluator <code>flp</code> in a <code>OPFModel</code>:</p><pre><code class="language-julia hljs">model = Argos.OPFModel(flp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Argos.OPFModel{Argos.FullSpaceEvaluator{Float64, Vector{Int64}, Vector{Float64}, Matrix{Float64}, ExaPF.Jacobian{ExaPF.PolarForm{Float64, Vector{Int64}, Vector{Float64}, Matrix{Float64}}, ExaPF.ComposedExpressions{ExaPF.PolarBasis{Vector{Int64}, SparseArrays.SparseMatrixCSC{Float64, Int64}}, ExaPF.MultiExpressions}, ExaPF.NetworkStack{Vector{Float64}, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}, NamedTuple{(:c, :sfp, :sfq, :stp, :stq, :∂edge_vm_fr, :∂edge_vm_to, :∂edge_va_fr, :∂edge_va_to), NTuple{9, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}}}}, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}, SparseArrays.SparseMatrixCSC{Float64, Int64}, Vector{Int64}}, ExaPF.FullHessian{ExaPF.PolarForm{Float64, Vector{Int64}, Vector{Float64}, Matrix{Float64}}, ExaPF.ComposedExpressions{ExaPF.PolarBasis{Vector{Int64}, SparseArrays.SparseMatrixCSC{Float64, Int64}}, ExaPF.MultiExpressions}, ExaPF.NetworkStack{Vector{Float64}, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}, NamedTuple{(:c, :sfp, :sfq, :stp, :stq, :∂edge_vm_fr, :∂edge_vm_to, :∂edge_va_fr, :∂edge_va_to), NTuple{9, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}}}}, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}, SparseArrays.SparseMatrixCSC{Float64, Int64}, Vector{Int64}}}}
+</code></pre><p>and wrap the resulting evaluator <code>flp</code> in a <code>OPFModel</code>:</p><pre><code class="language-julia hljs">model = Argos.OPFModel(flp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Argos.OPFModel{Float64, Vector{Float64}, Argos.FullSpaceEvaluator{Float64, Vector{Int64}, Vector{Float64}, Matrix{Float64}, ExaPF.Jacobian{ExaPF.PolarForm{Float64, Vector{Int64}, Vector{Float64}, Matrix{Float64}}, ExaPF.ComposedExpressions{ExaPF.PolarBasis{Vector{Int64}, SparseArrays.SparseMatrixCSC{Float64, Int64}}, ExaPF.MultiExpressions}, ExaPF.NetworkStack{Vector{Float64}, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}, NamedTuple{(:c, :sfp, :sfq, :stp, :stq, :∂edge_vm_fr, :∂edge_vm_to, :∂edge_va_fr, :∂edge_va_to), NTuple{9, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}}}}, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}, SparseArrays.SparseMatrixCSC{Float64, Int64}, Vector{Int64}}, ExaPF.FullHessian{ExaPF.PolarForm{Float64, Vector{Int64}, Vector{Float64}, Matrix{Float64}}, ExaPF.ComposedExpressions{ExaPF.PolarBasis{Vector{Int64}, SparseArrays.SparseMatrixCSC{Float64, Int64}}, ExaPF.MultiExpressions}, ExaPF.NetworkStack{Vector{Float64}, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}, NamedTuple{(:c, :sfp, :sfq, :stp, :stq, :∂edge_vm_fr, :∂edge_vm_to, :∂edge_va_fr, :∂edge_va_to), NTuple{9, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}}}}, Vector{ForwardDiff.Dual{Nothing, Float64, 8}}, SparseArrays.SparseMatrixCSC{Float64, Int64}, Vector{Int64}}}}
   Problem name: Generic
    All variables: ████████████████████ 19     All constraints: ████████████████████ 36    
             free: █████████⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 8                 free: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
@@ -26,13 +26,17 @@ flp = Argos.FullSpaceEvaluator(datafile)</code></pre><pre class="documenter-exam
       jtprod_nln: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                 hess: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                hprod: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
            jhess: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0               jhprod: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
 </code></pre><h2 id="Instantiating-MadNLP"><a class="docs-heading-anchor" href="#Instantiating-MadNLP">Instantiating MadNLP</a><a id="Instantiating-MadNLP-1"></a><a class="docs-heading-anchor-permalink" href="#Instantiating-MadNLP" title="Permalink"></a></h2><p>Instantiating MadNLP manually to use a <code>BieglerKKTSystem</code> is a little bit more involved, as one has to parameterize the type directly, by defining:</p><pre><code class="language-julia hljs">KKT = Argos.BieglerKKTSystem{Float64, Vector{Int}, Vector{Float64}, Matrix{Float64}}</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Argos.BieglerKKTSystem{Float64, Vector{Int64}, Vector{Float64}, Matrix{Float64}}</code></pre><p>and we instantiate MadNLP with:</p><pre><code class="language-julia hljs">using MadNLP
-# This syntax is a bit too involved and should be improved in the future.
-madnlp_options = Dict{Symbol, Any}()
-madnlp_options[:linear_solver] = MadNLP.LapackCPUSolver
-opt_ipm, opt_linear, logger = MadNLP.load_options(; madnlp_options...)
 
-KKT = Argos.BieglerKKTSystem{Float64, Vector{Int}, Vector{Float64}, Matrix{Float64}}
-solver = MadNLP.MadNLPSolver{Float64, KKT}(model, opt_ipm, opt_linear; logger=logger)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Interior point solver
+T = Float64
+VI = Vector{Int}
+VT = Vector{T}
+MT = Matrix{T}
+solver = MadNLP.MadNLPSolver(
+    model;
+    kkt_system=Argos.BieglerKKTSystem{T, VI, VT, MT},
+    linear_solver=LapackCPUSolver,
+    callback=MadNLP.SparseCallback,
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Interior point solver
 
 number of variables......................: 19
 number of constraints....................: 36
@@ -44,7 +48,7 @@ status...................................: INITIAL
  0.0  0.0  0.0  0.0  0.0
  0.0  0.0  0.0  0.0  0.0
  0.0  0.0  0.0  0.0  0.0
- 0.0  0.0  0.0  0.0  0.0</code></pre><p>Once <code>solver</code> is instantiated, we can solve the OPF in the full-space using the same syntax as usual:</p><pre><code class="language-julia-repl hljs" style="display:block;">julia&gt; MadNLP.solve!(solver)</code><code class="nohighlight hljs ansi" style="display:block;">This is MadNLP version v0.7.0, running with Lapack-CPU (BUNCHKAUFMAN)
+ 0.0  0.0  0.0  0.0  0.0</code></pre><p>Once <code>solver</code> is instantiated, we can solve the OPF in the full-space using the same syntax as usual:</p><pre><code class="language-julia-repl hljs" style="display:block;">julia&gt; MadNLP.solve!(solver)</code><code class="nohighlight hljs ansi" style="display:block;">This is MadNLP version v0.8.0, running with Lapack-CPU (BUNCHKAUFMAN)
 
 Number of nonzeros in constraint Jacobian............:      176
 Number of nonzeros in Lagrangian Hessian.............:       61
@@ -75,26 +79,26 @@ iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
   11  5.2966860e+03 7.29e-06 2.10e-04  -5.7 2.78e-03    -  1.00e+00 1.00e+00h  1
   12  5.2966867e+03 2.58e-07 7.50e-06  -5.7 5.23e-04    -  1.00e+00 1.00e+00h  1
   13  5.2966862e+03 1.20e-08 5.67e-07  -8.6 1.14e-04    -  1.00e+00 1.00e+00h  1
-  14  5.2966862e+03 1.18e-12 3.33e-11  -8.6 1.12e-06    -  1.00e+00 1.00e+00h  1
+  14  5.2966862e+03 1.18e-12 3.34e-11  -8.6 1.12e-06    -  1.00e+00 1.00e+00h  1
 
 Number of Iterations....: 14
 
                                    (scaled)                 (unscaled)
 Objective...............:   6.1017825057066993e+01    5.2966862028703981e+03
-Dual infeasibility......:   3.3310243452433497e-11    2.8915141885792965e-09
-Constraint violation....:   1.1769474284051284e-12    1.1769474284051284e-12
-Complementarity.........:   2.8885453188021183e-11    2.5074178114601719e-09
-Overall NLP error.......:   2.5074178114601719e-09    2.5074178114601719e-09
+Dual infeasibility......:   3.3423930290155113e-11    2.9013828376870756e-09
+Constraint violation....:   1.1763923168928159e-12    1.1763923168928159e-12
+Complementarity.........:   2.8885453188259404e-11    2.5074178114808510e-09
+Overall NLP error.......:   2.5074178114808510e-09    2.5074178114808510e-09
 
 Number of objective function evaluations             = 16
 Number of objective gradient evaluations             = 15
-Number of constraint evaluations                     = 17
+Number of constraint evaluations                     = 16
 Number of constraint Jacobian evaluations            = 15
 Number of Lagrangian Hessian evaluations             = 14
-Total wall-clock secs in solver (w/o fun. eval./lin. alg.)  =  9.331
-Total wall-clock secs in linear solver                      =  0.023
+Total wall-clock secs in solver (w/o fun. eval./lin. alg.)  = 13.269
+Total wall-clock secs in linear solver                      =  0.066
 Total wall-clock secs in NLP function evaluations           =  0.001
-Total wall-clock secs                                       =  9.355
+Total wall-clock secs                                       = 13.336
 
-EXIT: Optimal Solution Found.
-&quot;Execution stats: Optimal Solution Found.&quot;</code></pre><div class="admonition is-info"><header class="admonition-header">Info</header><div class="admonition-body"><p>Note that we get the exact same convergence as in the <a href="../fullspace/">full-space</a>.</p></div></div></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../reducedspace/">« Reduced-space OPF</a><a class="docs-footer-nextpage" href="../../man/moi_wrapper/">MathOptInterface »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.3.0 on <span class="colophon-date" title="Sunday 3 March 2024 01:30">Sunday 3 March 2024</span>. Using Julia version 1.9.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+EXIT: Optimal Solution Found (tol = 1.0e-08).
+&quot;Execution stats: Optimal Solution Found (tol = 1.0e-08).&quot;</code></pre><div class="admonition is-info"><header class="admonition-header">Info</header><div class="admonition-body"><p>Note that we get the exact same convergence as in the <a href="../fullspace/">full-space</a>.</p></div></div></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../reducedspace/">« Reduced-space OPF</a><a class="docs-footer-nextpage" href="../../man/moi_wrapper/">MathOptInterface »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.3.0 on <span class="colophon-date" title="Sunday 10 March 2024 18:05">Sunday 10 March 2024</span>. Using Julia version 1.9.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
