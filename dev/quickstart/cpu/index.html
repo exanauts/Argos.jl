@@ -52,10 +52,10 @@ Number of objective gradient evaluations             = 20
 Number of constraint evaluations                     = 20
 Number of constraint Jacobian evaluations            = 20
 Number of Lagrangian Hessian evaluations             = 19
-Total wall-clock secs in solver (w/o fun. eval./lin. alg.)  =  6.245
-Total wall-clock secs in linear solver                      =  0.016
-Total wall-clock secs in NLP function evaluations           =  3.187
-Total wall-clock secs                                       =  9.449
+Total wall-clock secs in solver (w/o fun. eval./lin. alg.)  =  6.311
+Total wall-clock secs in linear solver                      =  0.017
+Total wall-clock secs in NLP function evaluations           =  3.128
+Total wall-clock secs                                       =  9.456
 
 EXIT: Optimal Solution Found (tol = 1.0e-08).</code></pre><h2 id="Dommel-and-Tinney&#39;s-method-(reduce-then-linearize)"><a class="docs-heading-anchor" href="#Dommel-and-Tinney&#39;s-method-(reduce-then-linearize)">Dommel &amp; Tinney&#39;s method (reduce-then-linearize)</a><a id="Dommel-and-Tinney&#39;s-method-(reduce-then-linearize)-1"></a><a class="docs-heading-anchor-permalink" href="#Dommel-and-Tinney&#39;s-method-(reduce-then-linearize)" title="Permalink"></a></h2><div class="admonition is-success"><header class="admonition-header">Tip</header><div class="admonition-body"><ul><li><code>DommelTinney</code> works in the reduced space, and the associated formulation has less variable than in the full space (107 versus 288).</li><li>The reduced Jacobian and reduced Hessian are dense, so <code>DommelTinney</code> can potentially eat a lot of memory on the largest instances.</li><li>As with <code>BieglerReduction</code>, we recommend using Lapack with a Cholesky factorization to solve the KKT system.</li><li>Note that we have to increase MadNLP&#39;s tolerance (parameter <code>tol</code>) as we cannot optimize below the tolerance of the Newton-Raphson employed under the hood (<code>1e-10</code> by default).</li></ul></div></div><pre><code class="language-julia-repl hljs" style="display:block;">julia&gt; Argos.run_opf(datafile, Argos.DommelTinney(); tol=1e-5);</code><code class="nohighlight hljs ansi" style="display:block;">This is MadNLP version v0.8.0, running with Lapack-CPU (CHOLESKY)
 
@@ -107,9 +107,9 @@ Number of objective gradient evaluations             = 18
 Number of constraint evaluations                     = 18
 Number of constraint Jacobian evaluations            = 18
 Number of Lagrangian Hessian evaluations             = 17
-Total wall-clock secs in solver (w/o fun. eval./lin. alg.)  =  6.250
+Total wall-clock secs in solver (w/o fun. eval./lin. alg.)  =  6.235
 Total wall-clock secs in linear solver                      =  0.009
-Total wall-clock secs in NLP function evaluations           =  0.076
-Total wall-clock secs                                       =  6.335
+Total wall-clock secs in NLP function evaluations           =  0.075
+Total wall-clock secs                                       =  6.319
 
-EXIT: Optimal Solution Found (tol = 1.0e-05).</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../">« Home</a><a class="docs-footer-nextpage" href="../cuda/">Argos on NVIDIA GPU »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.3.0 on <span class="colophon-date" title="Sunday 17 March 2024 01:33">Sunday 17 March 2024</span>. Using Julia version 1.9.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+EXIT: Optimal Solution Found (tol = 1.0e-05).</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../">« Home</a><a class="docs-footer-nextpage" href="../cuda/">Argos on NVIDIA GPU »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.3.0 on <span class="colophon-date" title="Sunday 24 March 2024 01:34">Sunday 24 March 2024</span>. Using Julia version 1.9.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
